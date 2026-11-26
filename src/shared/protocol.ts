@@ -168,6 +168,14 @@ export type ClientMessage =
   /** 0.9.9.9.9: watch a friend's game (live), and stop */
   | { type: 'watch'; userId: string }
   | { type: 'unwatch' }
+  /** 0.9.9.9.9.6: Kanji chess with a friend — a room by code; moves in UCI (e2e4, e7e8q); times in ms */
+  | { type: 'chess_new'; base: number; inc: number }
+  | { type: 'chess_join'; code: string }
+  | { type: 'chess_sync'; id: string }
+  | { type: 'chess_move'; id: string; uci: string }
+  | { type: 'chess_resign'; id: string }
+  | { type: 'chess_draw'; id: string; offer: boolean }
+  | { type: 'chess_leave'; id: string }
   | { type: 'create'; mode: GameMode; levels?: Level[]; /** the tutorial's short first battle */ tutorial?: boolean }
   | { type: 'join'; code: string; levels?: Level[] }
   | { type: 'levels'; levels: Level[] }
@@ -267,6 +275,9 @@ export type ServerMessage =
   /** 0.9.9.7.2: another player is typing / writing (or stopped) */
   | { type: 'typing'; id: PlayerId; on: boolean }
   | { type: 'auth_error'; message: string }
+  /** 0.9.9.9.9.6: Kanji chess with a friend */
+  | { type: 'chess'; room: ChessRoomView }
+  | { type: 'chess_error'; error: string }
   | { type: 'kicked'; message: string }
   | { type: 'joined'; code: string; you: PlayerId; mode: GameMode }
   | { type: 'left' }
@@ -352,3 +363,16 @@ export const isKanaLevel = (l: string) => l === 'KANA' || l === 'KATA';
 
 /** 0.9.9.9.2: where someone plays — the Android app, the PC app, or a website (friends see a small icon) */
 export type Device = 'web' | 'pc' | 'phone';
+
+/** 0.9.9.9.9.6: a game of Kanji chess between two players, as each of them sees it */
+export interface ChessRoomView {
+  id: string; code: string; you: 'w' | 'b' | null;
+  white: { id: string; name: string } | null; black: { id: string; name: string } | null;
+  /** the moves so far (UCI) */
+  moves: string[];
+  /** time left (ms) when the side to move began its turn, and when that was (server time); base 0 = no clock */
+  clocks: { w: number; b: number }; turnSince: number; now: number; base: number; inc: number;
+  status: 'waiting' | 'playing' | 'over';
+  result?: { winner: 'w' | 'b' | null; reason: string };
+  drawOffer: 'w' | 'b' | null;
+}

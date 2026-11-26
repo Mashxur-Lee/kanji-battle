@@ -18,6 +18,7 @@ import { createWritingJudge, isWritable } from './handwriting/judge';
 import { Recognizer } from './handwriting/recognizer';
 import { readApkg } from './study/apkg';
 import { Gifs } from './gifs';
+import { ChessHub } from './ChessHub';
 import { MnemonicPictures } from './mnemonics';
 import { createJudgePool } from './handwriting/pool';
 import { createApiHandler } from './http';
@@ -67,6 +68,7 @@ const tokens = new TokenSigner();
 const auth = new AuthService(store, tokens);
 const study = new StudyService(store);
 const hub = new SessionHub((userId, at) => { void store.update(userId, { lastSeen: at }).catch(() => { /* not important */ }); });
+hub.chess = new ChessHub((id, m) => { hub.sendTo(id, m); }); // 0.9.9.9.9.6: Kanji chess with friends
 // 0.9.9.9.7.1: the Daily challenge's words from a secret (the code is public: without it anyone can work out any
 // day's ten words). At least 16 characters; set it once and keep it (see docs/SETUP.md).
 const DAILY_SECRET = (process.env.DAILY_SECRET ?? '').trim();

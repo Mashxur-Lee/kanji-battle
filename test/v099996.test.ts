@@ -307,3 +307,99 @@ test('0.9.9.9.9.6 round 2: offline start keeps a copy of the game; slow internet
   assert.ok(!src('src/client/appshell.ts').includes("if (k.startsWith('kw-shell-')) await caches.delete(k);"), 'an update no longer drops the copy first');
   assert.ok(src('src/client/main.ts').includes("tr(slow ? 'Slow internet - connecting…' : 'Connecting to the server…')"));
 });
+
+// ── round 3: Kanji chess ──
+import { botMove, findMove, judgeMove, legalMoves, makeMove, outcome, parseFen, START_FEN, BOTS, PIECE_KANJI, type Position } from '../src/shared/chess';
+import { LINES, parseLine } from '../src/shared/chesslines';
+import { ChessHub, cleanTime } from '../src/server/ChessHub';
+
+test('0.9.9.9.9.6 chess rules: the standard move counts (castling, en passant, promotion), mate, stalemate, too little to mate', () => {
+  const perft = (p: Position, d: number): number => (d === 0 ? 1 : legalMoves(p).reduce((n, m) => n + perft(makeMove(p, m), d - 1), 0));
+  assert.equal(perft(parseFen(START_FEN), 3), 8902);
+  assert.equal(perft(parseFen('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1'), 2), 2039, 'Kiwipete');
+  assert.equal(perft(parseFen('8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1'), 3), 2812);
+  let p = parseFen(START_FEN);
+  for (const u of ['f2f3', 'e7e5', 'g2g4', 'd8h4']) p = makeMove(p, findMove(p, u)!);
+  assert.deepEqual(outcome(p), { over: true, winner: 'b', reason: 'checkmate' });
+  assert.deepEqual(outcome(parseFen('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1')), { over: true, winner: null, reason: 'stalemate' });
+  assert.deepEqual(outcome(parseFen('8/8/4k3/8/8/3NK3/8/8 w - - 0 1')), { over: true, winner: null, reason: 'material' });
+  assert.equal(findMove(parseFen(START_FEN), 'e2e5'), null, 'not a legal move');
+  assert.deepEqual(Object.values(PIECE_KANJI), ['王', '后', '城', '僧', '馬', '兵']);
+});
+
+test('0.9.9.9.9.6 chess bots: four of them (200 to 1600), always a legal move; a blunder is called one', () => {
+  assert.deepEqual(BOTS.map((b) => [b.id, b.elo]), [['goblin', 200], ['knight', 400], ['witch', 800], ['wizard', 1600]]);
+  const p = parseFen(START_FEN);
+  for (const b of BOTS) { const m = botMove(p, b.id)!; assert.ok(legalMoves(p).some((x) => x.from === m.from && x.to === m.to), b.id); }
+  // a mate in one: the Wizard takes it
+  const mateIn1 = parseFen('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1');
+  const wm = botMove(mateIn1, 'wizard', () => 0.5)!;
+  assert.deepEqual(outcome(makeMove(mateIn1, wm)), { over: true, winner: 'w', reason: 'checkmate' });
+  // the queen given away for a pawn is a blunder; a sound developing move is not
+  const q = parseFen('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2');
+  assert.notEqual(judgeMove(q, findMove(q, 'g1f3')!).quality, 'blunder');
+  const hang = parseFen('rnbqkbnr/ppp2ppp/8/3pp3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 0 3');
+  assert.equal(judgeMove(hang, findMove(hang, 'f3f7')!).quality, 'blunder', 'Qxf7+ loses the queen');
+});
+
+test('0.9.9.9.9.6 chess lines: every bot has its say, each line in Japanese with readings, English and Russian', () => {
+  for (const [bot, moments] of Object.entries(LINES)) {
+    for (const m of ['hello', 'best', 'blunder', 'botWins', 'botLoses', 'draw', 'check']) assert.ok(moments[m as keyof typeof moments]?.length, `${bot} ${m}`);
+    for (const list of Object.values(moments)) for (const l of list ?? []) {
+      assert.ok(l.en && l.ru, l.jp);
+      assert.ok(!/[{}|]/.test(parseLine(l.jp).map((x) => x.text + (x.reading ?? '')).join('')), `markup closed: ${l.jp}`);
+      assert.ok(parseLine(l.jp).every((x) => !x.reading || /^[\p{Script=Hiragana}ー]+$/u.test(x.reading)), `readings in hiragana: ${l.jp}`);
+    }
+  }
+  assert.deepEqual(parseLine('{王手|おうて}だ'), [{ text: '王手', reading: 'おうて' }, { text: 'だ' }]);
+});
+
+test('0.9.9.9.9.6 chess with a friend: a room by code, moves checked, the clock kept by the server, resign / draw / time', () => {
+  let t = 1_000_000;
+  type Sent = { type: string; room?: { status: string; you: string | null; moves: string[]; result?: { winner: string | null; reason: string }; code: string; id: string; drawOffer: string | null }; error?: string };
+  const sent: Array<[string, Sent]> = [];
+  const hub = new ChessHub((id, m) => sent.push([id, m as unknown as Sent]), () => t, () => 0.1);
+  const last = (id: string) => [...sent].reverse().find(([to, m]) => to === id && m.type === 'chess')![1].room!;
+  hub.handle({ id: 'a', name: 'Ann' }, { type: 'chess_new', base: 60_000, inc: 0 });
+  const code = last('a').code;
+  assert.equal(last('a').status, 'waiting');
+  hub.handle({ id: 'b', name: 'Bob' }, { type: 'chess_join', code: code.toLowerCase() });
+  const room = last('b');
+  assert.equal(room.status, 'playing');
+  const white = last('a').you === 'w' ? 'a' : 'b', black = white === 'a' ? 'b' : 'a';
+  const mv = (who: string, uci: string) => hub.handle({ id: who, name: who }, { type: 'chess_move', id: room.id, uci });
+  mv(black, 'e7e5');
+  assert.equal(sent.at(-1)![1].error, 'Not your turn');
+  mv(white, 'e2e5');
+  assert.equal(sent.at(-1)![1].error, 'That move isn’t allowed'.replace('’', "'"));
+  for (const [who, u] of [[white, 'f2f3'], [black, 'e7e5'], [white, 'g2g4'], [black, 'd8h4']] as const) { t += 1000; mv(who, u); }
+  assert.deepEqual(last(white).result, { winner: 'b', reason: 'checkmate' });
+  // a clock running out
+  hub.handle({ id: 'c', name: 'C' }, { type: 'chess_new', base: 60_000, inc: 0 });
+  hub.handle({ id: 'd', name: 'D' }, { type: 'chess_join', code: last('c').code });
+  const r2 = last('c');
+  const w2 = r2.you === 'w' ? 'c' : 'd';
+  t += 61_000;
+  hub.handle({ id: w2, name: '' }, { type: 'chess_move', id: r2.id, uci: 'e2e4' });
+  assert.deepEqual(last('c').result, { winner: 'b', reason: 'time' });
+  // a draw agreed
+  hub.handle({ id: 'e', name: 'E' }, { type: 'chess_new', base: 0, inc: 0 });
+  hub.handle({ id: 'f', name: 'F' }, { type: 'chess_join', code: last('e').code });
+  const r3 = last('e');
+  hub.handle({ id: 'e', name: 'E' }, { type: 'chess_draw', id: r3.id, offer: true });
+  assert.equal(last('f').drawOffer, last('e').you);
+  hub.handle({ id: 'f', name: 'F' }, { type: 'chess_draw', id: r3.id, offer: true });
+  assert.deepEqual(last('e').result, { winner: null, reason: 'agreed' });
+  assert.deepEqual(cleanTime(10, 99_999), { base: 0, inc: 0 }, 'too short: no clock');
+  assert.deepEqual(cleanTime(300_000, 2000), { base: 300_000, inc: 2000 });
+  assert.ok(src('src/server/Session.ts').includes("if (msg.type.startsWith('chess_')) { this.hub.chess?.handle("));
+});
+
+test('0.9.9.9.9.6 round 3: Kanji chess on the Games page, one logo per page, richer buttons', () => {
+  const html = src('public/index.html');
+  assert.ok(html.includes('data-go="chessOpen"') && html.includes('<section id="chess" class="screen chess-screen" hidden>'));
+  const css = src('public/style.css');
+  assert.ok(css.includes('#quizzes .qz-emblem, #private .pv-head > .pv-emblem'));
+  assert.ok(css.includes('box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 2px 0 rgba(0, 0, 0, .35), 0 6px 14px rgba(0, 0, 0, .16);'), 'the buttons have depth');
+  assert.ok(css.includes('.chess-board { grid-template-rows: repeat(8, 1fr); }'), 'every square square');
+});

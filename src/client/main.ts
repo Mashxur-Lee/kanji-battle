@@ -1,4 +1,5 @@
 import { knowPlayer, setMentionSelf } from './mentions';
+import { chessReconnected, initChess, onChessError, onChessRoom, openChess } from './chess';
 import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
@@ -467,6 +468,12 @@ function onMessage(msg: ServerMessage) {
     case 'chat_typing':
       chatTyping(msg.id, msg.name, msg.on);
       break;
+    case 'chess': // 0.9.9.9.9.6: Kanji chess with a friend
+      onChessRoom(msg.room);
+      break;
+    case 'chess_error':
+      onChessError(msg.error);
+      break;
     case 'dm': // 0.9.9.9.6: the messenger
       onDm(msg.message, msg.fromName, msg.muted === true);
       break;
@@ -489,6 +496,7 @@ function onMessage(msg: ServerMessage) {
       arenaTyping(msg.id, msg.on);
       break;
     case 'welcome':
+      chessReconnected(); // (0.9.9.9.9.6: a friend game picks up where it was)
       offline.serverSeen(); // 0.9.9.9.5: the server is there — leave offline mode now
       checkBuild(msg.build); // 0.9.9.9.6.4: an older app updates itself
       user = msg.user;
@@ -1070,7 +1078,9 @@ ui.$('privateBack').onclick = () => ui.show('games'); // (0.9.9.9.9.6: back to G
 // 0.9.9.9.9.6 (round 2): the Games page — the online queue, private games, and the games to come
 ui.$('gamesBtn').onclick = () => { ui.setError(''); ui.show('games'); };
 ui.$('gamesBack').onclick = () => ui.show('menu');
-for (const t of document.querySelectorAll<HTMLElement>('#games .game-tile[data-go]')) t.onclick = () => document.getElementById(t.dataset.go!)?.click();
+for (const t of document.querySelectorAll<HTMLElement>('#games .game-tile[data-go]')) t.onclick = () => (t.dataset.go === 'chessOpen' ? openChess() : document.getElementById(t.dataset.go!)?.click());
+// 0.9.9.9.9.6: Kanji chess
+initChess((m) => socket.send(m));
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m), () => user?.id ?? '');
 // 0.9.9.9.6.6: nobody in the queue yet → an AI game while you wait: a room of that mode, the AI in it, Ready

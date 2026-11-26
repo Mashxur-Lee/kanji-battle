@@ -1,4 +1,5 @@
 import { reportServerError } from './errors';
+import type { ChessHub } from './ChessHub';
 import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type Device, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
 import type { AuthService } from './auth/AuthService';
 import { AuthError, toSelf } from './auth/AuthService';
@@ -49,6 +50,8 @@ export class SessionHub {
   constructor(private readonly onLeave?: (userId: string, at: number) => void) {}
   /** 0.9.9.9.6.4: someone typing in Messages (index.ts hands it to the messenger) */
   onDmTyping?: (userId: string, to: string, on: boolean) => void;
+  /** 0.9.9.9.9.6: Kanji chess games between friends (index.ts) */
+  chess?: ChessHub;
   /** 0.9.9.9.6.5: an invite or a challenge also goes into your conversation with the friend, as a card with Join */
   onInviteSent?: (fromId: string, friendId: string, mode: GameMode, code: string, challenge: boolean) => void;
   /** Admin → Users: is this player connected right now, and what are they doing? */
@@ -269,6 +272,8 @@ export class Session implements Client {
     // 0.9.9.9.6.4: "typing…" in Messages (the messenger checks who may see it)
     if (msg.type === 'dm_typing') { if (typeof msg.to === 'string') this.hub.onDmTyping?.(user.id, msg.to, msg.on === true); return; }
     // 0.9.9.9.9: watch a friend's game — only a friend's, only while you're not playing yourself
+    // 0.9.9.9.9.6: Kanji chess with a friend
+    if (msg.type.startsWith('chess_')) { this.hub.chess?.handle({ id: user.id, name: user.name ?? user.username }, msg); return; }
     if (msg.type === 'unwatch') return this.stopWatching();
     if (msg.type === 'watch') {
       const friendId = String(msg.userId ?? '');
