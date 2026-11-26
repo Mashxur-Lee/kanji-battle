@@ -49,6 +49,28 @@ export class RankedService {
     return out;
   }
 
+  /**
+   * 0.9.9.9.9.6 (round 4): a game of 2–8 (Grammar Clash, ranked): the final order, best first. Each pair of players
+   * counts as a game between them, the changes summed and divided by the others' number (one game's worth in all).
+   */
+  async settleField(order: string[]): Promise<Record<string, RatingChange>> {
+    const users = (await Promise.all(order.map((id) => this.store.findById(id)))).filter((u): u is NonNullable<typeof u> => !!u);
+    if (users.length < 2) return {};
+    const side = (u: (typeof users)[number]) => ({ rating: u.rating ?? START_RATING, games: u.rated ?? 0 });
+    const delta = new Map<string, number>(users.map((u) => [u.id, 0]));
+    for (let a = 0; a < users.length; a++) for (let b = a + 1; b < users.length; b++) {
+      const [da, db] = rate(side(users[a]), side(users[b]), 1); // a finished above b
+      delta.set(users[a].id, delta.get(users[a].id)! + da); delta.set(users[b].id, delta.get(users[b].id)! + db);
+    }
+    const out: Record<string, RatingChange> = {};
+    for (const u of users) {
+      const before = u.rating ?? START_RATING, games = (u.rated ?? 0) + 1;
+      const after = Math.max(100, before + Math.round(delta.get(u.id)! / (users.length - 1)));
+      await this.store.update(u.id, { rating: after, rated: games });
+      out[u.id] = { before, after, games };
+    }
+    return out;
+  }
   /** a player's place on the ladder (null until the placement games are played) */
   async view(u: Pick<UserRecord, 'rating' | 'rated'>): Promise<RankView> {
     const games = u.rated ?? 0;

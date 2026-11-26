@@ -1,5 +1,6 @@
 import { knowPlayer, setMentionSelf } from './mentions';
 import { openGrammar } from './grammarui';
+import { challengeClash, clashReconnected, initClash, onClashError, onClashInvite, onClashQueue, onClashRoom, openClash, setClashUser } from './clash';
 import { challengeChess, chessReconnected, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
 import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
@@ -478,6 +479,19 @@ function onMessage(msg: ServerMessage) {
     case 'chess_invite': // 0.9.9.9.9.6 (round 4): a friend asks you to a game of Kanji chess
       void onChessInvite(msg.from, msg.code);
       break;
+    // 0.9.9.9.9.6 (round 4): Grammar Clash
+    case 'clash':
+      onClashRoom(msg.room);
+      break;
+    case 'clash_error':
+      onClashError(msg.error);
+      break;
+    case 'clash_queue':
+      onClashQueue(msg.on, msg.waiting, msg.ranked);
+      break;
+    case 'clash_invite':
+      void onClashInvite(msg.from, msg.code);
+      break;
     case 'dm': // 0.9.9.9.6: the messenger
       onDm(msg.message, msg.fromName, msg.muted === true);
       break;
@@ -501,10 +515,12 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'welcome':
       chessReconnected(); // (0.9.9.9.9.6: a friend game picks up where it was)
+      clashReconnected(); // (round 4: and a Grammar Clash)
       offline.serverSeen(); // 0.9.9.9.5: the server is there — leave offline mode now
       checkBuild(msg.build); // 0.9.9.9.6.4: an older app updates itself
       user = msg.user;
       setChessUser(msg.user.id);
+      setClashUser(msg.user.id);
       setMentionSelf(msg.user.id, msg.user.username, msg.user.name);
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too
@@ -1083,9 +1099,11 @@ ui.$('privateBack').onclick = () => ui.show('games'); // (0.9.9.9.9.6: back to G
 // 0.9.9.9.9.6 (round 2): the Games page — the online queue, private games, and the games to come
 ui.$('gamesBtn').onclick = () => { ui.setError(''); ui.show('games'); };
 ui.$('gamesBack').onclick = () => ui.show('menu');
-for (const t of document.querySelectorAll<HTMLElement>('#games .game-tile[data-go]')) t.onclick = () => (t.dataset.go === 'chessOpen' ? openChess() : document.getElementById(t.dataset.go!)?.click());
+for (const t of document.querySelectorAll<HTMLElement>('#games .game-tile[data-go]')) t.onclick = () => (t.dataset.go === 'chessOpen' ? openChess() : t.dataset.go === 'clashOpen' ? openClash() : document.getElementById(t.dataset.go!)?.click());
+ui.$('modeClash').onclick = () => openClash(); // 0.9.9.9.9.6 (round 4)
 // 0.9.9.9.9.6: Kanji chess
 initChess((m) => socket.send(m));
+initClash((m) => socket.send(m)); // 0.9.9.9.9.6 (round 4): Grammar Clash
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m), () => user?.id ?? '');
 // 0.9.9.9.6.6: nobody in the queue yet → an AI game while you wait: a room of that mode, the AI in it, Ready
@@ -1669,6 +1687,7 @@ addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail =
         accept: async () => { await api.acceptFriend(id); void refreshRail(); },
         challenge: (m) => challengeFriend(id, p.name, m),
         chess: () => challengeChess(id), // 0.9.9.9.9.6 (round 4): a game of Kanji chess, from their profile
+        clash: () => challengeClash(id),
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
         remove: async () => { await api.removeFriend(id); void refreshRail(); },
         view: () => showPlayer(p),

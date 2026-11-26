@@ -566,3 +566,99 @@ test('0.9.9.9.9.6 round 4 grammar: a lesson is passed with all but one right, ke
   assert.ok(src('src/client/nav.ts').includes("{ id: 'grammar', label: 'Grammar', icon: 'grammar', btn: 'grammarBtn', screens: ['grammar'] }"));
   assert.ok(src('src/server/router.ts').includes("url === '/api/grammar/pass'"));
 });
+
+// ── round 4: Grammar Clash ──
+const fakeTimers = () => {
+  const c = { t: 1_000_000, due: [] as Array<{ at: number; fn: () => void; id: number }>, seq: 0 };
+  const timers = {
+    setTimeout: (fn: () => void, ms: number) => { c.due.push({ at: c.t + ms, fn, id: ++c.seq }); return c.seq; },
+    clearTimeout: (h: number | undefined) => { const i = c.due.findIndex((d) => d.id === h); if (i >= 0) c.due.splice(i, 1); },
+  };
+  const advance = (ms: number) => {
+    const end = c.t + ms;
+    for (;;) { c.due.sort((a, b) => a.at - b.at); const d = c.due[0]; if (!d || d.at > end) break; c.due.shift(); c.t = d.at; d.fn(); }
+    c.t = end;
+  };
+  return { c, timers, advance };
+};
+
+test('0.9.9.9.9.6 round 4 Grammar Clash: a room by code, Ready, the host starts; speed, combos and double questions score; the board after each; the order at the end', async () => {
+  const { GrammarHub, CLASH, clashPoints, isDouble } = await import('../src/server/GrammarHub');
+  const { c, timers, advance } = fakeTimers();
+  type V = { status: string; code: string; n: number; total: number; players: Array<{ id: string; score: number }>; q?: { answer?: number }; order?: string[] };
+  const sent: Array<[string, { type: string; room?: V; error?: string }]> = [];
+  const hub = new GrammarHub((id, m) => sent.push([id, m as never]), () => c.t, () => 0.42, timers as never);
+  const last = (id: string) => [...sent].reverse().find(([to, m]) => to === id && m.type === 'clash')![1].room!;
+  const P = (id: string) => ({ id, name: id.toUpperCase(), avatar: 'witch', staff: 'verdant' });
+  await hub.handle(P('a'), { type: 'clash_new', level: 'N5', count: 5 });
+  const code = last('a').code;
+  await hub.handle(P('b'), { type: 'clash_join', code });
+  await hub.handle(P('c'), { type: 'clash_join', code });
+  assert.equal(last('a').players.length, 3);
+  await hub.handle(P('a'), { type: 'clash_start' });
+  assert.equal(sent.at(-1)![1].error, 'Not everyone is ready');
+  for (const id of ['b', 'c']) await hub.handle(P(id), { type: 'clash_ready', on: true });
+  await hub.handle(P('a'), { type: 'clash_start' });
+  assert.equal(last('a').status, 'starting');
+  advance(CLASH.startMs);
+  assert.equal(last('a').status, 'question');
+  assert.equal(last('a').total, 5);
+  assert.equal(last('a').q!.answer, undefined, 'the answer is not sent while the question is open');
+  const inner = () => (hub as unknown as { rooms: Map<string, { qs: Array<{ answer: number }>; i: number }> }).rooms.values().next().value!;
+  const right = () => inner().qs[inner().i].answer;
+  // question 1: a right at once, b right after 10 s, c wrong
+  await hub.handle(P('a'), { type: 'clash_answer', i: 0, k: right() });
+  advance(10_000);
+  await hub.handle(P('b'), { type: 'clash_answer', i: 0, k: right() });
+  await hub.handle(P('c'), { type: 'clash_answer', i: 0, k: (right() + 1) % 4 });
+  const v = last('a');
+  assert.equal(v.status, 'reveal', 'everyone answered: revealed at once');
+  const pts = (id: string) => v.players.find((p) => p.id === id)!.score;
+  assert.equal(pts('a'), 1000, 'right at once: 1000');
+  assert.equal(pts('b'), 750, 'right at half the time: 750');
+  assert.equal(pts('c'), 0);
+  advance(CLASH.revealMs);
+  assert.equal(last('a').status, 'board', 'the leaderboard after each question');
+  advance(CLASH.boardMs);
+  // the rest: a right at once every time (a combo), b and c let the time run out
+  for (let i = 1; i < 5; i++) {
+    assert.equal(last('a').status, 'question');
+    await hub.handle(P('a'), { type: 'clash_answer', i, k: right() });
+    advance(CLASH.questionMs + CLASH.revealMs + CLASH.boardMs);
+  }
+  const end = last('a');
+  assert.equal(end.status, 'over');
+  assert.deepEqual(end.order, ['a', 'b', 'c']);
+  const expectA = 1000 + clashPoints(0, 1, 2, false) + clashPoints(0, 1, 3, false) + clashPoints(0, 1, 4, false) + clashPoints(0, 1, 5, true);
+  assert.equal(end.players.find((p) => p.id === 'a')!.score, expectA, 'combo bonus, and the 5th (last) question double');
+  assert.deepEqual([isDouble(4, 10), isDouble(9, 10), isDouble(3, 10), isDouble(6, 7)], [true, true, false, true]);
+  assert.equal(clashPoints(0, 20_000, 9, false), 1500, 'the combo bonus stops at +500');
+});
+
+test('0.9.9.9.9.6 round 4 Grammar Clash: the queue starts a game by itself with 2–8; ranked goes to the ladder; the field rating moves by place', async () => {
+  const { GrammarHub, CLASH } = await import('../src/server/GrammarHub');
+  const { c, timers, advance } = fakeTimers();
+  const sent: Array<[string, { type: string; room?: { status: string; ranked: boolean; players: unknown[] }; error?: string }]> = [];
+  let settled: string[] = [];
+  const hub = new GrammarHub((id, m) => sent.push([id, m as never]), () => c.t, Math.random, timers as never, { settle: async (order) => { settled = order; return {}; } });
+  const P = (id: string, guest = false) => ({ id, name: id, avatar: 'knight', staff: 'verdant', guest });
+  await hub.handle(P('g', true), { type: 'clash_queue', on: true, ranked: true });
+  assert.equal(sent.at(-1)![1].error, 'Save your account to play ranked');
+  await hub.handle(P('x'), { type: 'clash_queue', on: true, ranked: true });
+  await hub.handle(P('y'), { type: 'clash_queue', on: true, ranked: true });
+  advance(CLASH.gatherMs);
+  const room = [...sent].reverse().find(([to, m]) => to === 'x' && m.type === 'clash')![1].room!;
+  assert.equal(room.status, 'starting');
+  assert.equal(room.ranked, true);
+  assert.equal(room.players.length, 2);
+  advance(60 * 60_000); // nobody answers: the game runs to its end on the clock
+  await Promise.resolve();
+  assert.equal(settled.length, 2, 'ranked: the order goes to the ladder');
+  const store = new MemoryStore();
+  const { RankedService } = await import('../src/server/study/RankedService');
+  const ids: string[] = [];
+  for (const n of ['one', 'two', 'three']) ids.push((await store.create({ username: n, passwordHash: 'x', email: n + '@e.x' } as never)).id);
+  const ch = await new RankedService(store).settleField(ids);
+  assert.ok(ch[ids[0]].after > 1000 && ch[ids[2]].after < 1000, 'first up, last down');
+  assert.equal(ch[ids[1]].after, 1000, 'the middle of three equals: no change');
+});
