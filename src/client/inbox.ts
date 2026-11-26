@@ -7,7 +7,7 @@
 // a smiley shows beside it on hover for a quick reaction; "edited"; photos (photopick.ts); group chats (groupui.ts)
 // with "7 members, 3 online" under the name; "typing…"; a friend's status under their name (tap it for their
 // profile); "@" suggests friends; the bell: all messages, only @mentions, or nothing.
-import { closeGifs, isSaved, openGifs, saveGif, unsaveGif } from './gifpicker';
+import { closeGifs, gifSrc, isSaved, openGifs, saveGif, unsaveGif } from './gifpicker';
 import { api, type Conversation, type GroupInfo, type NotifyMode } from './api';
 import { MODE_LABEL, MODES, type DmView, type GameMode } from '../shared/protocol';
 import { locale, tr } from './i18n';
@@ -336,7 +336,7 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
   // 0.9.9.9.9.6: a GIF — the picture; tapped: add it to your GIFs (or take it out)
   if (m.kind === 'gif' && !m.deleted) {
     const img = document.createElement('img');
-    img.className = 'msg-gif'; img.src = m.text; img.alt = 'GIF'; img.loading = 'lazy'; img.decoding = 'async';
+    img.className = 'msg-gif'; img.src = gifSrc(m.text); img.alt = 'GIF'; img.loading = 'lazy'; img.decoding = 'async';
     img.onclick = (e) => { e.stopPropagation(); gifMenu(img, m.text); };
     img.onload = () => { const box = $('msgLog'); if (box.scrollHeight - box.scrollTop - box.clientHeight < 400) box.scrollTop = box.scrollHeight; };
     b.append(img); b.classList.add('has-photo', 'has-gif');

@@ -4,12 +4,26 @@
 // limit of requests an hour). A GIF message carries the picture's GIPHY address, checked by GIF_URL.
 export interface GifItem { id: string; url: string; w: number; h: number; preview: string }
 
+/**
+ * 0.9.9.9.9.6: GIPHY is blocked in some countries (the owner's: its addresses don't even resolve), so the pictures come
+ * through our server too — /api/gif-media/<host>/<path>. Players only ever talk to the game.
+ */
 /** a GIF that may be sent: GIPHY's own media hosts, a plain path (no query) */
 export const GIF_URL = /^https:\/\/(media[0-9]?|i)\.giphy\.com\/[\w./-]{5,200}$/;
 const clean = (u: unknown) => (typeof u === 'string' ? u.split('?')[0] : '');
 
 export class Gifs {
   private cache = new Map<string, { at: number; items: GifItem[] }>();
+  /** a GIPHY picture, fetched for a player who can't reach GIPHY (host: media, media0-4 or i; path checked) */
+  async media(host: string, path: string): Promise<{ mime: string; data: Uint8Array } | null> {
+    if (!/^(media[0-9]?|i)$/.test(host) || !/^[\w./-]{5,200}$/.test(path) || path.includes('..')) return null;
+    const r = await this.fetcher(`https://${host}.giphy.com/${path}`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const mime = (r.headers.get('content-type') ?? '').split(';')[0];
+    if (!/^(image\/(gif|webp|png|jpeg)|video\/mp4)$/.test(mime)) return null;
+    const data = new Uint8Array(await r.arrayBuffer());
+    return data.length > 6 * 1024 * 1024 ? null : { mime, data };
+  }
   constructor(private readonly key: string, private readonly fetcher: typeof fetch = fetch) {}
 
   async search(q: string, offset = 0, lang = 'en'): Promise<GifItem[]> {

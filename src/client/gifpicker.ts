@@ -5,6 +5,8 @@ import { api, type GifItem } from './api';
 import { lang, tr } from './i18n';
 import * as ui from './ui';
 
+/** a GIPHY address → the same picture through our server (GIPHY is blocked in some countries) */
+export const gifSrc = (url: string) => { const m = /^https:\/\/((?:media[0-9]?|i)\.giphy\.com)\/(.+)$/.exec(url); return m ? `/api/gif-media/${m[1].split('.')[0]}/${m[2]}` : url; };
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = tr(text); return e; };
 const KEY = (who: string) => `kb:gifs:${who}`;
 interface Mine { saved: GifItem[]; recent: GifItem[] }
@@ -37,7 +39,7 @@ export function openGifs(host: HTMLElement, send: (g: GifItem) => void) {
   host.append(p);
   const tile = (g: GifItem) => {
     const b = h('button', 'gif-tile'); b.type = 'button';
-    const img = document.createElement('img'); img.src = g.preview || g.url; img.alt = 'GIF'; img.loading = 'lazy'; img.decoding = 'async';
+    const img = document.createElement('img'); img.src = gifSrc(g.preview || g.url); img.alt = 'GIF'; img.loading = 'lazy'; img.decoding = 'async';
     b.append(img);
     b.onclick = () => { noteSent(g); closeGifs(); send(g); };
     return b;

@@ -250,3 +250,16 @@ test('0.9.9.9.9.6 the round of fixes: light theme text, Progress filter, the men
   assert.ok(css.includes('body[data-screen="review"] #dictFab:not([hidden]) { display: grid !important;'));
   assert.ok(src('src/client/friendsui.ts').includes("const who = el('div', 'li-who');"));
 });
+
+test('0.9.9.9.9.6 GIF pictures come through our server (GIPHY is blocked in some countries) — only GIPHY media', async () => {
+  const asked: string[] = [];
+  const fake = (async (u: string) => { asked.push(String(u)); return new Response(new Uint8Array(2000), { status: 200, headers: { 'content-type': 'image/webp' } }); }) as unknown as typeof fetch;
+  const g = new Gifs('KEY', fake);
+  assert.equal((await g.media('media2', 'media/abc123/200.webp'))?.mime, 'image/webp');
+  assert.deepEqual(asked, ['https://media2.giphy.com/media/abc123/200.webp']);
+  assert.equal(await g.media('evil', 'media/abc123/200.webp'), null, 'only GIPHY hosts');
+  assert.equal(await g.media('media', '../../etc/passwd'), null);
+  assert.equal(asked.length, 1);
+  assert.ok(src('src/client/inbox.ts').includes('img.src = gifSrc(m.text);') && src('src/client/gifpicker.ts').includes('img.src = gifSrc(g.preview || g.url);'));
+  assert.ok(src('src/server/router.ts').includes("url.startsWith('/api/gif-media/')"));
+});

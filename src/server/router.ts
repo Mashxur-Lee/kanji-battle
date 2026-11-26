@@ -63,7 +63,7 @@ export interface ApiExtras {
   /** 0.9.9.9.9.6: an Anki deck file (base64) → its words (server only: node:sqlite — kept out of the offline app) */
   readApkg?: (base64: string) => Promise<ImportRow[]>;
   /** 0.9.9.9.9.6: GIFs for Messages (GIPHY, through us); absent: not set up */
-  gifs?: { search(q: string, offset: number, lang: string): Promise<unknown[]> };
+  gifs?: { search(q: string, offset: number, lang: string): Promise<unknown[]>; media(host: string, path: string): Promise<{ mime: string; data: Uint8Array } | null> };
   /** 0.9.9.9.9.6: AI memory pictures (absent: not set up) */
   mnemonics?: { picture(ch: string): Promise<{ mime: string; data: Buffer } | null>; paint(ch: string, userId: string): Promise<{ ok: boolean; why?: string }> };
   insights?: InsightsService;
@@ -488,6 +488,13 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const out = await mnemonics.paint(ch, u.id);
         if (out.ok) return res(200, { url: `/api/kanji-pic/${encodeURIComponent(ch)}` });
         return res(out.why === 'limit' ? 429 : out.why === 'none' ? 404 : 502, { error: out.why === 'limit' ? 'Enough new pictures for today - more tomorrow' : out.why === 'none' ? 'No story for this kanji yet' : 'The picture could not be made right now' });
+      } else if (r.method === 'GET' && url.startsWith('/api/gif-media/')) {
+        // 0.9.9.9.9.6: a GIF picture through us (GIPHY is blocked in some countries); only GIPHY's media, cached a year
+        if (!gifs) return res(404, { error: 'No GIFs' });
+        if (!limiter.allow(`gm:${ip}`)) throw new AuthError('Too many requests — wait a minute', 429);
+        const [host, ...rest] = url.slice('/api/gif-media/'.length).split('/');
+        const m = await gifs.media(host ?? '', rest.join('/')).catch(() => null);
+        return m ? { status: 200, raw: { mime: m.mime, data: m.data, headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } } } : res(404, { error: 'No such GIF' });
       } else if (r.method === 'GET' && url === '/api/gifs') {
         const u = await auth.authenticate(r.token);
         if (!gifs) return res(503, { error: 'GIFs aren\'t switched on yet' });
