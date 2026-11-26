@@ -26,7 +26,7 @@ export async function renderRankBox() {
   txt.append(el('b', 'rc-name', t ? tr(t.name) : tr('Unranked')), el('small', 'rc-sub', t ? `${me.rating}${me.rank ? ` · #${me.rank}` : ''}` : `${tr('Placement')} ${me.placement ?? me.games ?? 0}/${PLACEMENT}`));
   const more = el('span', 'rc-more', '!'); more.setAttribute('aria-hidden', 'true');
   card.append(crest, txt, more);
-  card.title = tr('Ranked: every 1v1 from the online queue. Tap to see all ranks');
+  card.title = tr('Ranked: Rapid and Deck Duel from the online queue. Tap to see all ranks');
   card.onclick = () => openLadder('ranks');
   box.replaceChildren(card);
   box.hidden = false;
@@ -71,7 +71,7 @@ export async function openLadder(start: 'top' | 'friends' | 'ranks' = 'top') {
   const me = last.me;
   const mine = el('p', 'hint ld-me');
   mine.append(el('span', '', `${tr('You')}: `), rankChip(me) ?? el('span', '', tr('Not ranked yet')), el('span', '', me.rank ? ` #${me.rank}` : ''));
-  const how = el('p', 'hint', tr('Every 1v1 from the online queue is ranked: beat someone rated higher and you gain more. Private rooms, bots, Boss and rematches don’t count; leaving a ranked game is a loss. Your tier shows after 5 games.'));
+  const how = el('p', 'hint', tr('Rapid and Deck Duel from the online queue are ranked: beat someone rated higher and you gain more. Reading, Writing, Boss, private rooms, bots and rematches don’t count; leaving a ranked game is a loss. Your tier shows after 5 games.'));
   d.append(head, mine, tabs, list, how);
   d.addEventListener('close', () => d.remove());
   document.body.append(d);

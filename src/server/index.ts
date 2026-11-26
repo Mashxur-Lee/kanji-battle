@@ -16,6 +16,9 @@ import { PgStore } from './db/PgStore';
 import { FileStore, type Store } from './db/Store';
 import { createWritingJudge, isWritable } from './handwriting/judge';
 import { Recognizer } from './handwriting/recognizer';
+import { readApkg } from './study/apkg';
+import { Gifs } from './gifs';
+import { MnemonicPictures } from './mnemonics';
 import { createJudgePool } from './handwriting/pool';
 import { createApiHandler } from './http';
 import { StudyService } from './study/StudyService';
@@ -127,6 +130,13 @@ const messages = new MessageService(store, {
 });
 hub.onInviteSent = (fromId, to, mode, code, challenge) => { void store.findById(fromId).then((u) => (u ? messages.invite(u, to, mode, code, challenge) : null)).catch(() => { /* the invite itself went out */ }); };
 hub.onDmTyping = (userId, to, on) => { void store.findById(userId).then((u) => (u ? messages.typing(u, to, on) : undefined)).catch(() => { /* not important */ }); };
+// 0.9.9.9.9.6: the kanji's memory stories (for the AI memory pictures)
+let kanjiInfo: Record<string, unknown[]> | null = null;
+function kanjiStory(ch: string): { en: string; meaning: string } | null {
+  try { kanjiInfo ??= JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'kanji.json'), 'utf8')) as Record<string, unknown[]>; } catch { kanjiInfo = {}; }
+  const k = kanjiInfo[ch];
+  return k && typeof k[5] === 'string' && k[5] ? { en: k[5], meaning: String(k[0] ?? '') } : null;
+}
 const recognizer = Recognizer.fromFile();
 const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
@@ -166,7 +176,7 @@ const resetMail = async (m: ResetMail) => {
   await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} - code ${m.code} (30 min). Email is not set up on the server (SMTP_URL or RESEND_API_KEY), so pass the code on yourself.`, meta: m.email, at: Date.now() });
 };
 const ranked = new RankedService(store); // 0.9.9.9.9: the ladder and replays
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages, resetMail, ranked });
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), recognize: (s) => recognizer.recognize(s, 12), readApkg: (b64) => readApkg(Buffer.from(b64, 'base64')), ...(process.env.GIPHY_API_KEY ? { gifs: new Gifs(process.env.GIPHY_API_KEY) } : {}), ...(process.env.MNEMONIC_IMAGE_KEY ? { mnemonics: new MnemonicPictures(store, { key: process.env.MNEMONIC_IMAGE_KEY, model: process.env.MNEMONIC_IMAGE_MODEL || undefined, dailyCap: Number(process.env.MNEMONIC_DAILY_CAP) || 60, story: kanjiStory }) } : {}), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages, resetMail, ranked });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const judges = createJudgePool({

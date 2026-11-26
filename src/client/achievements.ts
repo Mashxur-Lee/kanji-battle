@@ -181,7 +181,8 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
 
 // ── the celebration ─────────────────────────────────────────────────────────
 const shown = new Set<string>(); // celebrated this session (a combo milestone mid-battle, then again from the server)
-const queue: string[] = [];
+// (0.9.9.9.9.6: a function: a moment of its own drawn in the same card — the daily streak kept)
+const queue: Array<string | ((box: HTMLElement) => void)> = [];
 let playing = false;
 
 export function celebrate(id: string) {
@@ -195,6 +196,15 @@ function next() {
   const box = ui.$('achPop');
   if (!id) { playing = false; box.hidden = true; return; }
   playing = true;
+  if (typeof id === 'function') {
+    box.style.removeProperty('--ac'); box.innerHTML = '';
+    id(box);
+    box.hidden = false;
+    box.classList.remove('go'); void box.offsetWidth; box.classList.add('go');
+    audio.sfx.go();
+    setTimeout(next, 4200);
+    return;
+  }
   const a = achById(id)!;
   box.style.setProperty('--ac', TIERS[a.tier]!.ink);
   box.innerHTML = '';
@@ -210,6 +220,12 @@ function next() {
   box.classList.remove('go'); void box.offsetWidth; box.classList.add('go');
   audio.sfx.go();
   setTimeout(next, 3800);
+}
+
+/** 0.9.9.9.9.6: a moment in the achievements' card, queued with them (`draw` fills the card) */
+export function celebrateMoment(draw: (box: HTMLElement) => void) {
+  queue.push(draw);
+  if (!playing) next();
 }
 
 /**

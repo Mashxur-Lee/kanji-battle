@@ -7,6 +7,7 @@
 // a smiley shows beside it on hover for a quick reaction; "edited"; photos (photopick.ts); group chats (groupui.ts)
 // with "7 members, 3 online" under the name; "typing…"; a friend's status under their name (tap it for their
 // profile); "@" suggests friends; the bell: all messages, only @mentions, or nothing.
+import { closeGifs, gifSrc, isSaved, openGifs, saveGif, unsaveGif } from './gifpicker';
 import { api, type Conversation, type GroupInfo, type NotifyMode } from './api';
 import { MODE_LABEL, MODES, type DmView, type GameMode } from '../shared/protocol';
 import { locale, tr } from './i18n';
@@ -166,7 +167,7 @@ function stopTyping() {
   typingTo = ''; typingAt = 0;
 }
 /** main.ts: Messages closed */
-export function inboxLeft() { stopTyping(); closeMenus(); }
+export function inboxLeft() { stopTyping(); closeMenus(); closeGifs(); }
 
 // ── the list ──
 function sysText(m: DmView): string {
@@ -229,7 +230,7 @@ function previewOf(c: Conversation): string {
   if (m.deleted) return tr('Message deleted');
   const inv = invitePreview(m);
   const body = inv ?? (m.kind ? m.text.replace(/\n/, ' - ') : (splitQuote(m.text).body || m.text));
-  const what = m.media ? (body ? `${tr('Photo')} · ${body}` : tr('Photo')) : body; // (0.9.9.9.7.4: words, not 📷)
+  const what = m.kind === 'gif' ? 'GIF' : m.media ? (body ? `${tr('Photo')} · ${body}` : tr('Photo')) : body; // (0.9.9.9.7.4: words, not 📷)
   const who = m.from === myId() ? `${tr('You')}: ` : c.group ? `${nameOf(m.from)}: ` : '';
   return who + what;
 }
@@ -332,7 +333,15 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
   if (m.fwd) { const f = h('span', 'msg-fwd'); f.append(h('small', '', tr('Forwarded from')), h('b', '', m.fwd)); b.append(f); }
   const inv = parseInvite(m);
   if (inv) { b.append(inviteCard(m, inv, mine)); b.classList.add('has-inv'); }
-  const { quote, body } = inv ? { quote: '', body: '' } : splitQuote(m.text);
+  // 0.9.9.9.9.6: a GIF — the picture; tapped: add it to your GIFs (or take it out)
+  if (m.kind === 'gif' && !m.deleted) {
+    const img = document.createElement('img');
+    img.className = 'msg-gif'; img.src = gifSrc(m.text); img.alt = 'GIF'; img.loading = 'lazy'; img.decoding = 'async';
+    img.onclick = (e) => { e.stopPropagation(); gifMenu(img, m.text); };
+    img.onload = () => { const box = $('msgLog'); if (box.scrollHeight - box.scrollTop - box.clientHeight < 400) box.scrollTop = box.scrollHeight; };
+    b.append(img); b.classList.add('has-photo', 'has-gif');
+  }
+  const { quote, body } = inv || m.kind === 'gif' ? { quote: '', body: '' } : splitQuote(m.text);
   if (quote) b.append(h('span', 'msg-quote', quote));
   if (m.media) {
     const img = document.createElement('img');
@@ -964,6 +973,16 @@ export function initInbox() {
   document.addEventListener('pointerdown', (e) => { if (!pick.hidden && !(e.target as Element).closest('#msgEmojiPick, #msgEmoji')) pick.hidden = true; });
   // photos
   $('msgAttach').onclick = () => { if (openId) openPhotoSheet(sendPhotos); };
+  // 0.9.9.9.9.6: GIFs
+  $('msgGif').onclick = (e) => {
+    e.stopPropagation();
+    if (!openId) return;
+    closeEmoji();
+    openGifs($('msgForm'), async (g) => {
+      const to = openId; if (!to) return;
+      try { add((await api.sendGif(to, g.url, side === 'support')).message); } catch (err) { ui.toast((err as Error).message, 3500); }
+    });
+  };
   // older messages: scrolled to the top
   $('msgLog').addEventListener('scroll', async () => {
     const box = $('msgLog');
@@ -981,4 +1000,20 @@ export function initInbox() {
     } catch { /* later */ } finally { loading = false; }
   }, { passive: true });
   setInterval(() => { if (document.visibilityState === 'visible') void refreshUnread(); }, 120_000);
+}
+
+/** 0.9.9.9.9.6: a GIF in a chat, tapped — "Add to my GIFs" (or "Remove from my GIFs"), like Telegram */
+function gifMenu(img: HTMLImageElement, url: string) {
+  document.querySelector('.gif-menu')?.remove();
+  const menu = document.createElement('div');
+  menu.className = 'gif-menu';
+  const b = document.createElement('button');
+  b.type = 'button';
+  const saved = isSaved(url);
+  b.textContent = tr(saved ? 'Remove from my GIFs' : 'Add to my GIFs');
+  b.onclick = (e) => { e.stopPropagation(); if (saved) unsaveGif(url); else saveGif({ id: url, url, preview: url, w: img.naturalWidth || 200, h: img.naturalHeight || 200 }); menu.remove(); };
+  menu.append(b);
+  img.closest('.msg-b, .msg-bubble, div')?.append(menu);
+  const off = (e: Event) => { if (!menu.contains(e.target as Node)) { menu.remove(); document.removeEventListener('pointerdown', off, true); } };
+  setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
 }

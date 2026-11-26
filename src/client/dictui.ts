@@ -3,7 +3,8 @@
 // the forms of a verb or adjective, an example sentence, each kanji (meaning, readings, parts, memory picture,
 // stroke order) and other words written with it — and add it to any of your decks.
 import { api } from './api';
-import { Dictionary, exactMatch, type DictData, type DictEntry } from '../shared/dict';
+import { antonymsOf, Dictionary, exactMatch, type DictData, type DictEntry } from '../shared/dict';
+import { HandwritingPad } from './pad';
 import type { VocabEntry } from '../shared/protocol';
 import * as idb from './offline/idb';
 import { conjugate } from './conjugate';
@@ -136,7 +137,36 @@ export function badges(w: DictEntry) {
   if (w.level) row.append(h('span', `dw-tag lv lv-${w.level}`, LEVEL_LABEL[w.level], { 'data-no-i18n': '' }));
   if (w.phrase) row.append(h('span', 'dw-tag phrase', tr('phrase')));
   if (w.vocabId) row.append(h('span', 'dw-tag game', tr('game word')));
+  // 0.9.9.9.9.6: already in one of your decks — in green, which one ("it should show beside the level and game word")
+  void inDecks(w).then((decks) => { for (const d of decks) row.append(h('span', 'dw-tag in-deck', d, { title: tr('In your deck') })); });
   return row;
+}
+// ── 0.9.9.9.9.6: which of your decks each word is in (loaded once, again after you add one) ──
+let deckIndex: Promise<Map<string, string[]>> | null = null;
+const deckKey = (kanji: string, reading: string) => `${kanji}|${reading}`;
+export function forgetDeckIndex() { deckIndex = null; }
+function loadDeckIndex(): Promise<Map<string, string[]>> {
+  deckIndex ??= (async () => {
+    const m = new Map<string, string[]>();
+    const add = (k: string, label: string) => { const l = m.get(k) ?? []; if (!l.includes(label)) l.push(label); m.set(k, l); };
+    const decks: DeckId[] = ['all', 'struggling', 'custom', 'ono'];
+    const lists = await Promise.all(decks.map((d) => api.deckWords(d).then((r) => r.words).catch(() => [])));
+    lists.forEach((words, n) => { for (const w of words) { add(w.vocabId, tr(DECK_LABEL[decks[n]])); add(deckKey(w.kanji, w.reading), tr(DECK_LABEL[decks[n]])); } });
+    for (const extra of deckIndexExtras) await extra(add).catch(() => {});
+    return m;
+  })();
+  return deckIndex;
+}
+/** more decks to look in (the decks you make yourself) — study.ts adds its own */
+export const deckIndexExtras: Array<(add: (key: string, label: string) => void) => Promise<void>> = [];
+async function inDecks(w: DictEntry): Promise<string[]> {
+  try {
+    const m = await loadDeckIndex();
+    const out = new Set<string>([...(w.vocabId ? m.get(w.vocabId) ?? [] : [])]);
+    for (const k of w.kanji.slice(0, 2)) for (const r of w.kana.slice(0, 2)) for (const d of m.get(deckKey(k, r)) ?? []) out.add(d);
+    if (!w.kanji.length) for (const r of w.kana.slice(0, 2)) for (const d of m.get(deckKey(r, r)) ?? []) out.add(d);
+    return [...out];
+  } catch { return []; }
 }
 const posText = (pos: string[]) => pos.map((p) => tags[p] ?? p).join(', ');
 export const ruOf = (w: DictEntry) => (lang() === 'ru' && w.ru.length ? w.ru : null);
@@ -251,6 +281,22 @@ async function openWord(i: number) {
     if (lang() === 'ru') mean.before(s);
   }
 
+  // 0.9.9.9.9.6: synonyms, antonyms and related words — each opens its own page
+  const chipOf = (e: DictEntry) => {
+    const b = h('button', 'dw-chip', undefined, { type: 'button', lang: 'ja' });
+    b.append(h('b', '', e.kanji[0] ?? e.kana[0]), h('small', '', e.kanji[0] ? e.kana[0] ?? '' : ''));
+    b.title = ruOf(e)?.[0] ?? e.senses[0]?.[1] ?? '';
+    b.onclick = () => void openWord(e.i);
+    return b;
+  };
+  const words = (list: DictEntry[]) => { const row = h('div', 'dw-with dw-rel'); row.append(...list.map(chipOf)); return row; };
+  const syn = d.synonymsOf(w, 8);
+  const ant = antonymsOf(w).map((t) => d.byText(t)).filter((x): x is DictEntry => !!x && x.i !== w.i);
+  const rel = (w.related ?? []).map((t) => d.byText(t)).filter((x): x is DictEntry => !!x && x.i !== w.i && !syn.some((s) => s.i === x.i));
+  if (syn.length) sec('Synonyms').append(words(syn));
+  if (ant.length) sec('Antonyms').append(words(ant));
+  if (rel.length) sec('Related words').append(words(rel.slice(0, 6)));
+
   // an example sentence (the game's words)
   if (w.vocabId) {
     const ex = await exampleFor(w.vocabId).catch(() => null);
@@ -352,9 +398,10 @@ export function addTo(w: DictEntry) {
         const meaning = (lang() === 'ru' && w.ru[0]) || w.senses.slice(0, 2).map((s) => s[1]).join('; ');
         const r = await api.addCustom(id ? { vocabId: id } : { kanji: word, reading: w.kana[0] ?? word, meaning: meaning.slice(0, 120) });
         id = r.word.id;
-        if (deck === 'custom') { ui.toast(r.added ? `${word} → ${tr(DECK_LABEL.custom)}` : `${word}: ${tr('already in')} ${tr(DECK_LABEL.custom)}`); return; }
+        if (deck === 'custom') { forgetDeckIndex(); ui.toast(r.added ? `${word} → ${tr(DECK_LABEL.custom)}` : `${word}: ${tr('already in')} ${tr(DECK_LABEL.custom)}`); return; }
       }
       const r = await api.deckAdd(deck, [id]);
+      forgetDeckIndex();
       ui.toast(r.added.length ? `${word} → ${tr(DECK_LABEL[deck])}` : `${word}: ${tr('already in')} ${tr(DECK_LABEL[deck])}`);
     } catch (e) { ui.toast((e as Error).message); }
     finally { sel.value = ''; sel.disabled = false; }
@@ -364,8 +411,57 @@ export function addTo(w: DictEntry) {
 
 /** 0.9.9.8: the full page for one word (from the dictionary side panel) */
 export function openDictWord(i: number) {
+  rememberReturn();
   ui.show('dict');
   void openWord(i);
+}
+// ── 0.9.9.9.9.6: the big dictionary from anywhere — the side panel's full-screen button, Study spells — and its Exit
+// goes back to where you were ──
+let returnTo = '';
+function rememberReturn() { const s = ui.currentScreen() ?? ''; if (s && s !== 'dict') returnTo = s; }
+export function openDictionary(q = '') {
+  rememberReturn();
+  ui.show('dict');
+  const box = $<HTMLInputElement>('dictQ');
+  box.value = q;
+  if (q.trim()) void search(q); else drawHome();
+  if (!matchMedia('(pointer: coarse)').matches) setTimeout(() => box.focus(), 60);
+}
+// ── 0.9.9.9.9.6: look a kanji up by drawing it ("use our pad as an entry") — each character you pick from the closest
+// matches goes into the search, then Search ──
+let drawPad: HandwritingPad | null = null;
+let drawDone: ((text: string) => void) | null = null;
+let drawT = 0, drawN = 0;
+export function openDraw(onSearch: (text: string) => void, start = '') {
+  const d = $<HTMLDialogElement>('drawDialog');
+  drawDone = onSearch;
+  $('drawTyped').textContent = start;
+  const cands = $('drawCands');
+  const hint = () => cands.replaceChildren(h('span', 'hint', tr('Draw one character - the closest ones show here')));
+  const guess = async () => {
+    const strokes = drawPad!.ink();
+    if (!strokes.length) { hint(); return; }
+    const n = ++drawN;
+    try {
+      const r = await api.recognize(strokes);
+      if (n !== drawN) return;
+      cands.replaceChildren(...r.chars.map((c) => {
+        const b = h('button', 'dd-cand', c, { type: 'button', lang: 'ja' });
+        b.onclick = () => { $('drawTyped').textContent += c; drawPad!.clear(); hint(); };
+        return b;
+      }));
+    } catch (e) { if (n === drawN) cands.replaceChildren(h('span', 'hint', (e as Error).message)); }
+  };
+  if (!drawPad) {
+    drawPad = new HandwritingPad($<HTMLCanvasElement>('drawPad'), () => { clearTimeout(drawT); drawT = window.setTimeout(() => void guess(), 220); });
+    $('drawUndo').onclick = () => drawPad!.undo();
+    $('drawClear').onclick = () => { drawPad!.clear(); $('drawTyped').textContent = ''; };
+    $('drawClose').onclick = () => d.close();
+    $('drawSearch').onclick = () => { const t = $('drawTyped').textContent ?? ''; d.close(); if (t) drawDone?.(t); };
+  }
+  drawPad.clear();
+  hint();
+  if (!d.open) d.showModal();
 }
 
 
@@ -375,4 +471,5 @@ $('dictForm').onsubmit = (e) => { e.preventDefault(); void search($<HTMLInputEle
   $('dictQ').addEventListener('input', () => { clearTimeout(t); t = window.setTimeout(() => void search($<HTMLInputElement>('dictQ').value), 90); }); // (after every letter)
   $('dictQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(t); void search($<HTMLInputElement>('dictQ').value); } });
 }
-$('dictBack').onclick = () => ui.show('menu');
+$('dictBack').onclick = () => { const to = returnTo; returnTo = ''; ui.show((to && to !== 'dict' ? to : 'menu') as Parameters<typeof ui.show>[0]); };
+$('dictDraw').onclick = () => openDraw((t) => { const box = $<HTMLInputElement>('dictQ'); box.value = t; void search(t); }, '');

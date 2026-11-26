@@ -7,6 +7,7 @@ import { FLAME_WEEKS, flameOf, weekStart } from '../shared/flames';
 import type { Profile } from './api';
 import { tr } from './i18n';
 import * as ui from './ui';
+import { celebrateMoment } from './achievements';
 
 const $ = ui.$;
 const NEVER = 'kb:tasksNoticeOff';
@@ -23,13 +24,14 @@ const BATTLE_DAY = 'kb:todayBattle';
 const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 /** a battle finished today (main.ts, at the end of a game) */
 export function noteBattle() { store.set(BATTLE_DAY, localDay()); if (last) renderTasks(last); }
-const TODAY_ORDER = ['learn', 'practice', 'daily'] as const;
+// (0.9.9.9.9.6: the streak's two tasks only — a battle isn't one, and "Next today: a battle" said it was)
+const TODAY_ORDER = ['practice', 'daily'] as const;
 const NEXT_LABEL: Record<string, string> = { learn: 'Study', practice: 'A quiz', daily: 'Daily challenge', battle: 'A battle' };
 /** the next step of today, or null when all of it is done */
 export function todayNext(p: Profile): { id: string; label: string } | null {
   const tasks = p.tasks ?? [];
   for (const id of TODAY_ORDER) { const t = tasks.find((x) => x.id === id); if (t && t.value < t.target) return { id, label: NEXT_LABEL[id]! }; }
-  return store.get(BATTLE_DAY) === localDay() ? null : { id: 'battle', label: NEXT_LABEL.battle! };
+  return null;
 }
 
 let last: Profile | null = null;
@@ -77,7 +79,24 @@ export function renderTasks(p: Profile) {
   if (!tasks.length) return;
   const n = doneCount(p), all = n === tasks.length;
   const justDone = wasAll === false && all;
-  if (justDone) ui.toast(`${tr('Daily streak kept!')} +500 XP`, 5000); // just finished the last task
+  // just finished the last task: 0.9.9.9.9.6 — a moment like an achievement's (the flame bursting, the day count), not a
+  // line of text at the top ("it should show like an achievement, in a cool way with the flame animation and day")
+  if (justDone) {
+    const days = p.streak ?? 0;
+    celebrateMoment((box) => {
+      box.style.setProperty('--ac', flameOf(days).hex);
+      const rays = document.createElement('div'); rays.className = 'ach-rays';
+      const fl = streakFlame(days, true); fl.classList.add('burst', 'sk-flame');
+      const txt = document.createElement('div'); txt.className = 'ach-text';
+      const k = document.createElement('small'); k.textContent = tr('Daily streak kept!');
+      const n = document.createElement('b'); n.textContent = tr(`Day ${days}`);
+      const h = document.createElement('span'); h.textContent = '+500 XP';
+      txt.append(k, n, h);
+      box.append(rays, fl, txt);
+      box.classList.add('streak-moment');
+      setTimeout(() => box.classList.remove('streak-moment'), 4300);
+    });
+  }
   wasAll = all;
   const btn = $('tasksBtn');
   btn.hidden = false;
@@ -145,9 +164,9 @@ export function renderTasks(p: Profile) {
   const next = todayNext(p);
   const go = mk('span', `tb-go${next ? '' : ' done'}`);
   go.setAttribute('role', 'button'); go.tabIndex = 0;
-  const steps = tasks.length + 1, doneSteps = n + (store.get(BATTLE_DAY) === localDay() ? 1 : 0);
+  const steps = tasks.length, doneSteps = n;
   go.append(mk('small', 'tg-lbl', next ? tr(doneSteps ? 'Next today' : 'Play today') : tr('Today: all done')), mk('b', 'tg-what', next ? tr(NEXT_LABEL[next.id]!) : '✓'), mk('span', 'tg-n', `${doneSteps}/${steps}`));
-  go.title = tr('Today, in one go: your study, a quiz, the daily challenge and a battle');
+  go.title = tr('Today, in one go: a quiz and the daily challenge');
   const run = (e: Event) => { e.preventDefault(); e.stopPropagation(); const nx = last && todayNext(last); if (nx) (taskActions[nx.id] ?? taskActions.learn)?.(); };
   go.addEventListener('click', run);
   go.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') run(e); });

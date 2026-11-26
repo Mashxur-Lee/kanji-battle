@@ -6231,3 +6231,185 @@ body.lowfx .seal.stamp { animation: none; }
 .saved-row .saved-del { margin: 0; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border-radius: 10px; background: transparent; border: 1px solid var(--line); color: var(--muted); flex: none; box-shadow: none; }
 .saved-row .saved-del svg { width: 18px; height: 18px; }
 .saved-row .saved-del:hover { color: #ff6f8a; border-color: #ff6f8a; }
+
+/* ══ 0.9.9.9.9.6 ══════════════════════════════════════════════════════════════════════════════════════════════ */
+/* the player card's Block is red (the owner) */
+.pp-grid .pv-block, .pv-safety .pv-block { color: #ff6f8a; border-color: rgba(255, 111, 138, .55); }
+.pp-grid .pv-block:hover, .pv-safety .pv-block:hover { background: rgba(255, 111, 138, .12); }
+.pp-grid .pv-block.on, .pv-safety .pv-block.on { background: #e2405f; color: #fff; border-color: transparent; }
+/* the HP a hit took: white, then sliding down (ui.ts thickBar) */
+.tbar .ghost, .dkbar .ghost { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, rgba(255, 255, 255, .75), #fff); box-shadow: 0 0 10px rgba(255, 255, 255, .55); }
+.tbar .fill { z-index: 0; } .tbar .ghost + .fill { z-index: 0; }
+:root[data-theme="light"] .tbar .ghost { background: linear-gradient(90deg, rgba(255, 255, 255, .9), #fff); box-shadow: 0 0 0 1px rgba(0, 0, 0, .08) inset; }
+/* phones: the menu scrolls inside itself, a screen tall — after Messages the page could scroll on far below the menu
+   into empty space (the owner's phone, twice now); whatever stretched the page, it can't stretch the menu's own box */
+@media (max-width: 900px), (pointer: coarse) {
+  html:has(> body[data-screen="menu"]), body[data-screen="menu"] { overflow: hidden; height: 100%; }
+  body[data-screen="menu"] #menu { height: calc(100 * var(--dvh)); min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; box-sizing: border-box; }
+}
+/* Customize: the arena's picture fills its slot (on phones it sat small in its corner: the slot is a grid sized by its
+   content, so 100% of it was the picture's own small size) — pinned to the slot's edges; and the 2D arena picture
+   under the 3D one isn't half the page on a computer */
+:is(.lk-slot, .look-slot) .lk-pic { position: relative; }
+:is(.lk-slot, .look-slot) .lk-pic > .bg-thumb { position: absolute !important; inset: 0; width: auto !important; height: auto !important; display: block; }
+:is(.lk-slot, .look-slot) .lk-pic > .bg-thumb > :is(svg, img, canvas) { width: 100% !important; height: 100% !important; object-fit: cover; display: block; }
+@media (min-width: 901px) { .cust-2d:has(.bg-thumb) { max-width: 280px; } }
+/* phones: the replay bar fits — the title cut short with "…", the track on a row of its own under the buttons, the
+   whose-eyes button's name shortened (it ran off the right edge with the speed and the link: the owner's phone) */
+@media (max-width: 640px) {
+  .watch-bar { overflow: hidden; }
+  .watch-bar .wb-top { min-width: 0; flex-wrap: nowrap; }
+  .watch-bar .wb-top b { flex: 1 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wb-time { flex-wrap: wrap; row-gap: 2px; }
+  .wb-time .wb-track { order: 9; flex: 1 1 100%; height: 30px; }
+  .wb-time .wb-clock { margin-right: auto; }
+  .wb-pov { max-width: 9.5em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wb-legend { flex-wrap: wrap; }
+  .wb-key b { max-width: 8em; }
+}
+/* the private room's Invite friends: a long name is cut short, Invite stays inside the card */
+.li-row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.li-who { display: flex; flex-direction: column; min-width: 0; }
+.li-who .li-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.li-who small { margin: 0; line-height: 1.25; }
+.li-row > .pill { margin: 0; flex: none; white-space: nowrap; }
+/* the daily streak kept: the achievements' card, the streak's own flame bursting in it, the day count */
+.ach-pop.streak-moment { gap: 18px; padding-left: 18px; }
+.ach-pop .sk-flame { position: relative; flex: none; width: 84px; font-size: 84px; }
+.ach-pop.go .sk-flame { animation: sfBurst 1.1s cubic-bezier(.3, 1.6, .5, 1) .15s both; }
+.ach-pop.streak-moment .ach-text b { font-size: 1.5rem; letter-spacing: .02em; }
+.ach-pop.streak-moment .ach-text span { color: var(--gold); font-weight: 900; }
+@media (max-width: 640px) { .ach-pop .sk-flame { width: 64px; font-size: 64px; } }
+/* Progress → the word filters: the chosen one is lit (on phones a later pill rule took its background away and left
+   its dark text on the dark page — "it makes the option black"; in the light theme it wasn't marked at all) */
+#progress .mg-filters .mg-f.on, .mg-filters .mg-f.on { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
+:root[data-theme="light"] .mg-filters .mg-f.on { background: #6b3fd6 !important; border-color: #6b3fd6 !important; }
+/* light theme: the pages with the navigation stand on a pale page, not the painted scene — their text is dark (they
+   kept the light text meant for the scene: names, hints and switches were near-white on white — "on the white theme
+   the gray text is not visible"); the menu's shortcut tiles are light panels too */
+:root[data-theme="light"] body.has-nav .screen, :root[data-theme="light"] .mc-nav-btn {
+  --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a; color: var(--text);
+}
+:root[data-theme="light"] body.has-nav .screen :is(h1, h2, .sub, .hint) { text-shadow: none; }
+:root[data-theme="light"] .seg button[aria-selected="false"], :root[data-theme="light"] .seg button:not(.on):not([aria-selected="true"]) { color: var(--muted); }
+:root[data-theme="light"] body.has-nav .screen .sub { color: var(--muted); }
+:root[data-theme="light"] .lg-pass { background: rgba(162, 99, 0, .08); border-color: rgba(162, 99, 0, .3); }
+:root[data-theme="light"] .lg-pass-how, :root[data-theme="light"] .lg-pass b { color: #8a5200; }
+:root[data-theme="light"] .lg-pass :is(span, small) { color: var(--muted); }
+:root[data-theme="light"] .msgr-form textarea::placeholder { color: rgba(60, 50, 110, .5); }
+/* phones: the dictionary's button is back while studying cards ("there is no vocabulary bar when studying cards now")
+   — at the top left, under the top bar, where it covers none of the card's buttons */
+@media (max-width: 760px) {
+  body[data-screen="review"] #dictFab:not([hidden]) { display: grid !important; top: calc(70px + env(safe-area-inset-top)); bottom: auto !important; left: 10px; width: 42px; height: 42px; }
+}
+
+/* a written kanji that missed: yours beside the right one, each stroke marked (strokes.ts showStrokeCompare) */
+.fb-compare { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 8px; }
+.sc-wrap { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.sc-pair { display: flex; gap: 6px; padding: 6px; border-radius: 14px; background: rgba(10, 8, 28, .45); border: 1px solid var(--line); }
+.sc-fig { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.sc-fig figcaption { font-size: .72rem; font-weight: 800; color: var(--muted); }
+.sc-svg { width: 92px; height: 92px; display: block; }
+.sc-svg .so-grid line, .sc-svg .so-grid rect { stroke: rgba(255, 255, 255, .14); stroke-width: .8; fill: none; stroke-dasharray: 3 3; }
+.sc-svg .sc-s { fill: none; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.sc-svg .sc-nums text { font: 900 11px/1 var(--ui, sans-serif); paint-order: stroke; stroke: rgba(10, 8, 28, .85); stroke-width: 3px; }
+.sc-note { font-size: .82rem; font-weight: 700; color: #ffb3bd; text-align: center; max-width: 34em; }
+:root[data-theme="light"] .sc-pair { background: rgba(255, 255, 255, .7); }
+:root[data-theme="light"] .sc-note { color: #b8283f; }
+@media (max-width: 640px) { .sc-svg { width: 74px; height: 74px; } }
+
+/* the dictionary: a word already in one of your decks (green, by its level and "game word") */
+.dw-tag.in-deck { background: rgba(53, 214, 138, .16); color: #4ee6a6; border: 1px solid rgba(53, 214, 138, .5); }
+:root[data-theme="light"] .dw-tag.in-deck { background: rgba(18, 137, 90, .12); color: #0f7a50; border-color: rgba(18, 137, 90, .45); }
+.dw-rel { margin-top: 4px; }
+/* the side panel's full-screen and draw buttons; the page's draw button and Exit */
+.dr-head { display: flex; align-items: center; gap: 8px; }
+.dr-head .dr-hbtn { margin-left: auto; }
+.dr-qrow { display: flex; gap: 6px; align-items: center; }
+.dr-qrow input { flex: 1; min-width: 0; }
+.dr-hbtn { flex: none; width: 36px; height: 36px; min-width: 0; padding: 0; display: grid; place-items: center; border-radius: 10px; background: var(--field); border: 1px solid var(--line); color: var(--text); box-shadow: none; }
+.dr-hbtn:hover { border-color: var(--accent2); color: var(--accent2); }
+.dict-search .dict-draw { flex: none; width: 46px; min-width: 0; padding: 0; display: grid; place-items: center; }
+#dict > .dict-exit { display: inline-flex !important; }
+/* drawing a kanji to look it up */
+.draw-dialog { width: min(440px, calc(100vw - 24px)); padding: 16px; }
+.draw-dialog[open] { display: flex; flex-direction: column; gap: 10px; }
+.dd-head { display: flex; align-items: center; justify-content: space-between; }
+.dd-head h3 { margin: 0; }
+.dd-head .dlg-x { position: static; }
+.draw-pad { width: 100%; aspect-ratio: 1; border-radius: 16px; background: rgba(255, 255, 255, .96); touch-action: none; cursor: crosshair; box-shadow: inset 0 0 0 2px var(--line);
+  background-image: linear-gradient(rgba(60, 50, 120, .12) 1px, transparent 1px), linear-gradient(90deg, rgba(60, 50, 120, .12) 1px, transparent 1px); background-size: 50% 50%; background-position: center; }
+.dd-cands { display: flex; flex-wrap: wrap; gap: 6px; min-height: 48px; align-items: center; }
+.dd-cand { width: 46px; height: 46px; min-width: 0; padding: 0; font-size: 1.6rem; border-radius: 12px; background: var(--field); border: 1px solid var(--line); color: var(--text); box-shadow: none; }
+.dd-cand:hover { border-color: var(--accent); }
+.dd-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dd-row .pill { margin: 0; }
+.dd-typed { flex: 1; min-width: 3em; font-size: 1.5rem; font-weight: 800; letter-spacing: .08em; text-align: center; }
+.dd-row .big { margin: 0; padding: 10px 22px; }
+/* Study spells: the dictionary, new deck and import buttons; your own decks */
+.study-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+.study-tools .pill { margin: 0; }
+.user-decks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 0 0 14px; }
+.user-decks:empty { display: none; }
+.ud-card { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 18px; background: var(--card); border: 2px solid var(--line); }
+.ud-head { display: flex; align-items: baseline; gap: 8px; }
+.ud-name { font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ud-count, .ud-stat { color: var(--muted); font-size: .82rem; font-weight: 700; }
+.ud-count { margin-left: auto; flex: none; }
+.ud-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.ud-btns .pill { margin: 0; padding: 6px 12px; font-size: .85rem; }
+.ud-btns .ud-del { color: #ff6f8a; border-color: rgba(255, 111, 138, .5); }
+.ud-dialog { width: min(560px, calc(100vw - 24px)); padding: 18px; }
+.ud-dialog h3 { margin: 0 34px 10px 0; }
+.ud-body { display: flex; flex-direction: column; gap: 10px; }
+.ud-input, .ud-area { width: 100%; box-sizing: border-box; font: inherit; padding: 10px 12px; border-radius: 12px; }
+.ud-area { resize: vertical; min-height: 140px; }
+.ud-row { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+.ud-row .big, .ud-body > .big { margin: 0; }
+.ud-out { font-size: .9rem; }
+.ud-skip { margin: 4px 0 0; padding-left: 18px; font-size: .8rem; color: var(--muted); max-height: 140px; overflow: auto; }
+.ud-words { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow: auto; }
+.ud-word { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; background: var(--field); }
+.ud-w { font-size: 1.2rem; font-weight: 800; }
+.ud-word small { color: var(--muted); }
+.ud-m { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .85rem; }
+.ud-x { width: 30px; height: 30px; min-width: 0; padding: 0; border-radius: 8px; background: transparent; border: 1px solid var(--line); color: var(--muted); box-shadow: none; }
+.ud-x:hover { color: #ff6f8a; border-color: #ff6f8a; }
+
+/* GIFs in Messages: the button, the panel over the composer, a GIF in the chat, its "Add to my GIFs" */
+.msg-gif-btn { font: 900 .72rem/1 var(--ui, sans-serif); letter-spacing: .04em; }
+.msg-gif-btn b { display: inline-block; padding: 3px 4px; border: 2px solid currentColor; border-radius: 6px; }
+.gif-panel { position: absolute; left: 8px; right: 8px; bottom: calc(100% + 6px); z-index: 30; display: flex; flex-direction: column; gap: 6px; max-height: min(420px, 60vh); padding: 10px;
+  border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 12px 34px rgba(0, 0, 0, .45); backdrop-filter: blur(8px); }
+:root[data-theme="light"] .gif-panel { background: #fff; }
+.gif-top { display: flex; gap: 6px; }
+.gif-q { flex: 1; min-width: 0; padding: 8px 12px; border-radius: 12px; }
+.gif-x { width: 36px; height: 36px; min-width: 0; padding: 0; border-radius: 10px; background: transparent; border: 1px solid var(--line); color: var(--muted); box-shadow: none; }
+.gif-mine { display: flex; flex-direction: column; gap: 4px; }
+.gif-mine:empty { display: none; }
+.gif-h { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gif-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.gif-row .gif-tile { flex: none; width: 84px; height: 64px; }
+.gif-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; overflow-y: auto; min-height: 80px; }
+.gif-tile { min-width: 0; padding: 0; height: 84px; border-radius: 10px; overflow: hidden; border: 0; background: rgba(0, 0, 0, .25); box-shadow: none; }
+.gif-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gif-tile:hover { outline: 2px solid var(--accent); }
+.gif-note { margin: 0; text-align: center; font-size: .72rem; }
+.msg-gif { display: block; max-width: min(260px, 70vw); max-height: 240px; border-radius: 12px; cursor: pointer; }
+.has-gif { position: relative; }
+.gif-menu { position: absolute; z-index: 5; left: 6px; bottom: 6px; }
+.gif-menu button { padding: 6px 12px; border-radius: 999px; font-weight: 800; font-size: .8rem; background: rgba(10, 8, 28, .85); color: #fff; border: 1px solid rgba(255, 255, 255, .25); box-shadow: 0 4px 12px rgba(0, 0, 0, .4); }
+@media (max-width: 760px) { .gif-panel { max-height: 50vh; } .gif-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* the AI memory picture (0.9.9.9.9.6): in the place of the parts picture, the story under it */
+.kp-picture.has-ai { padding: 0; overflow: hidden; border-radius: 14px; }
+.kp-ai { display: block; width: 100%; max-width: 320px; aspect-ratio: 1; object-fit: cover; border-radius: 14px; margin: 0 auto; animation: kpAiIn .5s ease-out both; }
+@keyframes kpAiIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.kp-painting { display: block; margin-top: 6px; font-size: .8rem; color: var(--muted); text-align: center; }
+.dict-search .dict-draw { align-self: stretch; height: auto; min-height: 44px; width: 52px; border-radius: 14px; background: var(--field); color: var(--text); border: 1px solid var(--line); box-shadow: none; }
+.dict-search .dict-draw svg { width: 22px; height: 22px; }
+.draw-dialog .dd-cand { background: #f1effa; color: #1d1838; border-color: #d6d0f0; }
+.draw-dialog .dd-head h3 { color: var(--text); font-size: 1.05rem; letter-spacing: .02em; text-transform: none; }
+/* the dictionary page's Exit: top right of the page, back to where you opened it from (it sat under the navigation) */
+#dict { position: relative; }
+#dict > .dict-exit { position: absolute !important; top: 76px; right: var(--gutter, 24px); left: auto !important; z-index: 6; margin: 0; padding: 8px 16px; border-radius: 999px; }
+@media (max-width: 760px) { #dict > .dict-exit { top: 96px; right: 16px; padding: 6px 14px; } }

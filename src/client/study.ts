@@ -1,4 +1,5 @@
 import { starButton } from './stars';
+import { initUserDecks, renderUserDecks } from './userdecks';
 import { exampleFor, loadExamples } from './examples';
 import { hideKanji, kanjiTappable, wordsTappable } from './kanjihelp';
 import { locale } from './i18n';
@@ -118,6 +119,7 @@ $('planCancelBtn').onclick = () => levelPlan(savedPlan);
 /** The "Study spells" screen: deck counts, level ticks, and the "new spells added" notice. */
 export async function openStudy() {
   ui.show('study');
+  void renderUserDecks(); // 0.9.9.9.9.6
   try {
     const s = await api.study();
     render(s);
@@ -179,6 +181,7 @@ function onoChanged() {
   };
 }
 
+initUserDecks({ study: (own) => void startSession('custom', own), changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); } });
 initDecks({ changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); }, back: () => ui.show('quizzes') }); // (0.9.9.9.5.1: the quizzes have their own screen)
 
 // ── flashcard session (Anki-style) ──────────────────────────────────────────
@@ -188,14 +191,16 @@ let current: StudyCard | null = null;
 let flipped = false;
 let busy = false;
 
-async function startSession(d: Deck) {
-  deck = d;
+/** 0.9.9.9.9.6: one of your own decks being studied (its cards are in My words) */
+let set: { id: string; name: string } | null = null;
+async function startSession(d: Deck, own: { id: string; name: string } | null = null) {
+  deck = d; set = own;
   history = []; undoBtn();
   void loadExamples(); // ready by the first answer
   ui.show('review');
   $('reviewDone').hidden = true;
   try {
-    queue = (await api.queue(d)).cards;
+    queue = (await api.queue(d, own?.id)).cards;
   } catch (e) { ui.toast((e as Error).message); queue = []; }
   next();
 }
@@ -208,7 +213,7 @@ function next() {
   $('showAnswer').hidden = done;
   $('rateRow').hidden = true;
   $('reviewDone').hidden = !done;
-  $('reviewLeft').textContent = done ? '' : `${queue.length + 1} left · ${DECK_LABEL[deck]}`;
+  $('reviewLeft').textContent = done ? '' : `${queue.length + 1} left · ${set ? set.name : DECK_LABEL[deck]}`;
   if (!current) return;
   hideKanji();
   $('fcKanji').textContent = current.kanji;

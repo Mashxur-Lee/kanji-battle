@@ -123,6 +123,9 @@ function goBack(): boolean {
   if (open) { open.close(); return true; }
   const scr = ui.currentScreen();
   if (!scr || scr === 'menu' || scr === 'auth') return false;
+  // (0.9.9.9.9.6: on the pages with the navigation, its Back — one step back, not to the menu)
+  const navBack = document.querySelector<HTMLElement>('body.has-nav .app-nav:not([hidden]) .an-back');
+  if (navBack) { navBack.click(); return true; }
   const back = [...document.querySelectorAll<HTMLElement>(`#${scr} .back, #${scr} [id$="Back"], #${scr} [id$="back"]`)]
     .find((b) => b.getClientRects().length > 0 && !(b as HTMLButtonElement).disabled);
   back?.click();

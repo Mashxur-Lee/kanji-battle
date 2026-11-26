@@ -133,8 +133,8 @@ test('0.9.9.9.6.9 the service worker keeps only the game\'s own files (never Ren
 
 test('0.9.9.9.6.9 Today: the streak tasks in order, then one battle; each press opens the next', async () => {
   const dt = src('src/client/dailytasks.ts');
-  assert.match(dt, /const TODAY_ORDER = \['learn', 'practice', 'daily'\] as const;/);
-  assert.match(dt, /return store\.get\(BATTLE_DAY\) === localDay\(\) \? null : \{ id: 'battle'/);
+  // (0.9.9.9.9.6: the streak's two tasks only — no battle step)
+  assert.match(dt, /const TODAY_ORDER = \['practice', 'daily'\] as const;/);
   const main = src('src/client/main.ts');
   assert.match(main, /taskActions\.battle = \(\) => \{/);
   assert.match(main, /taskActions\.practice = \(\) => void startQuiz\(\);/);

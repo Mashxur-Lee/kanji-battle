@@ -1,6 +1,7 @@
 // The REST API without the transport (0.9.9.4): the Node server (http.ts) feeds it real requests, and the
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
+import { parseList, UserDeckError, type ImportRow } from './study/UserDecks';
 import { achCounts } from '../shared/achievements';
 import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName, type UserRecord } from './db/Store';
@@ -19,6 +20,8 @@ import type { DictService } from './study/DictService';
 import { Strikes } from './strikes';
 
 export const MAX_BODY = 4 * 1024;
+/** 0.9.9.9.9.6: a deck's own errors (no such deck, a name missing) come back as 400s */
+async function deckCall<T>(fn: () => Promise<T>): Promise<T> { try { return await fn(); } catch (e) { if (e instanceof UserDeckError) throw new StudyError(e.message); throw e; } }
 
 /** Simple fixed-window rate limit per IP for login/register (brute-force protection). */
 export class RateLimiter {
@@ -55,6 +58,14 @@ export interface ApiExtras {
   social?: SocialService;
   /** reference strokes of a character in stroke order (stroke-order hints) */
   strokes?: (ch: string) => unknown;
+  /** 0.9.9.9.9.6: the dictionary's draw-a-kanji search — the closest characters to a drawing (best first) */
+  recognize?: (strokes: Array<Array<[number, number]>>) => string[];
+  /** 0.9.9.9.9.6: an Anki deck file (base64) → its words (server only: node:sqlite — kept out of the offline app) */
+  readApkg?: (base64: string) => Promise<ImportRow[]>;
+  /** 0.9.9.9.9.6: GIFs for Messages (GIPHY, through us); absent: not set up */
+  gifs?: { search(q: string, offset: number, lang: string): Promise<unknown[]>; media(host: string, path: string): Promise<{ mime: string; data: Uint8Array } | null> };
+  /** 0.9.9.9.9.6: AI memory pictures (absent: not set up) */
+  mnemonics?: { picture(ch: string): Promise<{ mime: string; data: Buffer } | null>; paint(ch: string, userId: string): Promise<{ ok: boolean; why?: string }> };
   insights?: InsightsService;
   onlineCount?: () => number;
   /** 0.9.9.4.4.1: AI-written reading passage stories (off without an API key) */
@@ -76,7 +87,7 @@ export interface ApiExtras {
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn, messages, ranked } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn, messages, ranked, recognize, readApkg, gifs, mnemonics } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
   const signupLimiter = new RateLimiter(10, 3600_000);
@@ -215,7 +226,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         // (0.9.9.9.6.4: with a photo — its id from /api/messages/media)
-        return res(200, { message: await messages.send(u, decodeURIComponent(url.split('/')[3]), body.text, query.get('as') === 'support', undefined, { media: body.media }) });
+        return res(200, { message: await messages.send(u, decodeURIComponent(url.split('/')[3]), body.text, query.get('as') === 'support', undefined, { media: body.media, ...(body.gif !== undefined ? { gif: body.gif } : {}) }) });
       } else if (r.method === 'POST' && url === '/api/event') {
         const u = await auth.authenticate(r.token);
         const name = String((await r.json()).name ?? '');
@@ -326,6 +337,16 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const page = await study.progress.page(u, query.get('today') ? resolveToday(query.get('today')) : playerDay(u));
         return res(200, { ...page, achCounts: achCounts(await study.achFacts(u)) }); // 0.9.9.6.1: "12 / 50" on the badges
+      } else if (recognize && r.method === 'POST' && url === '/api/recognize') {
+        // 0.9.9.9.9.6: look a kanji up by drawing it — one character, its closest matches
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`rec:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const raw = (await r.json().catch(() => ({}))) as { strokes?: unknown };
+        const ok = Array.isArray(raw.strokes) && raw.strokes.length > 0 && raw.strokes.length <= 40 && raw.strokes.every((s) => Array.isArray(s) && s.length > 0 && s.length <= 400 && s.every((p) => Array.isArray(p) && p.length === 2 && p.every((n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < 1e5)));
+        if (!ok) return res(400, { error: 'Draw a character first' });
+        // (long strokes thinned to 64 points, as the battles' judge takes them)
+        const strokes = (raw.strokes as Array<Array<[number, number]>>).map((s) => (s.length <= 64 ? s : Array.from({ length: 64 }, (_, i) => s[Math.round((i * (s.length - 1)) / 63)])));
+        return res(200, { chars: recognize(strokes).slice(0, 12) });
       } else if (r.method === 'GET' && url === '/api/strokes') {
         // stroke order for up to 8 characters (public data: reference strokes from the recogniser)
         const chars = [...(query.get('k') ?? '')].slice(0, 8);
@@ -446,7 +467,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study/queue') {
         const u = await auth.authenticate(r.token);
         const deck = query.get('deck');
-        return res(200, { cards: await study.queue(u, (isDeck(deck) ? deck : 'all') as DeckId, undefined, undefined, resolveToday(query.get('today'))) });
+        const set = query.get('set'); // (0.9.9.9.9.6: one of your own decks)
+        return res(200, { cards: await study.queue(u, (set ? 'custom' : isDeck(deck) ? deck : 'all') as DeckId, undefined, undefined, resolveToday(query.get('today')), set) });
       } else if (r.method === 'POST' && url === '/api/study/review') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
@@ -456,6 +478,65 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         return res(200, await study.undo(u, body.vocabId, body.deck));
+      } else if (/^\/api\/kanji-pic\/[^/]{1,12}$/.test(url) && (r.method === 'GET' || r.method === 'POST')) {
+        // 0.9.9.9.9.6: a kanji's AI memory picture — GET it (404: none yet), POST to have it painted (the first time)
+        const ch = decodeURIComponent(url.split('/')[3]);
+        if (![...ch].length || [...ch].length !== 1 || !/\p{Script=Han}/u.test(ch)) return res(400, { error: 'One kanji' });
+        if (!mnemonics) return res(404, { error: 'No picture', can: false });
+        if (r.method === 'GET') { const p = await mnemonics.picture(ch); return p ? { status: 200, raw: { mime: p.mime, data: p.data, headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } } } as ApiResponse : res(404, { error: 'No picture yet', can: true }); }
+        const u = await auth.authenticate(r.token);
+        const out = await mnemonics.paint(ch, u.id);
+        if (out.ok) return res(200, { url: `/api/kanji-pic/${encodeURIComponent(ch)}` });
+        return res(out.why === 'limit' ? 429 : out.why === 'none' ? 404 : 502, { error: out.why === 'limit' ? 'Enough new pictures for today - more tomorrow' : out.why === 'none' ? 'No story for this kanji yet' : 'The picture could not be made right now' });
+      } else if (r.method === 'GET' && url.startsWith('/api/gif-media/')) {
+        // 0.9.9.9.9.6: a GIF picture through us (GIPHY is blocked in some countries); only GIPHY's media, cached a year
+        if (!gifs) return res(404, { error: 'No GIFs' });
+        if (!limiter.allow(`gm:${ip}`)) throw new AuthError('Too many requests — wait a minute', 429);
+        const [host, ...rest] = url.slice('/api/gif-media/'.length).split('/');
+        const m = await gifs.media(host ?? '', rest.join('/')).catch(() => null);
+        return m ? { status: 200, raw: { mime: m.mime, data: m.data, headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } } } : res(404, { error: 'No such GIF' });
+      } else if (r.method === 'GET' && url === '/api/gifs') {
+        const u = await auth.authenticate(r.token);
+        if (!gifs) return res(503, { error: 'GIFs aren\'t switched on yet' });
+        if (!limiter.allow(`gif:${u.id}`)) throw new AuthError('Too many searches — wait a minute', 429);
+        try { return res(200, { gifs: await gifs.search(query.get('q') ?? '', Number(query.get('offset') ?? 0), query.get('lang') ?? 'en') }); }
+        catch (e) { return res(502, { error: (e as Error).message }); }
+      } else if (r.method === 'GET' && url === '/api/decks') {
+        // 0.9.9.9.9.6: decks of your own — each with its words, how many are due and how many new
+        const u = await auth.authenticate(r.token);
+        const decks = await study.decks.list(u.id);
+        const rows = await study.deckList(u, 'custom');
+        const now = Date.now();
+        return res(200, { decks: decks.map((d) => { const mine = new Set(d.words); const cards = rows.filter((w) => mine.has(w.vocabId)); return { id: d.id, name: d.name, count: d.words.length, due: cards.filter((c) => c.state !== 'new' && c.due <= now).length, fresh: cards.filter((c) => c.state === 'new').length }; }) });
+      } else if (r.method === 'POST' && url === '/api/decks') {
+        const u = await auth.authenticate(r.token);
+        return res(200, { deck: await deckCall(async () => study.decks.create(u.id, (await r.json()).name)) });
+      } else if (/^\/api\/decks\/[\w-]{1,24}$/.test(url) && (r.method === 'PUT' || r.method === 'DELETE')) {
+        const u = await auth.authenticate(r.token);
+        const id = url.split('/')[3];
+        if (r.method === 'DELETE') return res(200, { removed: await study.decks.remove(u.id, id) });
+        return res(200, { deck: await deckCall(async () => study.decks.rename(u.id, id, (await r.json()).name)) });
+      } else if (r.method === 'GET' && /^\/api\/decks\/[\w-]{1,24}\/words$/.test(url)) {
+        const u = await auth.authenticate(r.token);
+        const d = await study.decks.get(u.id, url.split('/')[3]);
+        if (!d) return res(404, { error: 'No such deck' });
+        const mine = new Set(d.words);
+        return res(200, { name: d.name, words: (await study.deckList(u, 'custom')).filter((w) => mine.has(w.vocabId)) });
+      } else if (r.method === 'POST' && /^\/api\/decks\/[\w-]{1,24}\/(words|import|remove)$/.test(url)) {
+        // words typed or pasted (a list, a CSV / TSV from Quizlet or Anki), or an Anki package (.apkg, base64)
+        const u = await auth.authenticate(r.token);
+        const [, , , id, what] = url.split('/');
+        if (!limiter.allow(`deck:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        if (what === 'remove') return res(200, { deck: await deckCall(async () => study.decks.removeWords(u.id, id, (await r.json()).words)) });
+        const body = await r.json(what === 'import' ? 28 * 1024 * 1024 : 512 * 1024);
+        let rows: ImportRow[];
+        if (what === 'import') {
+          if (typeof body.data !== 'string') return res(400, { error: 'No file' });
+          if (!readApkg) return res(503, { error: 'Anki files need the internet - paste the words instead' });
+          try { rows = await readApkg(body.data); } catch (e) { return res(400, { error: (e as Error).message }); }
+        } else rows = typeof body.text === 'string' ? parseList(body.text.slice(0, 400_000)) : [];
+        if (!rows.length) return res(400, { error: 'No Japanese words found in it' });
+        return res(200, await deckCall(() => study.decks.addWords(u, id, rows)));
       } else if (r.method === 'GET' && url === '/api/study/deck') {
         const u = await auth.authenticate(r.token);
         return res(200, { words: await study.deckList(u, query.get('deck')) });

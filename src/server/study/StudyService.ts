@@ -17,6 +17,7 @@ import { applyKana, cleanKana, isKanaChar, isMasteredMark, kanaCells, masteredCo
 import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress, resolveToday } from './ProgressService';
 import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
+import { UserDecks } from './UserDecks';
 import { addPlay, cleanStats, isQuizKind, mergeStats, type QuizStats } from '../../shared/quizstats';
 
 export const DAILY_NEW = 25; // default new words a day in "All spells"
@@ -64,8 +65,11 @@ export const STAR_MAX = 300;
 export class StudyService {
   readonly progress: ProgressService;
   private readonly undos = new Map<string, UndoEntry[]>();
+  /** 0.9.9.9.9.6: decks of your own */
+  readonly decks: UserDecks;
   constructor(private readonly store: Store, private readonly rng: () => number = Math.random) {
     this.progress = new ProgressService(store);
+    this.decks = new UserDecks(store, (u, b) => this.addCustom(u, b));
   }
 
   async profile(u: UserRecord, now = clockNow()): Promise<Profile> {
@@ -561,11 +565,13 @@ export class StudyService {
   }
 
   /** Cards to study now, Anki order: (re)learning due → reviews due → new. */
-  async queue(u: UserRecord, deck: Deck, now = clockNow(), limit = 500, today = resolveToday(undefined, now)): Promise<StudyItem[]> { // 0.9.9.4.3: was 60 — a big day came in two sessions
+  async queue(u: UserRecord, deck: Deck, now = clockNow(), limit = 500, today = resolveToday(undefined, now), set?: string | null): Promise<StudyItem[]> { // 0.9.9.4.3: was 60 — a big day came in two sessions
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
     const custom = await this.words(u.id);
     if (deck === 'ono') await this.fillOno(u.id);
-    const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck && !!this.info(c.vocabId, custom));
+    // (0.9.9.9.9.6: one of your own decks — its words, in My words)
+    const only = set ? new Set((await this.decks.get(u.id, set))?.words ?? []) : null;
+    const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck && !!this.info(c.vocabId, custom) && (!only || only.has(c.vocabId)));
     const rank = (c: SrsCard) => (c.state === 'learning' || c.state === 'relearning' ? 0 : c.state === 'review' ? 1 : 2);
     // Onomatopoeia: the deck holds every word; new ones come as many a day as you set (0.9.9.7), in your own fixed order
     const onoNew = deck === 'ono' ? this.onoLeft((await this.store.findById(u.id)) ?? u, today) : 0;

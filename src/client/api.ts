@@ -16,6 +16,8 @@ export interface LadderRow extends RankView { id: string; name: string; login: s
 export interface LadderView { top: LadderRow[]; me: RankView & { id: string }; friends: LadderRow[] }
 /** 0.9.9.9.9.5: a replay saved to your account */
 export interface SavedReplay { id: string; savedAt: number; at: number; mode: string; label: string }
+/** 0.9.9.9.9.6: a GIF to send */
+export interface GifItem { id: string; url: string; w: number; h: number; preview: string }
 export interface ReplayView { v: 1; mode: string; at: number; tape: Array<[number, PlayerId | null, ServerMessage]> }
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
@@ -142,7 +144,16 @@ export const api = {
   setBackground: (background: BackgroundId) => call<{ profile: Profile }>('PUT', '/api/me/background', { background }),
   study: () => call<StudySummary>('GET', `/api/study?today=${today()}`),
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),
-  queue: (deck: DeckId) => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}&today=${today()}`),
+  queue: (deck: DeckId, set?: string) => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}${set ? `&set=${encodeURIComponent(set)}` : ''}&today=${today()}`),
+  // 0.9.9.9.9.6: decks of your own
+  userDecks: () => call<{ decks: Array<{ id: string; name: string; count: number; due: number; fresh: number }> }>('GET', '/api/decks'),
+  userDeckCreate: (name: string) => call<{ deck: { id: string; name: string } }>('POST', '/api/decks', { name }),
+  userDeckRename: (id: string, name: string) => call<{ deck: { id: string; name: string } }>('PUT', `/api/decks/${encodeURIComponent(id)}`, { name }),
+  userDeckDelete: (id: string) => call<{ removed: boolean }>('DELETE', `/api/decks/${encodeURIComponent(id)}`),
+  userDeckWords: (id: string) => call<{ name: string; words: DeckRow[] }>('GET', `/api/decks/${encodeURIComponent(id)}/words`),
+  userDeckAdd: (id: string, text: string) => call<{ added: number; skipped: Array<{ line: number; word: string; why: string }> }>('POST', `/api/decks/${encodeURIComponent(id)}/words`, { text }),
+  userDeckImport: (id: string, data: string) => call<{ added: number; skipped: Array<{ line: number; word: string; why: string }> }>('POST', `/api/decks/${encodeURIComponent(id)}/import`, { data }),
+  userDeckRemove: (id: string, words: string[]) => call<{ deck: unknown }>('POST', `/api/decks/${encodeURIComponent(id)}/remove`, { words }),
   review: (vocabId: string, rating: Rating, deck: DeckId = 'all') => call<{ crit: number; xp?: number }>('POST', '/api/study/review', { vocabId, rating, deck, today: today(), tz: new Date().getTimezoneOffset() }),
   undo: (vocabId: string, deck: DeckId = 'all') => call<{ crit: number }>('POST', '/api/study/undo', { vocabId, deck }),
   deckWords: (deck: DeckId) => call<{ words: DeckRow[] }>('GET', `/api/study/deck?deck=${deck}`),
@@ -205,6 +216,9 @@ export const api = {
   messagesUnread: () => call<{ unread: number; support?: number }>('GET', '/api/messages/unread'),
   thread: (other: string, support = false, before?: number) => call<{ messages: DmView[]; with: Conversation | null; people?: Record<string, { name: string; pic: string | null; login: string }> }>('GET', `/api/messages/${encodeURIComponent(other)}?${support ? 'as=support&' : ''}${before ? `before=${before}` : ''}`),
   sendMessage: (other: string, text: string, support = false, media?: string) => call<{ message: DmView }>('POST', `/api/messages/${encodeURIComponent(other)}${support ? '?as=support' : ''}`, { text, ...(media ? { media } : {}) }),
+  // 0.9.9.9.9.6: GIFs (GIPHY, through our server)
+  gifs: (q: string, offset = 0, lang = 'en') => call<{ gifs: GifItem[] }>('GET', `/api/gifs?q=${encodeURIComponent(q)}&offset=${offset}&lang=${lang}`),
+  sendGif: (other: string, gif: string, support = false) => call<{ message: DmView }>('POST', `/api/messages/${encodeURIComponent(other)}${support ? '?as=support' : ''}`, { text: '', gif }),
   // 0.9.9.9.6.4: the messenger, like Telegram
   setNotify: (who: string, mode: NotifyMode) => call<{ notify: NotifyMode }>('PUT', '/api/messages/notify', { who, mode }),
   uploadPhoto: (image: string) => call<{ id: string; url: string }>('POST', '/api/messages/media', { image }),
@@ -235,6 +249,9 @@ export const api = {
   /** 0.9.9.9.5: the Kana section's stars (only the kana that changed) */
   saveKana: (changes: KanaProgress) => call<{ kana: KanaProgress; xp: number }>('PUT', '/api/kana', { kana: changes, today: today() }),
   progress: () => call<ProgressPage>('GET', `/api/progress?today=${today()}`),
+  // 0.9.9.9.9.6: the dictionary's draw-a-kanji search
+  paintKanji: (ch: string) => call<{ url: string }>('POST', `/api/kanji-pic/${encodeURIComponent(ch)}`), // 0.9.9.9.9.6: an AI memory picture
+  recognize: (strokes: number[][][]) => call<{ chars: string[] }>('POST', '/api/recognize', { strokes }),
   strokes: (chars: string) => call<{ strokes: Record<string, number[][][] | null> }>('GET', `/api/strokes?k=${encodeURIComponent(chars)}`),
   daily: () => call<DailyOverview>('GET', `/api/daily?today=${today()}`), // (0.9.9.9.5: your own date)
   dailyStart: () => call<{ word: DailyWord }>('POST', '/api/daily/start', { today: today() }),

@@ -1,0 +1,265 @@
+// 0.9.9.9.9.6: decks of your own (and Anki / Quizlet imports), the dictionary's synonyms / antonyms / drawing / decks,
+// where a written kanji went wrong, GIFs, AI memory pictures, the HP drain, one-step Back, two daily tasks, ranked
+// Rapid and Deck Duel only, and the round of fixes.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { deflateRawSync } from 'node:zlib';
+import { MemoryStore } from '../src/server/db/Store';
+import { StudyService } from '../src/server/study/StudyService';
+import { parseList, rowOf, USER_DECKS_MAX } from '../src/server/study/UserDecks';
+import { readApkg, unzip } from '../src/server/study/apkg';
+import { compareStrokes } from '../src/client/strokes';
+import { antonymsOf, Dictionary } from '../src/shared/dict';
+import { DAILY_TASKS } from '../src/shared/progress';
+import { Gifs, GIF_URL } from '../src/server/gifs';
+import { MnemonicPictures, mnemonicPrompt, PER_PLAYER_DAY } from '../src/server/mnemonics';
+import { VERSION } from '../src/shared/version';
+
+const src = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
+
+test('0.9.9.9.9.6 version and patch notes', () => {
+  assert.equal(VERSION, '0.9.9.9.9.6');
+  const wn = src('src/client/whatsnew.ts');
+  assert.ok(wn.indexOf("v: '0.9.9.9.9.6'") < wn.indexOf("v: '0.9.9.9.9.5'"), 'the newest first');
+});
+
+// ── decks of your own ──
+test('0.9.9.9.9.6 reading an import: a pasted list, Quizlet / Anki text, Anki furigana', () => {
+  assert.deepEqual(rowOf(['先生', 'せんせい', 'teacher']), { kanji: '先生', reading: 'せんせい', meaning: 'teacher' });
+  assert.deepEqual(rowOf(['teacher', '先生[せんせい]']), { kanji: '先生', reading: 'せんせい', meaning: 'teacher' }, 'Anki furigana, the meaning first');
+  assert.deepEqual(rowOf(['<b>猫</b>', 'ねこ', 'cat<br>a pet']), { kanji: '猫', reading: 'ねこ', meaning: 'cat a pet' }, 'HTML taken out');
+  assert.equal(rowOf(['hello', 'world']), null, 'no Japanese: nothing');
+  const rows = parseList('#separator:tab\n先生\tせんせい\tteacher\n勉強; べんきょう; study\n猫, ねこ, cat\n水 みず water\n\nnot japanese');
+  assert.deepEqual(rows.map((r) => [r.kanji, r.reading, r.meaning]), [['先生', 'せんせい', 'teacher'], ['勉強', 'べんきょう', 'study'], ['猫', 'ねこ', 'cat'], ['水', 'みず', 'water']]);
+});
+
+test('0.9.9.9.9.6 your own decks: make, fill, study only its cards, rename, remove; a word the dictionary knows needs no reading', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'decky', passwordHash: 'x', role: 'user' });
+  const d = await study.decks.create(u.id, '  Genki   3 ');
+  assert.equal(d.name, 'Genki 3');
+  await assert.rejects(study.decks.create(u.id, '   '), /name/);
+  const r = await study.decks.addWords(u, d.id, [{ kanji: '先生', reading: '', meaning: '' }, { kanji: '魔法陣', reading: 'まほうじん', meaning: 'magic circle' }, { kanji: '謎語', reading: '', meaning: 'x' }]);
+  assert.equal(r.added, 2);
+  assert.equal(r.skipped.length, 1, 'a word not in the dictionary and without a reading is skipped, and said why');
+  const again = await study.decks.addWords(u, d.id, [{ kanji: '先生', reading: '', meaning: '' }]);
+  assert.equal(again.added, 0, 'no doubles');
+  // studying it: only its cards (they are in My words)
+  const other = await study.addCustom(u, { kanji: '本', reading: 'ほん', meaning: 'book' });
+  const all = await study.queue(u, 'custom');
+  const mine = await study.queue(u, 'custom', undefined, undefined, undefined, d.id);
+  assert.ok(all.some((c) => c.vocabId === other.word.id));
+  assert.equal(mine.length, 2);
+  assert.ok(!mine.some((c) => c.vocabId === other.word.id));
+  assert.equal((await study.decks.rename(u.id, d.id, 'Genki ch. 3')).name, 'Genki ch. 3');
+  const w0 = (await study.decks.get(u.id, d.id))!.words[0];
+  assert.equal((await study.decks.removeWords(u.id, d.id, [w0])).words.length, 1);
+  assert.equal(await study.decks.remove(u.id, d.id), true);
+  assert.equal((await study.decks.list(u.id)).length, 0);
+  assert.ok(USER_DECKS_MAX >= 10);
+  // the account goes: its decks go too
+  await study.decks.create(u.id, 'x');
+  await store.deleteUser(u.id);
+  assert.equal(await store.getValue(`udecks:${u.id}`), null);
+});
+
+/** a minimal zip (stored entries) of the given files */
+function zip(files: Record<string, Buffer>, deflate = false): Buffer {
+  const parts: Buffer[] = [], central: Buffer[] = [];
+  let off = 0;
+  for (const [name, raw] of Object.entries(files)) {
+    const data = deflate ? deflateRawSync(raw) : raw;
+    const n = Buffer.from(name);
+    const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(deflate ? 8 : 0, 8); local.writeUInt32LE(data.length, 18); local.writeUInt32LE(raw.length, 22); local.writeUInt16LE(n.length, 26);
+    const c = Buffer.alloc(46); c.writeUInt32LE(0x02014b50, 0); c.writeUInt16LE(deflate ? 8 : 0, 10); c.writeUInt32LE(data.length, 20); c.writeUInt32LE(raw.length, 24); c.writeUInt16LE(n.length, 28); c.writeUInt32LE(off, 42);
+    parts.push(local, n, data); central.push(c, n);
+    off += 30 + n.length + data.length;
+  }
+  const cd = Buffer.concat(central);
+  const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(Object.keys(files).length, 8); end.writeUInt16LE(Object.keys(files).length, 10); end.writeUInt32LE(cd.length, 12); end.writeUInt32LE(off, 16);
+  return Buffer.concat([...parts, cd, end]);
+}
+
+test('0.9.9.9.9.6 an Anki deck file (.apkg): its notes read as words', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const dir = mkdtempSync(join(tmpdir(), 'kw-apkg-test-'));
+  try {
+    const file = join(dir, 'c.db');
+    const db = new DatabaseSync(file);
+    db.exec('create table notes (id integer primary key, flds text)');
+    const ins = db.prepare('insert into notes (id, flds) values (?, ?)');
+    ins.run(1, ['先生[せんせい]', 'teacher'].join('\u001f'));
+    ins.run(2, ['<div>水</div>', 'みず', 'water'].join('\u001f'));
+    ins.run(3, ['no japanese here', 'x'].join('\u001f'));
+    db.close();
+    const bytes = readFileSync(file);
+    for (const deflate of [false, true]) {
+      const rows = await readApkg(zip({ 'collection.anki2': bytes, media: Buffer.from('{}') }, deflate));
+      assert.deepEqual(rows.map((r) => [r.kanji, r.reading, r.meaning]), [['先生', 'せんせい', 'teacher'], ['水', 'みず', 'water']]);
+    }
+    assert.equal(unzip(zip({ a: Buffer.from('x') }), () => true).get('a')?.toString(), 'x');
+    await assert.rejects(readApkg(Buffer.from('not a zip at all, just some text that is long enough')), /zip/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('0.9.9.9.9.6 deck routes and the Study page: Dictionary, New deck, Import; the .apkg reader kept out of the offline app', () => {
+  const r = src('src/server/router.ts');
+  for (const x of ["url === '/api/decks'", '\\/(words|import|remove)$/', "query.get('set')"]) assert.ok(r.includes(x), x);
+  assert.ok(!r.includes("from './study/apkg'"), 'router.ts is in the offline bundle: node:sqlite comes in from index.ts');
+  assert.ok(src('src/server/index.ts').includes("readApkg: (b64) => readApkg(Buffer.from(b64, 'base64'))"));
+  const html = src('public/index.html');
+  for (const id of ['studyDict', 'studyNewDeck', 'studyImport', 'userDecks']) assert.ok(html.includes(`id="${id}"`), id);
+});
+
+// ── the dictionary ──
+test('0.9.9.9.9.6 the dictionary: synonyms, antonyms (JMdict and the common ones), related words, by spelling', () => {
+  const d = new Dictionary(JSON.parse(readFileSync('public/dict.json', 'utf8')), JSON.parse(readFileSync('data/vocab.json', 'utf8')));
+  const atsui = d.byText('暑い')!;
+  assert.ok(atsui);
+  assert.ok(antonymsOf(atsui).includes('寒い'));
+  const ookii = d.byText('大きい')!;
+  assert.ok(antonymsOf(ookii).includes('小さい'), 'a common opposite JMdict has no link for');
+  assert.ok(antonymsOf(d.byText('小さい')!).includes('大きい'), 'both ways');
+  const syn = d.synonymsOf(d.byText('始める')!, 8).map((e) => e.kanji[0] ?? e.kana[0]);
+  assert.ok(syn.length >= 3 && !syn.includes('始める'));
+  const data = JSON.parse(readFileSync('public/dict.json', 'utf8')) as { words: Array<{ a?: string[]; y?: string[] }> };
+  assert.ok(data.words.filter((w) => w.a).length > 300 && data.words.filter((w) => w.y).length > 3000, 'the build keeps JMdict\'s links');
+  assert.ok(src('scripts/build-dict.mjs').includes('for (const x of s.antonym ?? [])'));
+});
+
+test('0.9.9.9.9.6 the dictionary: in your deck (green), full screen with Exit back, drawing a kanji to look it up', () => {
+  const ui = src('src/client/dictui.ts');
+  assert.ok(ui.includes("row.append(h('span', 'dw-tag in-deck', d, { title: tr('In your deck') }))"));
+  assert.ok(ui.includes("if (syn.length) sec('Synonyms')") && ui.includes("if (ant.length) sec('Antonyms')"));
+  assert.ok(ui.includes('export function openDictionary(q = \'\')') && ui.includes("$('dictBack').onclick = () => { const to = returnTo;"));
+  assert.ok(ui.includes('const r = await api.recognize(strokes);'));
+  const rail = src('src/client/dictrail.ts');
+  assert.ok(rail.includes("$('dictRailFull').onclick") && rail.includes("$('dictRailDraw').onclick"));
+  const r = src('src/server/router.ts');
+  assert.ok(r.includes("recognize && r.method === 'POST' && url === '/api/recognize'"));
+  assert.ok(r.includes('raw.strokes.length <= 40'), 'a drawing is checked before it is read');
+  assert.ok(src('public/style.css').includes('.dw-tag.in-deck { background: rgba(53, 214, 138, .16); color: #4ee6a6;'));
+});
+
+// ── where a written kanji went wrong ──
+test('0.9.9.9.9.6 a written kanji: each stroke compared with the right one, by order', () => {
+  // 十: a horizontal stroke, then a vertical one
+  const ref = [[[10, 50], [90, 50]], [[50, 10], [50, 90]]];
+  assert.deepEqual(compareStrokes(ref, ref), ['ok', 'ok']);
+  assert.deepEqual(compareStrokes(ref, [[[12, 52], [88, 49]], [[51, 12], [49, 88]]]), ['ok', 'ok'], 'a shaky copy is fine');
+  assert.deepEqual(compareStrokes(ref, [[[90, 50], [10, 50]], [[50, 10], [50, 90]]]), ['backwards', 'ok'], 'drawn the wrong way');
+  assert.deepEqual(compareStrokes(ref, [[[50, 10], [50, 90]], [[10, 50], [90, 50]]]), ['off', 'off'], 'the wrong order');
+  assert.deepEqual(compareStrokes(ref, [[[10, 50], [90, 50]]]), ['ok', 'missing']);
+  assert.deepEqual(compareStrokes(ref, [...ref, [[10, 10], [20, 20]]]), ['ok', 'ok', 'extra']);
+  const ui = src('src/client/ui.ts');
+  assert.ok(ui.includes('void showStrokeCompare(cmp, word, ink)'));
+  assert.ok(src('src/client/main.ts').includes('ui.noteInk(written[0]);'), 'the strokes sent (Kanji Writing and Deck Duel use the same pad)');
+});
+
+// ── GIFs ──
+test('0.9.9.9.9.6 GIFs: searched through the server (GIPHY), only GIPHY pictures sent, the CSP lets them show', async () => {
+  assert.ok(GIF_URL.test('https://media2.giphy.com/media/abc123/200.webp'));
+  assert.ok(!GIF_URL.test('https://evil.example/media/abc.gif'));
+  assert.ok(!GIF_URL.test('https://media.giphy.com/media/abc/200.gif?x=1'), 'no query');
+  let asked = '';
+  const fake = (async (u: URL) => { asked = String(u); return new Response(JSON.stringify({ data: [{ id: 'g1', images: { fixed_height: { webp: 'https://media1.giphy.com/media/g1/200.webp?cid=1', width: '300', height: '200' }, fixed_height_small: { webp: 'https://media1.giphy.com/media/g1/100.webp' } } }, { id: 'bad', images: { fixed_height: { url: 'https://evil.example/x.gif' } } }] }), { status: 200 }); }) as unknown as typeof fetch;
+  const g = new Gifs('KEY', fake);
+  const items = await g.search('cat', 0, 'en');
+  assert.deepEqual(items.map((x) => [x.id, x.url, x.w]), [['g1', 'https://media1.giphy.com/media/g1/200.webp', 300]]);
+  assert.ok(asked.includes('api_key=KEY') && asked.includes('q=cat') && asked.includes('rating=pg-13'));
+  asked = '';
+  await g.search('cat', 0, 'en');
+  assert.equal(asked, '', 'cached');
+  const ms = src('src/server/study/MessageService.ts');
+  assert.ok(ms.includes("const gif = typeof extra.gif === 'string' && GIF_URL.test(extra.gif) ? extra.gif : null;"));
+  assert.ok(src('src/server/security.ts').includes('https://media.giphy.com'));
+  assert.ok(src('src/server/index.ts').includes('process.env.GIPHY_API_KEY ? { gifs: new Gifs('), 'off without a key');
+  assert.ok(src('public/privacy.html').includes('<b>GIPHY</b>'));
+});
+
+// ── AI memory pictures ──
+test('0.9.9.9.9.6 AI memory pictures: painted once per kanji, kept, a daily cap; the prompt has no kanji in it', async () => {
+  const p = mnemonicPrompt('Country', 'A jewel 玉 kept safe inside a border 囗 — a country guards its treasure.');
+  assert.ok(!/[\p{Script=Han}]/u.test(p) && /no text/i.test(p));
+  const store = new MemoryStore();
+  let calls = 0;
+  const fake = (async () => { calls++; return new Response(JSON.stringify({ data: [{ b64_json: Buffer.alloc(5000, 7).toString('base64') }] }), { status: 200 }); }) as unknown as typeof fetch;
+  const pics = new MnemonicPictures(store, { key: 'k', story: (ch) => (ch === '国' || ch === '日' ? { en: 'a story', meaning: 'x' } : null), fetcher: fake, dailyCap: 100, today: () => '2026-11-26' });
+  const [a, b] = await Promise.all([pics.paint('国', 'u1'), pics.paint('国', 'u2')]);
+  assert.ok(a.ok && b.ok);
+  assert.equal(calls, 1, 'two asking at once: painted once');
+  assert.equal((await pics.picture('国'))?.mime, 'image/webp');
+  await pics.paint('国', 'u1');
+  assert.equal(calls, 1, 'kept: never painted again');
+  assert.deepEqual(await pics.paint('木', 'u1'), { ok: false, why: 'none' }, 'no story: no picture');
+  // a player's day
+  const many = new MnemonicPictures(new MemoryStore(), { key: 'k', story: () => ({ en: 's', meaning: 'm' }), fetcher: fake, today: () => '2026-11-26' });
+  const kanji = '一二三四五六七八九十百千'.slice(0, PER_PLAYER_DAY + 1);
+  const res = [];
+  for (const ch of kanji) res.push(await many.paint(ch, 'same'));
+  assert.deepEqual(res.at(-1), { ok: false, why: 'limit' });
+  assert.ok(src('src/server/index.ts').includes('process.env.MNEMONIC_IMAGE_KEY ? { mnemonics: new MnemonicPictures('), 'off without its own key');
+  assert.ok(src('src/client/kanjihelp.ts').includes('void aiPicture(ch, pic);'));
+  assert.ok(src('docs/SETUP.md').includes('`MNEMONIC_IMAGE_KEY`'));
+});
+
+// ── the rest ──
+test('0.9.9.9.9.6 the daily streak: two tasks (a quiz, the daily challenge) — no study count, no battle step; kept: a moment with the flame', () => {
+  assert.deepEqual(DAILY_TASKS.map((t) => t.id), ['practice', 'daily']);
+  const dt = src('src/client/dailytasks.ts');
+  assert.ok(dt.includes("const TODAY_ORDER = ['practice', 'daily'] as const;"));
+  assert.ok(dt.includes('celebrateMoment((box) => {') && dt.includes("fl.classList.add('burst', 'sk-flame');"));
+});
+
+test('0.9.9.9.9.6 ranked: Rapid and Deck Duel only; the queue\'s mode rules open from the (!) only', () => {
+  assert.ok(src('src/server/Matchmaker.ts').includes("room.ranked = mode === 'rapid' || mode === 'deck';"));
+  const q = src('src/client/queue.ts');
+  assert.ok(q.includes("info.addEventListener('click', toggle);"));
+  assert.ok(!q.includes("el.addEventListener('focusin', open);"), 'picking a mode no longer opens it');
+});
+
+test('0.9.9.9.9.6 HP drain, one-step Back, the profile\'s friend buttons, the sword\'s left hand, no mouse look in replays', () => {
+  const ui = src('src/client/ui.ts');
+  assert.ok(ui.includes('export function drainGhost(bar: HTMLElement, pct: number, key: string) {'));
+  assert.ok(ui.includes("thickBar(boss.hp, boss.maxHp, 'enemy', `${boss.hp} / ${boss.maxHp}`, 'boss')"));
+  assert.ok(src('src/client/deckui.ts').includes('ui.drainGhost(b, pct, key);'));
+  const nav = src('src/client/nav.ts');
+  assert.ok(nav.includes("else if ((on || s === 'menu' || s === 'results') && trail[trail.length - 1] !== s)"));
+  assert.ok(src('src/client/appshell.ts').includes("const navBack = document.querySelector<HTMLElement>('body.has-nav .app-nav:not([hidden]) .an-back');"));
+  assert.ok(src('src/client/main.ts').includes('await api.addFriend(p.login ?? p.name)'), 'by login, not the nickname');
+  assert.ok(ui.includes("if (!(await confirmBox('Remove friend?',"));
+  const pv = src('src/client/playerview.ts');
+  assert.ok(pv.includes("await ui.confirmBox('Block this player?'") && !pv.includes('!confirm('));
+  const a3 = src('src/client/arena3d.ts');
+  assert.ok(a3.includes('fpLeft.position.y = swordMe ? -0.115 : 0.26;') && a3.includes('if (swordMe && now - thrustAt < SWING_MS) fpLeft.visible = false;'));
+  assert.ok(a3.includes('if (document.body.dataset.watch) { mouse.set(0, 0); return; }'));
+});
+
+test('0.9.9.9.9.6 the round of fixes: light theme text, Progress filter, the menu\'s own scroll on phones, arena picture, replay bar, invite rows, the dictionary on study cards', () => {
+  const css = src('public/style.css');
+  assert.ok(css.includes(':root[data-theme="light"] body.has-nav .screen, :root[data-theme="light"] .mc-nav-btn {'));
+  assert.ok(css.includes('#progress .mg-filters .mg-f.on, .mg-filters .mg-f.on { background: var(--accent) !important;'));
+  assert.ok(css.includes('body[data-screen="menu"] #menu { height: calc(100 * var(--dvh)); min-height: 0; overflow-y: auto;'));
+  assert.ok(css.includes(':is(.lk-slot, .look-slot) .lk-pic > .bg-thumb { position: absolute !important; inset: 0;'));
+  assert.ok(css.includes('.wb-time .wb-track { order: 9; flex: 1 1 100%;'));
+  assert.ok(css.includes('.li-row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto;'));
+  assert.ok(css.includes('body[data-screen="review"] #dictFab:not([hidden]) { display: grid !important;'));
+  assert.ok(src('src/client/friendsui.ts').includes("const who = el('div', 'li-who');"));
+});
+
+test('0.9.9.9.9.6 GIF pictures come through our server (GIPHY is blocked in some countries) — only GIPHY media', async () => {
+  const asked: string[] = [];
+  const fake = (async (u: string) => { asked.push(String(u)); return new Response(new Uint8Array(2000), { status: 200, headers: { 'content-type': 'image/webp' } }); }) as unknown as typeof fetch;
+  const g = new Gifs('KEY', fake);
+  assert.equal((await g.media('media2', 'media/abc123/200.webp'))?.mime, 'image/webp');
+  assert.deepEqual(asked, ['https://media2.giphy.com/media/abc123/200.webp']);
+  assert.equal(await g.media('evil', 'media/abc123/200.webp'), null, 'only GIPHY hosts');
+  assert.equal(await g.media('media', '../../etc/passwd'), null);
+  assert.equal(asked.length, 1);
+  assert.ok(src('src/client/inbox.ts').includes('img.src = gifSrc(m.text);') && src('src/client/gifpicker.ts').includes('img.src = gifSrc(g.preview || g.url);'));
+  assert.ok(src('src/server/router.ts').includes("url.startsWith('/api/gif-media/')"));
+});

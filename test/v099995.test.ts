@@ -59,8 +59,7 @@ test('0.9.9.9.9.5 the Privacy policy and the Terms: pages of their own, linked f
 });
 
 test('0.9.9.9.9.5 version and patch notes', () => {
-  assert.equal(VERSION, '0.9.9.9.9.5');
-  assert.ok(src('src/client/whatsnew.ts').includes("v: '0.9.9.9.9.5'"));
+  assert.ok(src('src/client/whatsnew.ts').includes("v: '0.9.9.9.9.5'")); // (0.9.9.9.9.6 is the version now)
 });
 
 test('0.9.9.9.9.5 the Channel pose: each hand aimed by where it really is on the arm, the grips from the model’s own shoulders', () => {

@@ -571,13 +571,11 @@ test('daily streak (0.9.9.3): a day counts once all the tasks are done (0.9.9.7.
   };
   u = await study.touchLogin(u, '2026-10-01');
   assert.equal(u.streak, 0, 'a login alone is not a streak day');
-  await study.progress.record(u.id, '2026-10-01', { reviews: 9 });
+  // (0.9.9.9.9.6: two tasks — a quiz or a passage, and the daily challenge; studying spells isn't one any more)
   await study.recordTask(u, 'quiz', '2026-10-01');
-  await study.progress.record(u.id, '2026-10-01', { challenges: 1 });
-  await study.recordTask(u, 'passage', '2026-10-01');
   u = (await store.findById(u.id))!;
-  assert.equal(u.streak, 0, '9 spells studied: not yet');
-  await study.progress.record(u.id, '2026-10-01', { reviews: 1 });
+  assert.equal(u.streak, 0, 'the quiz alone: not yet');
+  await study.progress.record(u.id, '2026-10-01', { challenges: 1 });
   u = (await store.findById(u.id))!;
   assert.deepEqual([u.streak, u.bestStreak], [1, 1]);
   assert.equal(u.xp, 500, 'a kept streak day gives 500 XP');
@@ -589,9 +587,9 @@ test('daily streak (0.9.9.3): a day counts once all the tasks are done (0.9.9.7.
   await allTasks('2026-10-07'); // missed days
   assert.deepEqual([u.streak, u.bestStreak], [1, 3]);
   const tasks = await study.progress.tasks(u.id, '2026-10-08');
-  assert.deepEqual(tasks.map((t) => [t.id, t.value]), [['learn', 0], ['practice', 0], ['daily', 0]]);
+  assert.deepEqual(tasks.map((t) => [t.id, t.value]), [['practice', 0], ['daily', 0]]);
   // either one is enough
-  await study.progress.record(u.id, '2026-10-08', { reviews: 10, challenges: 1 });
+  await study.progress.record(u.id, '2026-10-08', { challenges: 1 });
   await study.recordTask(u, 'passage', '2026-10-08');
   assert.ok((await study.progress.tasks(u.id, '2026-10-08')).every((t) => t.value >= t.target));
   await assert.rejects(study.recordTask(u, 'hack', '2026-10-08'));

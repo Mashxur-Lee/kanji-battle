@@ -7,6 +7,37 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.9.6', date: '2026-11',
+    en: [
+      'Your own decks in Study spells: make one, name it and fill it - type or paste a list, or import a Quizlet / Anki text export or an Anki deck file (.apkg) straight from AnkiDroid. Each deck is studied on its own, with the same spaced repetition.',
+      'The dictionary: synonyms, antonyms and related words for every word; a word already in one of your decks says which one, in green; look a kanji up by drawing it; and a full-screen button in the side panel (and on Study spells) opens the big dictionary, with Exit back to where you were.',
+      'Kanji Writing and Deck Duel: a miss shows your strokes beside the right ones - each stroke in the wrong place or drawn the wrong way in red and numbered, the missing ones dashed.',
+      'GIFs in Messages: search, send, and tap a GIF in a chat to add it to your GIFs.',
+      'Memory pictures can be painted by an AI: the first time anyone opens a kanji’s picture, a picture of its story is made and kept for everyone.',
+      'A hit’s share of the HP bar flashes white, then slides down.',
+      'Back goes exactly one step back (the phone’s back button too), not to the menu.',
+      'Ranked is Rapid and Deck Duel only; Reading and Writing from the online queue are friendly games. The mode descriptions open only from the blue (!).',
+      'The daily streak needs two tasks: a quiz and the Daily challenge (no study count, no battle). Keeping it shows a moment of its own - the flame bursting with the day count.',
+      'Profiles: Add friend sends the request again (it looked people up by their nickname); Remove friend and Block ask first, in the game’s own window, and Block is red.',
+      'A sword held in both hands grips the handle, and a cut is one-handed.',
+      'Fixed: the light theme’s pale text on pale pages; Progress’s chosen filter turning black on phones; the dictionary missing while studying cards on phones; the arena picture in Customize; the replay bar running off a phone; a long friend name pushing Invite out of the room; the menu scrolling into empty space after Messages; the view following the mouse in replays.',
+    ],
+    ru: [
+      'Свои колоды в «Изучении заклинаний»: создайте, назовите и наполните — введите или вставьте список, импортируйте текстовый экспорт Quizlet / Anki или файл колоды Anki (.apkg) прямо из AnkiDroid. Каждая колода изучается отдельно, с тем же интервальным повторением.',
+      'Словарь: синонимы, антонимы и связанные слова; если слово уже в вашей колоде — видно, в какой (зелёным); поиск кандзи рисованием; кнопка «во весь экран» в боковой панели (и в «Изучении заклинаний») открывает большой словарь, а «Выйти» возвращает туда, где вы были.',
+      'Написание кандзи и Дуэль колод: при ошибке ваши черты показаны рядом с правильными — черта не на месте или в обратную сторону подсвечена красным с номером, недостающие — пунктиром.',
+      'GIF в сообщениях: поиск, отправка, а нажатие на GIF в чате добавляет его в ваши GIF.',
+      'Картинки-подсказки может рисовать ИИ: когда кто-то впервые открывает картинку кандзи, по его истории рисуется картинка и сохраняется для всех.',
+      'Отнятая ударом часть полоски HP вспыхивает белым и плавно сползает.',
+      '«Назад» возвращает ровно на шаг (и кнопка «назад» телефона), а не в меню.',
+      'Рейтинговые — только Блиц и Дуэль колод; Чтение и Написание из онлайн-поиска — дружеские игры. Описание режима открывается только синей (!).',
+      'Для серии нужны два задания: тест и Ежедневный вызов (без счёта изученных слов и без боя). Сохранённая серия — отдельный момент: вспыхивает пламя с номером дня.',
+      'Профили: «Добавить в друзья» снова отправляет заявку (поиск шёл по нику); «Удалить из друзей» и «Заблокировать» сначала спрашивают — в окне самой игры, а «Заблокировать» красная.',
+      'Меч в обеих руках держится за рукоять, а удар — одной рукой.',
+      'Исправлено: бледный текст на светлых страницах в светлой теме; выбранный фильтр в «Прогрессе», черневший на телефонах; словарь при изучении карточек на телефонах; картинка арены в «Облике»; полоса повтора за краем телефона; длинное имя друга, выталкивавшее «Пригласить» из комнаты; меню, прокручивавшееся в пустоту после сообщений; камера за мышью в повторах.',
+    ],
+  },
+  {
     v: '0.9.9.9.9.5', date: '2026-11',
     en: [
       'Phones: the tabs along the bottom are Home, Battles, Study, Daily and Progress - and More opens everything else (Quizzes, Kana, Customize, History, Messages, Settings).',

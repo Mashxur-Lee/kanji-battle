@@ -199,6 +199,9 @@ export interface Store {
   /** false: already saved */
   addSavedReplay(userId: string, r: SavedReplay): Promise<boolean>;
   removeSavedReplay(userId: string, replayId: string): Promise<boolean>;
+  /** 0.9.9.9.9.6: a kanji's AI memory picture (made once, for everyone) */
+  mnemonicPic(ch: string): Promise<{ mime: string; data: Buffer } | null>;
+  saveMnemonicPic(ch: string, mime: string, data: Buffer): Promise<void>;
   close?(): Promise<void>;
 }
 
@@ -291,6 +294,7 @@ export class MemoryStore implements Store {
     this.members = this.members.filter((m) => m.userId !== id);
     this.dms = this.dms.filter((m) => m.fromId !== id && m.toId !== id);
     this.saved.delete(id);
+    this.values.delete(`udecks:${id}`); // (0.9.9.9.9.6: their own decks)
     this.persist();
     return true;
   }
@@ -582,6 +586,10 @@ export class MemoryStore implements Store {
     for (const [id] of old) this.replays.delete(id);
     return old.length;
   }
+  // 0.9.9.9.9.6: the AI memory pictures
+  protected mnemonicPics = new Map<string, { mime: string; data: Buffer }>();
+  async mnemonicPic(ch: string) { return this.mnemonicPics.get(ch) ?? null; }
+  async saveMnemonicPic(ch: string, mime: string, data: Buffer) { this.mnemonicPics.set(ch, { mime, data }); }
   // 0.9.9.9.9.5: replays saved to accounts
   protected saved = new Map<string, SavedReplay[]>();
   private keptIds() { const s = new Set<string>(); for (const l of this.saved.values()) for (const r of l) s.add(r.id); return s; }

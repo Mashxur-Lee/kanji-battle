@@ -6,7 +6,7 @@ import { knowPlayer } from './mentions';
 import { viewH, viewW, zrect } from './zoom';
 import { injectBorderStyles } from './borders';
 injectBorderStyles(); // 0.9.9.9.6.1: the league frames (drawn, as a style sheet)
-import { showStrokeOrder } from './strokes';
+import { showStrokeCompare, showStrokeOrder } from './strokes';
 import type { SavedReplay } from './api';
 import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, MODES, isKanaLevel, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
@@ -719,7 +719,7 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
     const row = h('div', 'party-me' + (mine.hp <= 0 ? ' down' : ''));
     const name = append(h('div', 'pm-name'), picEl(mine.pic, 'pic', mine.border), ...(watchingNow() ? [] : [h('span', 'pm-you', 'You')]), h('span', 'n', mine.name), netBars(mine.id),
       h('span', 'combo', mine.combo >= 2 ? `×${mine.combo} combo` : ''));
-    row.append(name, thickBar(mine.hp, mine.maxHp, 'ally', mine.hp <= 0 ? 'down' : `${mine.hp} / ${mine.maxHp}`));
+    row.append(name, thickBar(mine.hp, mine.maxHp, 'ally', mine.hp <= 0 ? 'down' : `${mine.hp} / ${mine.maxHp}`, `hp:${mine.id}`));
     out.push(row);
   }
   if (mates.length) {
@@ -728,7 +728,7 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
       const row = h('div', 'party-row mate' + (p.hp <= 0 ? ' down' : ''));
       const pn = h('span', 'n', p.name);
       markProfile(pn, p);
-      row.append(append(h('div', 'pname'), pn, h('span', 'combo', p.combo >= 2 ? `×${p.combo}` : '')), thickBar(p.hp, p.maxHp, 'mate', p.hp <= 0 ? 'down' : `${p.hp}`));
+      row.append(append(h('div', 'pname'), pn, h('span', 'combo', p.combo >= 2 ? `×${p.combo}` : '')), thickBar(p.hp, p.maxHp, 'mate', p.hp <= 0 ? 'down' : `${p.hp}`, `hp:${p.id}`));
       list.append(row);
     }
     // 0.9.9.9: the teammates sit inside the same green frame as you (one party), under your bar
@@ -738,13 +738,39 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
   el.replaceChildren(...out);
 }
 
-/** A thick HP bar with the number inside it. side: ally = green, enemy = red. */
-function thickBar(hp: number, max: number, side: 'ally' | 'enemy' | 'mate', text: string) {
+// 0.9.9.9.9.6: the HP a hit takes shows white for a moment, then slides down to what is left (the owner: "the hit
+// part of their HP turns white, then slowly slides to the remaining"). The bars are drawn anew on every update, so
+// each one remembers its slide here and carries on from where it was.
+const ghosts = new Map<string, { from: number; to: number; at: number }>();
+const G_HOLD = 380, G_RUN = 650;
+const ghostAt = (g: { from: number; to: number; at: number }, t: number) => { const k = Math.max(0, Math.min(1, (t - g.at - G_HOLD) / G_RUN)); return g.from + (g.to - g.from) * (1 - (1 - k) ** 3); };
+/** A thick HP bar with the number inside it. side: ally = green, enemy = red. `key`: whose (the drain carries over). */
+function thickBar(hp: number, max: number, side: 'ally' | 'enemy' | 'mate', text: string, key?: string) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (hp / max) * 100)) : 0;
   const bar = h('div', `tbar ${side}${pct <= 25 ? ' low' : ''}`, undefined, { role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': String(max), 'aria-valuenow': String(hp) });
   const fill = h('div', 'fill'); fill.style.width = `${pct}%`;
+  if (key) drainGhost(bar, pct, key);
   bar.append(fill, h('span', 'tbar-txt', text));
   return bar;
+}
+/** the white drain behind a bar's fill (its fill must come after it) */
+export function drainGhost(bar: HTMLElement, pct: number, key: string) {
+  {
+    const t = performance.now();
+    let g = ghosts.get(key);
+    const cur = g ? ghostAt(g, t) : pct;
+    if (!g || pct >= cur) g = { from: pct, to: pct, at: t }; // (healed, or the first time: nothing to drain)
+    else if (Math.abs(pct - g.to) > 0.01) g = { from: cur, to: pct, at: t }; // a new hit: hold, then slide from here
+    ghosts.set(key, g);
+    const now = ghostAt(g, t);
+    if (now > pct + 0.01) {
+      const ghost = h('div', 'ghost');
+      ghost.style.width = `${now}%`;
+      const hold = Math.max(0, g.at + G_HOLD - t), run = Math.max(60, g.at + G_HOLD + G_RUN - t - hold);
+      ghost.animate?.([{ width: `${now}%` }, { width: `${pct}%` }], { duration: run, delay: hold, easing: 'cubic-bezier(.33, 1, .68, 1)', fill: 'forwards' });
+      bar.append(ghost);
+    }
+  }
 }
 
 function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, emptyText: string) {
@@ -756,7 +782,7 @@ function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, 
   const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic, 'pic', p.border), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`)) , h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
   // 0.9.9.9: one HP bar for every mode — thick, the numbers inside it (as in Boss Elimination and Deck Duel); green
   // for you, red for the opponent. The levels stay as a small line under it.
-  const bar = thickBar(p.hp, p.maxHp, mine ? 'ally' : 'enemy', `${p.hp} / ${p.maxHp}`);
+  const bar = thickBar(p.hp, p.maxHp, mine ? 'ally' : 'enemy', `${p.hp} / ${p.maxHp}`, `hp:${p.id}`);
   bar.setAttribute('aria-label', `${p.name} HP`);
   el.replaceChildren(name, bar, h('div', 'hpnum lvs-only', `${levelsText(p.levels)}${p.online ? '' : ' · away'}`));
 }
@@ -771,7 +797,7 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   if (battleMode === 'boss') {
     partyPanel($('meCard'), players, you);
     const bar = $('bossBar');
-    if (boss) bar.replaceChildren(h('div', 'bname', boss.name), thickBar(boss.hp, boss.maxHp, 'enemy', `${boss.hp} / ${boss.maxHp}`));
+    if (boss) bar.replaceChildren(h('div', 'bname', boss.name), thickBar(boss.hp, boss.maxHp, 'enemy', `${boss.hp} / ${boss.maxHp}`, 'boss'));
     for (const p of players) if (p.id !== you) allyEl(p.id)?.classList.toggle('onfire', p.combo >= 5);
   } else {
     fighterCard($('meCard'), me, me ? `${me.name} (you)` : '', '');
@@ -1262,8 +1288,17 @@ export function openStrokeDialog(word: string, reading: string, meaning: string)
 $('sdClose').onclick = () => $<HTMLDialogElement>('strokeDialog').close();
 
 /** Kanji Writing / Deck Duel: after a wrong or missed write, the correct strokes play quickly. */
+/** 0.9.9.9.9.6: the strokes of the last written answer (main.ts, as it is sent) — a miss shows where they went wrong */
+let lastInk: number[][][] = [];
+export function noteInk(strokes: number[][][]) { lastInk = strokes.map((s) => s.map((p) => [p[0], p[1]])); }
 export function showWrongStrokes(box: HTMLElement, word: string) {
   if (!/[\p{Script=Han}々]/u.test(word)) return;
+  if (lastInk.length) {
+    const cmp = h('div', 'fb-compare');
+    box.append(cmp);
+    const ink = lastInk; lastInk = [];
+    void showStrokeCompare(cmp, word, ink).then((ok) => { if (!ok) cmp.remove(); });
+  }
   const div = h('div', 'fb-strokes');
   box.append(div);
   const strokes = [...word].length;
@@ -1551,19 +1586,12 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     c.disabled = !a.canChallenge;
     if (!a.canChallenge) c.title = 'Finish your game first';
     c.onclick = () => { modes.hidden = !modes.hidden; clampProfileCard(); };
-    // 0.9.9.9.5.2: remove a friend — a second tap confirms (no unfriending by a stray tap)
+    // 0.9.9.9.5.2: remove a friend — asked first (0.9.9.9.9.6: in the game's own window; the second tap went unnoticed —
+    // "I press it, nothing happens, I press again and they're gone")
     const rm = actBtn('pill remove-friend-btn', 'remove', 'Remove friend');
-    const rmText = rm.querySelector('span')!;
-    let sure = 0;
     rm.onclick = async () => {
       if (!a.remove) return;
-      if (!sure) {
-        rmText.textContent = tr(`Remove ${p.name}?`); rm.title = rmText.textContent;
-        rm.classList.add('sure');
-        sure = window.setTimeout(() => { sure = 0; rmText.textContent = tr('Remove friend'); rm.title = rmText.textContent; rm.classList.remove('sure'); }, 3500);
-        return;
-      }
-      clearTimeout(sure);
+      if (!(await confirmBox('Remove friend?', `Remove ${p.name} from your friends?`, 'Remove', 'Cancel'))) return;
       rm.disabled = true;
       try { await a.remove(); hideProfileCard(); toast(tr(`${p.name} is no longer your friend`)); }
       catch (e) { msg.textContent = (e as Error).message; rm.disabled = false; }

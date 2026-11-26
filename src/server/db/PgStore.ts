@@ -187,6 +187,8 @@ export class PgStore implements Store {
         primary key (user_id, replay_id)
       )`;
     await this.sql`create index if not exists kw_saved_replays_id on kw_saved_replays (replay_id)`;
+    // 0.9.9.9.9.6: the AI memory pictures — one per kanji, for everyone
+    await this.sql`create table if not exists kw_mnemonic_pics (kanji text primary key, mime text not null, data bytea not null, at bigint not null)`;
     await this.sql`update kw_users set streak_day = login_day where streak_day is null and login_day is not null`; // a running streak carries on
     await this.sql`
       create table if not exists kw_daily (
@@ -372,6 +374,7 @@ export class PgStore implements Store {
     // every other table refers to kw_users with "on delete cascade" (reports: set null)
     const r = await this.sql`delete from kw_users where id = ${id}`;
     if (r.count > 0) await this.sql`delete from kw_messages where from_id = ${id} or to_id = ${id}`;
+    if (r.count > 0) await this.sql`delete from kw_values where key = ${`udecks:${id}`}`; // (0.9.9.9.9.6: their own decks)
     return r.count > 0;
   }
   async update(id: string, patch: UserPatch) {
@@ -710,6 +713,8 @@ export class PgStore implements Store {
   async addSavedReplay(userId: string, r: SavedReplay) {
     return (await this.sql`insert into kw_saved_replays (user_id, replay_id, saved_at, at, mode, label) values (${userId}, ${r.id}, ${r.savedAt}, ${r.at}, ${r.mode}, ${r.label}) on conflict do nothing`).count > 0;
   }
+  async mnemonicPic(ch: string) { const [r] = await this.sql<Array<{ mime: string; data: Buffer }>>`select mime, data from kw_mnemonic_pics where kanji = ${ch}`; return r ? { mime: r.mime, data: Buffer.from(r.data) } : null; }
+  async saveMnemonicPic(ch: string, mime: string, data: Buffer) { await this.sql`insert into kw_mnemonic_pics (kanji, mime, data, at) values (${ch}, ${mime}, ${data}, ${Date.now()}) on conflict (kanji) do nothing`; }
   async removeSavedReplay(userId: string, replayId: string) { return (await this.sql`delete from kw_saved_replays where user_id = ${userId} and replay_id = ${replayId}`).count > 0; }
   async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
   async deleteReport(id: string) { await this.sql`delete from kw_reports where id = ${id}`; }

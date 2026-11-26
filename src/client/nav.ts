@@ -85,12 +85,13 @@ export function initNav() {
     const s = ui.currentScreen() ?? '';
     const own = [...document.querySelectorAll<HTMLElement>(`#${s} > .back:not(.to-menu)`)].find((b) => !b.hidden && !(b as HTMLButtonElement).disabled);
     if (own) { own.click(); return; }
-    // the page before this one (0.9.9.9.9.5: it went Home — the menu passed through on every jump wiped the trail)
-    trail.pop();
+    // the screen before this one (0.9.9.9.9.5: it went Home — the menu passed through on every jump wiped the trail;
+    // 0.9.9.9.9.6: exactly one step — the menu and the results are steps too: "Back should be one action back")
+    if (trail[trail.length - 1] === s) trail.pop();
     const prev = trail.pop();
-    const it = prev ? ITEMS.find((x) => x.id !== 'home' && x.screens.includes(prev)) : undefined;
+    if (prev === 'results') { leaveCurrent(true); ui.show('results'); return; }
+    const it = prev && prev !== 'menu' ? ITEMS.find((x) => x.id !== 'home' && x.screens.includes(prev)) : undefined;
     if (it?.btn) { leaveCurrent(true); document.getElementById(it.btn)?.click(); return; }
-    trail.length = 0;
     leaveCurrent();
   };
   nav.append(backBtn);
@@ -149,7 +150,9 @@ export function initNav() {
     const page = on || s === 'lobby' || s === 'results'; // (0.9.9.9.9.5: and the results)
     if (document.body.classList.contains('page-zoom') !== page) { document.body.classList.toggle('page-zoom', page); applyUiZoom(); }
     setMore(false);
-    if (s === 'menu') trail.length = 0; else if (on && trail[trail.length - 1] !== s) { trail.push(s); if (trail.length > 20) trail.shift(); }
+    // (0.9.9.9.9.6: the menu and the results are steps too; a battle or a lobby isn't one to go back to — it starts over)
+    if (s === 'battle' || s === 'lobby') trail.length = 0;
+    else if ((on || s === 'menu' || s === 'results') && trail[trail.length - 1] !== s) { trail.push(s); if (trail.length > 20) trail.shift(); }
     for (const b of nav.querySelectorAll<HTMLElement>('.an-item:not(.an-more)')) b.classList.toggle('on', ITEMS.find((x) => x.id === b.dataset.nav)!.screens.includes(s));
     // (More lights up when the page is one of its own)
     more.classList.toggle('on', ITEMS.some((x) => !x.phone && x.screens.includes(s)));

@@ -271,13 +271,15 @@ function playerPanel(el: HTMLElement, p: DeckPlayerView, mine: boolean) {
   if (p.character) name.append(h('span', 'tag', CHARACTER_INFO[p.character].name));
   if (p.abilityActive > 0 && p.character !== 'wizard') name.append(h('span', 'tag', `${p.character === 'goblin' ? 'Frenzy' : CHARACTER_INFO[p.character!].power.split(':')[0]} ×${p.abilityActive}`));
   name.append(ui.netBars(p.id));
-  const bar = (cls: string, value: number, max: number, text: string) => {
+  const bar = (cls: string, value: number, max: number, text: string, key?: string) => {
     const b = h('div', `dkbar ${cls}`);
-    const fill = h('div', 'fill'); fill.style.width = `${Math.max(0, Math.min(1, value / max)) * 100}%`;
+    const pct = Math.max(0, Math.min(1, value / max)) * 100;
+    const fill = h('div', 'fill'); fill.style.width = `${pct}%`;
+    if (key) ui.drainGhost(b, pct, key); // (0.9.9.9.9.6: the HP a hit takes goes white, then slides)
     b.append(fill, h('span', 'dkbar-txt', text));
     return b;
   };
-  const hp = bar('hp-bar' + (p.hp / p.maxHp <= 0.25 ? ' low' : ''), p.hp, p.maxHp, `♥ ${p.hp} / ${p.maxHp}`);
+  const hp = bar('hp-bar' + (p.hp / p.maxHp <= 0.25 ? ' low' : ''), p.hp, p.maxHp, `♥ ${p.hp} / ${p.maxHp}`, `dk:${p.id}`);
   const mana = bar('mana-bar', p.mana, p.maxMana, `◆ ${p.mana} / ${p.maxMana}`);
   const counts = h('div', 'dk-counts');
   counts.append(h('span', 'cc total', `${p.handSize} card${p.handSize === 1 ? '' : 's'}`));
