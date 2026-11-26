@@ -154,6 +154,9 @@ export const api = {
   userDeckRename: (id: string, name: string) => call<{ deck: { id: string; name: string } }>('PUT', `/api/decks/${encodeURIComponent(id)}`, { name }),
   userDeckDelete: (id: string) => call<{ removed: boolean }>('DELETE', `/api/decks/${encodeURIComponent(id)}`),
   userDeckWords: (id: string) => call<{ name: string; words: DeckRow[] }>('GET', `/api/decks/${encodeURIComponent(id)}/words`),
+  /** 0.9.9.9.9.6 (round 4): an import's cards, filled in from the game and the dictionary (the preview) */
+  userDeckPreview: (cards: Array<{ kanji: string; reading: string; meaning: string }>, lang: string) => call<{ cards: Array<{ kanji: string; reading: string; meaning: string; from: 'game' | 'dict' | 'guess' | 'none' }> }>('POST', '/api/decks/preview', { cards, lang }),
+  userDeckAddPreview: (id: string, rows: Array<{ kanji: string; reading: string; meaning: string }>) => call<{ added: number; skipped: Array<{ line: number; word: string; why: string }> }>('POST', `/api/decks/${encodeURIComponent(id)}/words`, { rows, preview: true }),
   userDeckAdd: (id: string, text: string) => call<{ added: number; skipped: Array<{ line: number; word: string; why: string }> }>('POST', `/api/decks/${encodeURIComponent(id)}/words`, { text }),
   userDeckImport: (id: string, data: string) => call<{ added: number; skipped: Array<{ line: number; word: string; why: string }> }>('POST', `/api/decks/${encodeURIComponent(id)}/import`, { data }),
   userDeckRemove: (id: string, words: string[]) => call<{ deck: unknown }>('POST', `/api/decks/${encodeURIComponent(id)}/remove`, { words }),

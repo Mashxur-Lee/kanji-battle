@@ -6806,3 +6806,59 @@ button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
 .chess-lobby .chess-head > div:not(.clb-code) { flex: 1 1 260px; min-width: 0; }
 @media (max-width: 640px) { .chess-lobby .chess-head { display: grid; grid-template-columns: auto 1fr; } .chess-lobby .clb-code { grid-column: 1 / -1; } }
 .chess-moves:empty { display: none; }
+
+/* 0.9.9.9.9.6 (round 4): importing words the Quizlet way — the separators, and every card to check before it goes in */
+.ud-dialog.ud-import { width: min(1100px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; }
+.ud-import .ud-body { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; }
+.ud-import .ud-area { min-height: 130px; font-size: 1rem; }
+.ud-seps { display: flex; flex-wrap: wrap; gap: 14px 34px; }
+.ud-sep { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.ud-sep legend { padding: 0 0 6px; font-weight: 800; font-size: .92rem; }
+.ud-radio { display: flex; align-items: center; gap: 8px; font-size: .92rem; cursor: pointer; }
+.ud-radio input[type="radio"] { width: 16px; height: 16px; margin: 0; accent-color: #a48bff; }
+.ud-custom { width: 120px; padding: 7px 10px; border-radius: 10px; font: inherit; font-size: .88rem; }
+.ud-prevhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ud-prevhead h4 { margin: 0; font-size: 1.05rem; }
+.ud-prevhead b { font-size: .85rem; color: #a4a0c8; font-weight: 700; }
+.ud-prevhead .hint { color: #ffb86b !important; }
+.ud-prev { display: flex; flex-direction: column; gap: 6px; min-height: 60px; transition: opacity .2s; }
+.ud-prev.loading { opacity: .6; }
+.ud-card { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) auto auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid transparent; }
+.ud-card.bad { border-color: rgba(255, 120, 140, .45); background: rgba(255, 90, 110, .06); }
+.ud-n { color: #8b87b0; font-size: .82rem; text-align: right; font-variant-numeric: tabular-nums; }
+.ud-f { width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 9px; font: inherit; font-size: .95rem; min-width: 0; }
+.ud-f.ud-kanji { font-size: 1.1rem; font-weight: 700; }
+.ud-from { font: 800 .72rem/1.1 var(--ui, sans-serif); padding: 5px 9px; border-radius: 999px; white-space: nowrap; }
+.ud-from.game { background: rgba(79, 209, 139, .18); color: #6ee7a8; }
+.ud-from.dict { background: rgba(110, 180, 255, .18); color: #9fd0ff; }
+.ud-from.guess { background: rgba(255, 184, 107, .2); color: #ffc98a; }
+.ud-from.own { background: rgba(200, 184, 255, .16); color: #d6cbff; }
+.ud-from.need { background: rgba(255, 90, 110, .2); color: #ff9aaa; }
+.ud-x { width: 30px; height: 30px; margin: 0; padding: 0; border-radius: 50%; background: transparent; border: 1px solid rgba(160, 140, 255, .3); color: #a4a0c8; box-shadow: none; }
+.ud-foot { position: sticky; bottom: 0; padding-top: 8px; background: inherit; }
+.ud-foot .ud-gap { flex: 1; }
+.ud-foot .pill, .ud-foot .big { margin: 0; }
+.ud-foot .big:disabled { opacity: .5; }
+@media (max-width: 700px) {
+  .ud-card { grid-template-columns: 1.6em minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .ud-card .ud-meaning { grid-column: 2 / 4; }
+  .ud-card .ud-from { grid-column: 4; grid-row: 2; }
+  .ud-card .ud-x { grid-column: 4; grid-row: 1; justify-self: end; }
+  .ud-seps { gap: 12px 22px; }
+  .ud-foot { flex-wrap: wrap; }
+}
+.ud-dialog .dlg-x { position: absolute; top: 12px; right: 12px; z-index: 3; width: 34px; height: 34px; margin: 0; padding: 0; border-radius: 50%; background: transparent; border: 1px solid rgba(160, 140, 255, .3); color: inherit; box-shadow: none; font-size: .9rem; }
+.ud-import .ud-foot { position: static; display: flex; gap: 8px; align-items: center; padding-top: 12px; border-top: 1px solid rgba(160, 140, 255, .18); margin-top: 8px; }
+.ud-import .ud-foot .big { padding: 10px 22px; font-size: 1rem; min-width: 0; }
+:root[data-theme="light"] .ud-from.game { color: #12784a; } :root[data-theme="light"] .ud-from.dict { color: #1d5fa8; }
+:root[data-theme="light"] .ud-from.guess { color: #9a5a08; } :root[data-theme="light"] .ud-from.own { color: #5a3fc0; } :root[data-theme="light"] .ud-from.need { color: #b4233c; }
+:root[data-theme="light"] .ud-card { background: rgba(40, 30, 90, .04); }
+@media (max-width: 700px) {
+  .ud-import .ud-foot { flex-wrap: nowrap; }
+  .ud-import .ud-foot .pill { padding: 8px 10px; font-size: .82rem; }
+  .ud-import .ud-foot .big { padding: 9px 14px; font-size: .92rem; }
+  .ud-seps { display: grid; grid-template-columns: 1fr 1fr; }
+  .ud-custom { width: 100%; min-width: 0; box-sizing: border-box; }
+  .ud-radio { font-size: .86rem; }
+}
+@media (min-width: 701px) { .ud-card { grid-template-columns: 2.2em minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) 11rem auto; } .ud-card .ud-from { justify-self: start; } }

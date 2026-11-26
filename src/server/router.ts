@@ -2,7 +2,8 @@
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
 import { outcome, posKey, replay } from '../shared/chess';
-import { parseList, UserDeckError, USER_DECKS_MAX, type ImportRow } from './study/UserDecks';
+import { IMPORT_ROWS_MAX, parseList, UserDeckError, USER_DECKS_MAX, type ImportRow } from './study/UserDecks';
+import { fillCards } from './study/importfill';
 import { achCounts } from '../shared/achievements';
 import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName, type UserRecord } from './db/Store';
@@ -546,6 +547,16 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         if (!d) return res(404, { error: 'No such deck' });
         const mine = new Set(d.words);
         return res(200, { name: d.name, words: (await study.deckList(u, 'custom')).filter((w) => mine.has(w.vocabId)) });
+      } else if (r.method === 'POST' && url === '/api/decks/preview') {
+        // 0.9.9.9.9.6 (round 4): an import's cards before they go in — readings and meanings from the game, the
+        // dictionary, or a guess from the word's parts (marked), so a word the game doesn't have isn't dropped
+        await auth.authenticate(r.token);
+        const b = (await r.json(1024 * 1024)) as Record<string, unknown>;
+        const cards = (Array.isArray(b.cards) ? b.cards as unknown[] : []).slice(0, IMPORT_ROWS_MAX).flatMap((x) => {
+          const o = x as Record<string, unknown>;
+          return typeof o?.kanji === 'string' && o.kanji.trim() ? [{ kanji: o.kanji.trim().slice(0, 16), reading: String(o.reading ?? '').trim().slice(0, 32), meaning: String(o.meaning ?? '').trim().slice(0, 120) }] : [];
+        });
+        return res(200, { cards: fillCards(cards, dict ?? null, b.lang === 'ru' ? 'ru' : 'en') });
       } else if (r.method === 'POST' && /^\/api\/decks\/[\w-]{1,24}\/(words|import|remove)$/.test(url)) {
         // words typed or pasted (a list, a CSV / TSV from Quizlet or Anki), or an Anki package (.apkg, base64)
         const u = await auth.authenticate(r.token);
@@ -560,7 +571,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
           try { rows = await readApkg(body.data); } catch (e) { return res(400, { error: (e as Error).message }); }
         } else if (Array.isArray(body.rows)) {
           // (round 2: words picked in the deck's own window — from the dictionary, or typed in its form)
-          rows = (body.rows as unknown[]).slice(0, 50).flatMap((x) => { const o = x as Record<string, unknown>; return typeof o?.kanji === 'string' && o.kanji.trim() ? [{ kanji: o.kanji.trim().slice(0, 16), reading: String(o.reading ?? '').trim().slice(0, 32), meaning: String(o.meaning ?? '').trim().slice(0, 120) }] : []; });
+          rows = (body.rows as unknown[]).slice(0, body.preview === true ? IMPORT_ROWS_MAX : 50).flatMap((x) => { const o = x as Record<string, unknown>; return typeof o?.kanji === 'string' && o.kanji.trim() ? [{ kanji: o.kanji.trim().slice(0, 16), reading: String(o.reading ?? '').trim().slice(0, 32), meaning: String(o.meaning ?? '').trim().slice(0, 120) }] : []; });
         } else rows = typeof body.text === 'string' ? parseList(body.text.slice(0, 400_000)) : [];
         if (!rows.length) return res(400, { error: 'No Japanese words found in it' });
         return res(200, await deckCall(() => study.decks.addWords(u, id, rows)));

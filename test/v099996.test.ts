@@ -481,3 +481,33 @@ test('0.9.9.9.9.6 round 4 chess pieces: each piece its own shape, its kanji on i
   assert.equal(shapes.size, 6, 'six different silhouettes');
   assert.ok(pieceSvg('b', 'n').includes('>馬</text>') && pieceSvg('b', 'n').includes('pc-b'));
 });
+
+// ── round 4: importing words the Quizlet way ──
+test('0.9.9.9.9.6 round 4 import: Quizlet-style separators, the reading in the term or the definition, cards turned over', async () => {
+  const { parseCards, splitCards, guessTermSep } = await import('../src/shared/importlist');
+  assert.deepEqual(parseCards('先生\tせんせい - teacher\n猫[ねこ]\tcat\ncat\t犬\n# a comment\n\n本（ほん）\tbook', 'tab', 'newline'), [
+    { kanji: '先生', reading: 'せんせい', meaning: 'teacher' },
+    { kanji: '猫', reading: 'ねこ', meaning: 'cat' },
+    { kanji: '犬', reading: '', meaning: 'cat' },
+    { kanji: '本', reading: 'ほん', meaning: 'book' },
+  ]);
+  assert.deepEqual(parseCards('水,water;火,fire', 'comma', 'semicolon').map((c) => c.kanji), ['水', '火']);
+  assert.deepEqual(splitCards('山 :: mountain\n川 :: river', { custom: ' :: ' }, 'newline'), [['山', 'mountain'], ['川', 'river']]);
+  assert.deepEqual(parseCards('学校 - (がっこう) school', 'dash', 'newline'), [{ kanji: '学校', reading: 'がっこう', meaning: 'school' }]);
+  assert.equal(guessTermSep('a\tb\nc\td'), 'tab');
+  assert.equal(guessTermSep('猫 - cat\n犬 - dog'), 'dash');
+});
+
+test('0.9.9.9.9.6 round 4 import preview: the game\'s words, then the dictionary\'s, then a guessed reading — nothing dropped', async () => {
+  const { fillCards, guessReading } = await import('../src/server/study/importfill');
+  const dict = { lookup: (t: string) => (t === '薔薇' ? { i: 1, kanji: ['薔薇'], kana: ['ばら'], romaji: 'bara', senses: [[['n'], 'rose', [], '']], ru: ['роза'], common: true } : t === '学校' ? { i: 2, kanji: ['学校'], kana: ['がっこう'], romaji: 'gakkou', senses: [], ru: [], common: true } : null) as never, kanjiReading: () => null };
+  const out = fillCards([{ kanji: '先生', reading: '', meaning: '' }, { kanji: '薔薇', reading: '', meaning: '' }, { kanji: '魔法学校', reading: '', meaning: 'magic school' }, { kanji: '謎', reading: '', meaning: 'x' }], dict as never, 'ru');
+  assert.equal(out[0].from, 'game'); assert.equal(out[0].reading, 'せんせい');
+  assert.deepEqual([out[1].from, out[1].reading, out[1].meaning], ['dict', 'ばら', 'роза']);
+  assert.deepEqual([out[2].from, out[2].reading], ['guess', 'まほうがっこう'], 'a reading from its pieces (the longest the dictionary has first, then each kanji), marked to check');
+  assert.equal(guessReading('電脳', dict as never), 'でんのう');
+  const router = src('src/server/router.ts');
+  assert.ok(router.includes("url === '/api/decks/preview'") && router.includes('body.preview === true ? IMPORT_ROWS_MAX : 50'));
+  const ui = src('src/client/userdecks.ts');
+  for (const s of ["'Between term and definition'", "'Between cards'", 'api.userDeckPreview(', "'Reading guessed - check it'"]) assert.ok(ui.includes(s), s);
+});

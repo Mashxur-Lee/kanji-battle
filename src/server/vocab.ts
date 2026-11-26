@@ -12,6 +12,8 @@ export const VOCAB_BY_ID: ReadonlyMap<string, VocabEntry> = new Map(VOCAB.map((v
 
 /** 0.9.9.9.5: each kanji's readings and parts (KANJIDIC / KanjiVG) — the quiz's made-up near misses */
 const KANJI: Record<string, { on: string[]; kun: string[]; p: string[]; s?: number[] | null }> = JSON.parse(readFileSync(path.resolve(__dirname, '../../data/kanji/base.json'), 'utf8')).kanji;
+/** 0.9.9.9.9.6 (round 4): a kanji's first Chinese reading (in hiragana) — an import guesses a compound's reading from it */
+export const kanjiOn = (ch: string): string | null => KANJI[ch]?.on?.[0]?.replace(/[.-]/g, '') ?? null;
 const FACTS = new Map<string, KanjiFacts>();
 export const kanjiFacts: FactsOf = (ch) => {
   let f = FACTS.get(ch);

@@ -22,4 +22,7 @@ export class DictService {
   get(i: number): DictEntry | null { return this.d().get(i); }
   search(raw: unknown, limit = 60): DictEntry[] { return this.d().search(raw, limit); }
   withKanji(ch: string, limit = 12): DictEntry[] { return this.d().withKanji(ch, limit); }
+  /** 0.9.9.9.9.6 (round 4): a word by its exact spelling or reading (an import's preview) */
+  lookup(t: string): DictEntry | null { return this.d().lookup(t); }
+  kanjiReading(ch: string): string | null { return this.d().kanjiReading(ch); }
 }
