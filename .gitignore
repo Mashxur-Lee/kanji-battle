@@ -14,3 +14,7 @@ public/build.txt
 
 # 0.9.9.9.7.4: the GitHub CLI's own settings (your login) when it keeps them next to the project — never commit them
 GitHub CLI/
+
+# 0.9.9.9.9.6 (round 7): the tests' reports
+test-results/
+playwright-report/

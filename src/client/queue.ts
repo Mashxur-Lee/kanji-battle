@@ -67,6 +67,21 @@ let pick: 'battle' | 'deck' = 'battle';
 let rankedSide = false;
 // (the modes ticked on the other side are kept: a ranked pick doesn't untick Reading on the Unranked side)
 function remember() { const s = load(); const shown = new Set(sideModes()); save({ modes: [...s.modes.filter((m) => !shown.has(m)), ...picked('qModes').filter((m) => m !== 'deck') as GameMode[]], levels: picked('qLevels') as Level[], pick, ranked: rankedSide }); }
+/**
+ * 0.9.9.9.9.6 (round 7): levels only where they mean something — the word modes (Reading, Writing, Rapid: matched by
+ * level, Boss): every level; Grammar Clash: N5 to N1 (its grammar); Kanji chess and Deck Duel: none
+ */
+const WORD_MODES = new Set<GameMode>(['reading', 'writing', 'rapid', 'boss']);
+function syncLevels() {
+  const modes = pick === 'deck' ? [] : (picked('qModes') as GameMode[]);
+  const words = modes.some((m) => WORD_MODES.has(m)), grammar = modes.includes('clash');
+  const row = document.querySelector<HTMLElement>('#queuePick .q-levels-row');
+  if (row) row.hidden = !words && !grammar;
+  for (const c of document.querySelectorAll<HTMLElement>('#qLevels label')) {
+    const v = c.querySelector('input')?.value ?? '';
+    c.hidden = !words && !/^N\d$/.test(v);
+  }
+}
 /** 0.9.9.9.9.6 (round 6): the modes on the side you're on — Ranked shows only the ranked ones */
 const sideModes = () => QUEUE_MODES.filter((m) => !rankedSide || isRankedMode(m));
 function setSide(ranked: boolean) {
@@ -88,6 +103,7 @@ function choose(p: 'battle' | 'deck', silent = false) {
   }
   ui.$('queuePick').classList.toggle('deck-picked', p === 'deck');
   remember();
+  syncLevels();
 }
 
 export function initQueue(sender: typeof send, myId: () => string) {
@@ -107,8 +123,10 @@ export function initQueue(sender: typeof send, myId: () => string) {
     if (pick === 'deck') return send({ type: 'queue', modes: ['deck'], ranked: rankedSide });
     const modes = picked('qModes').filter((m) => m !== 'deck'), levels = picked('qLevels');
     if (!modes.length) return ui.toast('Tick at least one mode');
-    if (!levels.length && modes.some((m) => !NO_LEVELS.has(m as GameMode))) return ui.toast('Tick at least one level');
-    send({ type: 'queue', modes, levels, ranked: rankedSide });
+    if (!levels.length && modes.some((m) => WORD_MODES.has(m as GameMode))) return ui.toast('Tick at least one level');
+    // (round 7: the levels a mode can use — kana only for the word modes)
+    const words = modes.some((m) => WORD_MODES.has(m as GameMode));
+    send({ type: 'queue', modes, levels: words ? levels : levels.filter((l) => /^N\d$/.test(l)), ranked: rankedSide });
   };
   for (const b of document.querySelectorAll<HTMLElement>('#qSide [data-side]')) b.onclick = () => { if (searching) return; setSide(b.dataset.side === 'ranked'); remember(); openQueue(); };
   ui.$('qCancel').onclick = () => send({ type: 'queue_cancel' });
@@ -135,7 +153,7 @@ export function openQueue() {
     const info = document.createElement('span'); info.className = 'q-info'; info.textContent = '!'; info.setAttribute('aria-hidden', 'true');
     c.append(ui.modeBadge(m), name, info, tick);
     const box = c.querySelector('input')!;
-    box.addEventListener('change', () => { if (box.checked) choose(isDeck ? 'deck' : 'battle'); });
+    box.addEventListener('change', () => { if (box.checked) choose(isDeck ? 'deck' : 'battle'); syncLevels(); });
     if (!open) { c.classList.add('locked'); box.disabled = true; c.title = lockText(m); }
     if (isDeck) info.onclick = (e) => { e.preventDefault(); e.stopPropagation(); ui.$('qDeckHelp').click(); };
     else guideHover(c, m as Exclude<GameMode, 'deck'>);
@@ -143,6 +161,7 @@ export function openQueue() {
   }));
   ui.$('qLevels').replaceChildren(...LEVELS.map((l) => ui.lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!ui.kanaBeginner() || isKanaLevel(l)), 'ql'), l)));
   choose(s.pick ?? 'battle', true);
+  syncLevels();
   if (!searching) { ui.$('queuePick').hidden = false; ui.$('qSearching').hidden = true; }
   ui.show('queue');
 }

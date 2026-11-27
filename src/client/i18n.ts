@@ -769,6 +769,15 @@ const RU: Record<string, string> = {
   'Type yama': 'Напечатайте yama',
   '✓ やま - your first spell!': '✓ やま — ваше первое заклинание!',
   'Almost - type yama (or やま)': 'Почти — напечатайте yama (или やま)',
+  // 0.9.9.9.9.6 (round 7): Grammar Clash's sides and its Match history; the voices' credit
+  "Voices (the chess wizards, Grammar):": "Голоса (шахматные волшебники, грамматика):",
+  "Your mistake": "Ваша ошибка",
+  "Omnipotence!": "Всемогущество!",
+  "No Grammar Clash games yet - play one from the online queue or a private room.": "Пока нет игр в Грамматической битве — сыграйте в онлайн-очереди или в частной комнате.",
+  "players": "игроков",
+  "questions": "вопросов",
+  "no answer": "нет ответа",
+  "After this round": "После этого раунда",
   // 0.9.9.9.9.6 (round 6): the queue's Ranked side
   "Ranked: Rapid, Deck Duel, Kanji chess and Grammar Clash - each has its own rating. You meet only other ranked players; leaving a ranked game is a loss.": "Рейтинг: Рапид, Дуэль колод, Шахматы кандзи и Грамматическая битва — у каждого режима свой рейтинг. Вы играете только с теми, кто тоже в рейтинговой очереди; выход из рейтинговой игры — поражение.",
   "Tap to see the ladder": "Нажмите, чтобы открыть таблицу",

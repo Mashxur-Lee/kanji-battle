@@ -220,7 +220,7 @@
     <li>Handwriting recognition: <a href="https://github.com/asdfjkl/kanjicanvas" target="_blank" rel="noopener">KanjiCanvas</a> by Dominik Klein (MIT); its reference strokes come from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> by Ulrich Apel (CC BY-SA 3.0).</li>
     <li>Kanji meanings and readings (tap a kanji): <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noopener">KANJIDIC2</a> by the Electronic Dictionary Research and Development Group (<a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">CC BY-SA 4.0</a>), via <a href="https://github.com/davidluzgouveia/kanji-data" target="_blank" rel="noopener">kanji-data</a> by David Gouveia (MIT); the parts of each kanji from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> (CC BY-SA 3.0). The memory stories and Russian meanings were written for this game.</li>
     <li>Software: <a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a> (MIT) for the 3D arena; <a href="https://github.com/websockets/ws" target="_blank" rel="noopener">ws</a> (MIT) and <a href="https://github.com/porsager/postgres" target="_blank" rel="noopener">Postgres.js</a> (Unlicense) on the server; <a href="https://www.electronjs.org/" target="_blank" rel="noopener">Electron</a> (MIT) for the Windows app; Firebase Cloud Messaging (Apache 2.0) for the Android app's notifications.</li>
-    <li>Voices of the chess wizards: <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX</a> · <span lang="ja" data-no-i18n>VOICEVOX:ちび式じい, VOICEVOX:†聖騎士 紅桜†, VOICEVOX:四国めたん, VOICEVOX:麒ヶ島宗麟, VOICEVOX:剣崎雌雄</span></li>
+    <li>Voices (the chess wizards, Grammar): <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX</a> · <span lang="ja" data-no-i18n>VOICEVOX:ずんだもん, VOICEVOX:†聖騎士 紅桜†, VOICEVOX:九州そら, VOICEVOX:麒ヶ島宗麟, VOICEVOX:剣崎雌雄, VOICEVOX:雀松朱司</span></li>
     <li>Art: the painted backgrounds, league frames and streak flames were generated with AI tools for this game by its author; the 3D characters, the dragon, staffs and arenas were modelled for it, and the 2D characters, icons and sounds are drawn and synthesised in code.</li>
     <li>Russian word meanings: translated for this game from the English meanings.</li>
   </ul>
@@ -391,7 +391,7 @@
       <!-- 0.9.9.9.9.6 (round 4): Grammar, N5 to N1, lesson by lesson with Master Fumi -->
       <button id="grammarBtn" class="mc-card mc-grammar" type="button">
         <span class="mc-glyph" lang="ja" aria-hidden="true">法</span>
-        <span class="mc-body"><b class="mc-name">Grammar <span class="badge">new</span></b><span class="mc-info">JLPT grammar, N5 to N1 - explained, then tested</span></span>
+        <span class="mc-body"><b class="mc-name">Grammar <span class="badge" data-new="grammar">new</span></b><span class="mc-info">JLPT grammar, N5 to N1 - explained, then tested</span></span>
       </button>
       <!-- 0.9.9.9.5: hiragana and katakana have a section of their own -->
       <button id="kanaBtn" class="mc-card mc-kana" type="button">
@@ -545,10 +545,12 @@
       <button type="button" class="word-tab" role="tab" data-tab="matches" aria-selected="true">Matches</button>
       <button type="button" class="word-tab" role="tab" data-tab="saved" aria-selected="false">Saved replays <small id="savedCount"></small></button>
       <button type="button" class="word-tab" role="tab" data-tab="chess" aria-selected="false">Chess</button>
+      <button type="button" class="word-tab" role="tab" data-tab="clash" aria-selected="false">Grammar Clash</button>
     </div>
     <div id="historyList" class="history-list"></div>
     <div id="savedList" class="history-list" hidden></div>
     <div id="chessHistList" class="history-list" hidden></div>
+    <div id="clashHistList" class="history-list" hidden></div>
   </section>
 
   <!-- DICTIONARY (0.9.9.7) -->
@@ -571,7 +573,7 @@
     <div class="games-grid">
       <button class="game-tile gt-online" type="button" data-go="queueBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">戦</span><b>Online battle</b><span>Reading, Writing, Rapid, Boss, Deck Duel, Kanji chess and Grammar Clash against players - Rapid, Deck Duel, chess and Grammar Clash are ranked</span><span id="gamesOnline" class="online-pill" hidden></span></button>
       <button class="game-tile gt-private" type="button" data-go="privateBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">友</span><b>Private game</b><span>Play friends with a room code - every mode, Kanji chess and Grammar Clash too - or bots, offline too</span></button>
-      <button class="game-tile gt-chess" type="button" data-go="chessOpen"><span class="gt-glyph" lang="ja" aria-hidden="true">将</span><b>Kanji chess</b><span>Chess where every piece is its kanji - 馬 the knight, 王 the king. Four wizards to beat, or a friend</span><i class="gt-badge gt-new">New</i></button>
+      <button class="game-tile gt-chess" type="button" data-go="chessOpen"><span class="gt-glyph" lang="ja" aria-hidden="true">将</span><b>Kanji chess</b><span>Chess where every piece is its kanji - 馬 the knight, 王 the king. Four wizards to beat, or a friend</span><i class="gt-badge gt-new" data-new="chess">New</i></button>
       <div class="game-tile gt-soon" aria-disabled="true"><span class="gt-glyph" lang="ja" aria-hidden="true">歌</span><b>Song lyrics</b><span>A Japanese song plays - type its missing lyrics in time</span><i class="gt-badge">Coming soon</i></div>
     </div>
   </section>
@@ -580,6 +582,11 @@
   <!-- 0.9.9.9.9.6 (round 4): GRAMMAR CLASH — the grammar quiz for 2–8 players -->
   <section id="clash" class="screen clash-screen" hidden>
     <button id="clashBack" class="back" type="button">← Lobby</button>
+    <!-- 0.9.9.9.9.6 (round 7): the chat on one side, the grammar of your mistakes on the other -->
+    <div class="gc-layout">
+    <aside id="clashChatSide" class="gc-side gc-chatside" hidden><h4>Chat</h4><ol id="clashChat" class="cc-list" aria-live="polite"></ol>
+      <form id="clashChatForm" class="cc-form"><input maxlength="200" placeholder="Say something…" autocomplete="off"><button class="pill" type="submit">Send</button></form></aside>
+    <div class="gc-center">
     <div id="clashPlay" class="gc-play" hidden>
       <div id="clashTop" class="gc-top"></div>
       <div id="clashTimerRow" class="gc-timer"><div class="gc-track"><i id="clashBar"></i></div><b id="clashSecs"></b></div>
@@ -588,6 +595,9 @@
       <div id="clashOpts" class="gc-opts"></div>
     </div>
     <div id="clashBoard" class="gc-board" hidden><h3 id="clashBoardTitle"></h3><div id="clashBoardList" class="gc-list"></div></div>
+    </div>
+    <aside id="clashWhySide" class="gc-side gc-whyside" hidden></aside>
+    </div>
     <div id="clashOver" class="gc-over" hidden>
       <h2 id="clashOverTitle"></h2>
       <div id="clashPodium" class="gc-podium"></div>
@@ -626,7 +636,7 @@
       </div>
       <div class="chess-center">
         <div class="chess-boardwrap"><div id="chessBoard" class="chess-board" role="grid" aria-label="Chess board"></div><div id="chessPromo" class="chess-promo" hidden></div>
-          <div id="chessOver" class="chess-over" hidden><b id="chessOverTitle"></b><span id="chessOverWhy"></span><div class="chess-over-btns"><button id="chessAgain" class="big" type="button">Play again</button><button id="chessToSetup" class="pill" type="button">Change the game</button></div></div></div>
+          <div id="chessOver" class="chess-over" hidden><div class="co-card"><b id="chessOverTitle"></b><span id="chessOverWhy"></span><div class="chess-over-btns"><button id="chessAgain" class="big" type="button">Play again</button><button id="chessToSetup" class="pill" type="button">Change the game</button></div></div></div></div>
         <div id="chessMe" class="chess-player me"><span class="cp-name"></span><span id="chessMeMat" class="cp-mat"></span><span id="chessTurn" class="cp-turn"></span><span id="chessMeClock" class="cp-clock" hidden></span></div>
       </div>
       <div class="chess-moves-box">
@@ -757,7 +767,7 @@
     <div id="qzGoal" class="qz-goal" hidden></div>
     <div class="qz-grid">
       <article class="qz-card" data-quiz="jlpt" style="--qc:#b993ff">
-        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">試</span><span class="qz-streak"><span>Counts for the streak</span></span></div>
+        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">試</span></div>
         <h3>JLPT quiz</h3>
         <p class="qz-desc">10 questions from the spells you studied - or kana: readings, meanings and kanji.</p>
         <ul class="qz-facts"><li>10 questions</li><li>4 choices</li><li>≈ 3 min</li><li>Pass: 7 / 10</li></ul>
@@ -773,7 +783,7 @@
         <button id="onoQuizBtn" class="qz-go" type="button">Start the quiz</button>
       </article>
       <article class="qz-card" data-quiz="passage" style="--qc:#4fd1c5">
-        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">読</span><span class="qz-streak"><span>Counts for the streak</span></span></div>
+        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">読</span></div>
         <h3>Reading passage</h3>
         <p class="qz-desc">A short story written with your words - fill in the blanks from the context, then check.</p>
         <ul class="qz-facts"><li>A short story</li><li>Fill the blanks</li><li>≈ 5 min</li><li>Pass: half right</li></ul>
@@ -980,8 +990,9 @@
         <span class="mode-name">Boss Elimination</span>
         <span class="mode-desc">Up to 4 players vs the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.</span>
       </button>
-      <!-- 0.9.9.9.9.6 (round 5): Kanji chess and Grammar Clash in the same lobby as every other mode -->
-      <button class="mode-card" data-mode="chess">
+      <!-- 0.9.9.9.9.6 (round 5): Kanji chess and Grammar Clash in the same lobby as every other mode. (Round 7: chess isn't
+           offered here any more — two ways into the same room; the chess page's "Play a friend" opens it) -->
+      <button class="mode-card" data-mode="chess" hidden>
         <span class="mode-icon jp">将</span>
         <span class="mode-name">Kanji chess</span>
         <span class="mode-desc">Chess with a friend, every piece its kanji. The host sets the clock; sides are drawn by lot.</span>

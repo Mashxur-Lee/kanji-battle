@@ -85,7 +85,9 @@ const opOf = (h: unknown) => { const v = String(Array.isArray(h) ? h[0] : h ?? '
 
 /** Handles /api/*; returns false for any other path so static files can be served. */
 export function createApiHandler(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const route = createApiRouter(auth, study, { onError: reportServerError, ...extras });
+  // (0.9.9.9.9.6 round 7: the automated tests' own server — KW_E2E=1 and no database — may make many accounts)
+  const testLimits = process.env.KW_E2E === '1' && !process.env.DATABASE_URL;
+  const route = createApiRouter(auth, study, { onError: reportServerError, ...extras, testLimits });
   return async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
     const [url, qs] = (req.url ?? '/').split('?');
     if (!url.startsWith('/api/')) return false;

@@ -39,3 +39,6 @@ export function shuffled(q: GrammarQuestion, rnd = Math.random): { options: stri
 }
 /** the markup gone: {漢字|かんじ} → 漢字 (or its reading) */
 export const plainJp = (s: string, reading = false) => s.replace(/\{([^|}]+)\|([^}]+)\}/g, (_m, k, r) => (reading ? r : k));
+
+/** 0.9.9.9.9.6 (round 7): the question's sentence with the right answer in its gap (read aloud once you have answered) */
+export const filledQuestion = (q: GrammarQuestion) => q.jp.replace(/＿＿/, q.options[0]);

@@ -49,6 +49,11 @@ const PATCHES: Patch[] = [
       "Master Fumi shows you round each page the first time you open it - Study, Customize, Quizzes, Kana, Progress and the rest. How to play brings the tours back.",
       "Master Fumi's hat stays on his head, and in the tour bubbles he is a round portrait you can see.",
       "Fixed: back in a chat on Android goes to the list of chats, not out of the app; opening a chat no longer jumps to the team's; the chess pieces fit their squares; an update that kept failing on a phone now gets through. The team can write to one player.",
+      "Grammar speaks: Master Fumi says a few words in Japanese, and every example and question is read aloud in a recorded voice. His hat now sits on his head.",
+      "Kanji chess: each wizard says a line only once a game; the Witch's voice is a grown woman's, the Dragon's deeper, the Knight speaks through his helmet and the Goblin is easier to understand; tap a word in their speech for the whole word's meaning; new, softer wooden sounds for moves, captures, castling, check, promotion and checkmate; the wizard is shown bigger, from the head down; the result is easy to read. Play a friend opens its room straight from the chess page.",
+      "Grammar Clash: the chat at the side and, after a mistake, the grammar explained on the other side; a little longer to look at each answer; three right in a row lights your figure with Omnipotence; finished games are in Match history, round by round.",
+      "The online queue asks for levels only where they count: Rapid by word level, Grammar Clash by JLPT level, none for Kanji chess and Deck Duel.",
+      "Fixed: Back no longer loops between a match's results and Match history; \"new\" badges go once opened; the dictionary's Clear wipes only the drawing, and each drawn character has its own ✕. Up to 3 decks of your own.",
     ],
     ru: [
       'вои колоды в «Изучении заклинаний»: создайте, назовите и наполните — введите или вставьте список, импортируйте текстовый экспорт Quizlet / Anki или файл колоды Anki (.apkg) прямо из AnkiDroid. Каждая колода изучается отдельно, с тем же интервальным повторением.',
@@ -91,6 +96,11 @@ const PATCHES: Patch[] = [
       "Мастер Фуми показывает каждую страницу, когда вы открываете её впервые, — Учёбу, Настройку героя, Тесты, Кану, Прогресс и другие. В «Как играть» обзоры можно включить снова.",
       "Шляпа Мастера Фуми больше не съезжает с головы, а в подсказках обзора он — круглый портрет, который хорошо видно.",
       "Исправлено: «Назад» в чате на Android ведёт к списку чатов, а не закрывает приложение; открытый чат больше не перескакивает на чат с командой; шахматные фигуры помещаются в клетки; обновление, которое не устанавливалось на телефоне, теперь проходит. Команда может написать одному игроку.",
+      "Грамматика заговорила: Мастер Фуми произносит несколько слов по-японски, а каждый пример и вопрос читаются вслух записанным голосом. Шляпа теперь сидит у него на голове.",
+      "Шахматы кандзи: каждую реплику волшебник говорит только раз за партию; у Ведьмы голос взрослой женщины, у Дракона — ниже, Рыцарь говорит сквозь шлем, а Гоблина легче понять; нажмите на слово в их речи — откроется значение всего слова; новые, мягкие деревянные звуки хода, взятия, рокировки, шаха, превращения и мата; волшебник показан крупнее, по пояс; результат легко прочитать. «Играть с другом» открывает комнату прямо со страницы шахмат.",
+      "Грамматическая битва: чат сбоку, а после ошибки с другой стороны — объяснение грамматики; чуть больше времени посмотреть на ответ; три верных подряд зажигают вашу фигуру Всемогуществом; сыгранные игры — в «Истории матчей», раунд за раундом.",
+      "Онлайн-очередь спрашивает уровни только там, где они важны: Рапид — по уровню слов, Грамматическая битва — по уровню JLPT, для Шахмат кандзи и Дуэли колод — без уровней.",
+      "Исправлено: «Назад» больше не ходит по кругу между результатами матча и «Историей матчей»; значки «new» пропадают после открытия; «Очистить» в словаре стирает только рисунок, а у каждого нарисованного знака свой ✕. До 3 своих колод.",
     ],
   },
   {

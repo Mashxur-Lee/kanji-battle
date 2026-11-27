@@ -85,14 +85,17 @@ export interface ApiExtras {
   inviteDecline?: (userId: string, name: string, fromId: string) => void;
   /** 0.9.9.9.6: the messenger */
   messages?: MessageService;
+  /** 0.9.9.9.9.6 (round 7): the automated tests' server (npm run test:e2e) makes many accounts — index.ts sets this only
+   *  with KW_E2E=1 and no database (a local file), never in production */
+  testLimits?: boolean;
 }
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
   const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn, messages, ranked, recognize, readApkg, gifs, mnemonics } = extras;
-  const limiter = new RateLimiter(20, 60_000);
+  const limiter = new RateLimiter(extras.testLimits ? 100_000 : 20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
-  const signupLimiter = new RateLimiter(10, 3600_000);
+  const signupLimiter = new RateLimiter(extras.testLimits ? 100_000 : 10, 3600_000);
   const loginFails = new Strikes(20, 60_000); // 0.9.9.9.7.1: wrong passwords per address
   /** 0.9.9.9.7.3: the player as they are now, after a change (the sign-in was checked a moment ago — it was checked again) */
   const fresh = async (u: UserRecord) => (await auth.store.findById(u.id)) ?? u;
@@ -515,6 +518,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const b = (await r.json()) as Record<string, unknown>;
         return res(200, await study.passGrammar(u.id, b.id, b.right));
+      } else if (r.method === 'GET' && url === '/api/clash/games') {
+        // 0.9.9.9.9.6 (round 7): your Grammar Clash games, round by round
+        const u = await auth.authenticate(r.token);
+        return res(200, { games: await study.clashGames(u.id) });
       } else if (r.method === 'GET' && url === '/api/chess/games') {
         // 0.9.9.9.9.6 (round 4): your Kanji chess games (Match history → Chess)
         const u = await auth.authenticate(r.token);

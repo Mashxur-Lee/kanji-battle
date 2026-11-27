@@ -5,6 +5,7 @@
 // Round 5: no lobby or menu of its own — it is a mode of the private game (the same lobby as every mode) and of the
 // online queue; this page is the game itself, and Back to lobby goes back to the room.
 import type { ClashView, ClientMessage } from '../shared/protocol';
+import type { ClashGame } from './api';
 import * as audio from './audio';
 import { jpLine } from './grammarui';
 import { lang, tr } from './i18n';
@@ -35,8 +36,11 @@ export function initClash(sender: (m: ClientMessage) => void) {
   $('clashBack').onclick = () => { if (room && room.status !== 'over') { void leaveGame(); return; } toLobby(); };
   $('clashAgain').onclick = () => toLobby();
   $('clashExit').onclick = () => { room = null; stopTick(); send({ type: 'leave' }); };
-  const f = $<HTMLFormElement>('clashOverChatForm');
-  f.onsubmit = (e) => { e.preventDefault(); const i = f.querySelector('input')!; const t = i.value.trim(); if (t) send({ type: 'clash_chat', text: t.slice(0, 200) }); i.value = ''; };
+  // (round 7: the chat at the side during the game too)
+  for (const id of ['clashOverChatForm', 'clashChatForm']) {
+    const f = $<HTMLFormElement>(id);
+    f.onsubmit = (e) => { e.preventDefault(); const i = f.querySelector('input')!; const t = i.value.trim(); if (t) send({ type: 'clash_chat', text: t.slice(0, 200) }); i.value = ''; };
+  }
 }
 /** the game is over: back to the room's lobby (Ready there for another game) */
 function toLobby() { room = null; stopTick(); dispatchEvent(new Event('kw:room-lobby')); }
@@ -60,6 +64,11 @@ export function onClashRoom(r: ClashView) {
   lastStatus = r.status; lastN = r.n;
   for (const id of ['clashPlay', 'clashBoard', 'clashOver']) $(id).hidden = true;
   if (r.status === 'lobby') return;
+  // (round 7) the sides: the chat while the game is on; the grammar of your last mistake, until the next question
+  const playing = r.status !== 'over';
+  $('clashChatSide').hidden = !playing;
+  if (playing) chat($('clashChat'), r);
+  if (r.status === 'question' || r.status === 'starting' || !playing) { $('clashWhySide').hidden = true; $('clashWhySide').replaceChildren(); }
   if (r.status === 'starting') { drawStarting(r); startTick(); if (changed) audio.sfx.chessStart(); return; }
   if (r.status === 'question' || r.status === 'reveal') { drawPlay(r, changed); startTick(); return; }
   if (r.status === 'board') { drawBoard(r); startTick(); return; }
@@ -86,7 +95,8 @@ function startTick() {
 function stopTick() { clearInterval(tick); tick = 0; }
 
 function avatarBox(p: ClashView['players'][number], cls = 'gc-av') {
-  const b = h('span', cls);
+  // (round 7) three right in a row: the omnipotence aura round the player
+  const b = h('span', `${cls}${p.streak >= 3 ? ' gc-omni' : ''}`);
   b.innerHTML = pic(p.avatar, p.staff);
   return b;
 }
@@ -154,8 +164,10 @@ function drawPlay(r: ClashView, changed: boolean) {
     if (last?.right) { fb.append(h('b', 'gc-good', `+${last.points}`)); if ((me?.streak ?? 0) >= 2) fb.append(h('span', 'gc-combo', tr(`Combo ×${me!.streak}`))); }
     else fb.append(h('b', 'gc-bad', tr(last?.k === null ? 'Too late' : 'Not this time')));
     fb.append(h('span', 'gc-tr', lang() === 'ru' ? (q.ru ?? '') : (q.en ?? '')));
-    // (round 5) the right answer, and why it is the one: its grammar point, what it means, how it is used
-    if (q.why) {
+    if ((me?.streak ?? 0) >= 3 && changed && last?.right) fb.append(h('span', 'gc-omni-note', tr('Omnipotence!')));
+    // (round 5) the right answer, and why it is the one: its grammar point, what it means, how it is used.
+    // (round 7) after a mistake it goes to the side, and stays there until the next question
+    if (q.why && !last?.right) {
       const why = h('div', 'gc-why');
       const t = (x: { en: string; ru: string }) => (lang() === 'ru' ? x.ru : x.en);
       const head = h('div', 'gc-why-head');
@@ -163,7 +175,9 @@ function drawPlay(r: ClashView, changed: boolean) {
       head.querySelector('.gc-why-ans')!.setAttribute('lang', 'ja'); head.querySelector('.gc-why-pat')!.setAttribute('lang', 'ja');
       why.append(head, h('p', 'gc-why-mean', t(q.why.meaning)));
       if (q.why.rule) why.append(h('p', 'gc-why-rule', t(q.why.rule)));
-      fb.append(why);
+      const side = $('clashWhySide');
+      side.replaceChildren(h('h4', '', tr('Your mistake')), jpLine(q.jp.replace('＿＿', `【${q.filled}】`), 'gc-q gc-q-sm'), why);
+      side.hidden = false;
     }
     if (changed) { if (last?.right) audio.sfx.correct(Math.min(5, me?.streak ?? 1)); else audio.sfx.wrong(); }
   }
@@ -206,4 +220,46 @@ function drawOver(r: ClashView, changed: boolean) {
   $('clashAgain').hidden = false; // (round 5: Back to lobby — the room's)
   if (changed) { if (mine === 0) audio.sfx.win(); else audio.sfx.lose(); }
   chat($('clashOverChat'), r);
+}
+
+// ── 0.9.9.9.9.6 (round 7): Match history → Grammar Clash: the games, and each one's rounds (no replay) ──
+export function showClashHistory(el: HTMLElement, games: ClashGame[] | null) {
+  if (!games) { el.replaceChildren(h('p', 'hint', tr('Loading…'))); return; }
+  if (!games.length) { el.replaceChildren(h('p', 'hint', tr('No Grammar Clash games yet - play one from the online queue or a private room.'))); return; }
+  el.replaceChildren(...games.map((g) => {
+    const b = h('button', `history-item clash-hist${g.place === 1 ? ' win' : ''}`, undefined, { type: 'button' });
+    const mid = h('span', 'ch-mid');
+    mid.append(h('b', '', `${tr('Grammar Clash')} · ${g.level === 'mix' ? tr('All levels') : g.level}`), h('span', 'hint', `${g.players.length} ${tr('players')} · ${g.rounds.length} ${tr('questions')} · ${new Date(g.at).toLocaleDateString(lang() === 'ru' ? 'ru-RU' : undefined)}`));
+    b.append(h('span', 'ch-place', `#${g.place}`), mid, h('span', `hist-ranked${g.ranked ? ' on' : ''}`, tr(g.ranked ? 'Ranked' : 'Unranked')));
+    b.onclick = () => openClashGame(g);
+    return b;
+  }));
+}
+function openClashGame(g: ClashGame) {
+  const d = h('dialog', 'friend-dialog clash-game-dialog') as HTMLDialogElement;
+  const name = new Map(g.players.map((p) => [p.id, p.name]));
+  const close = h('button', 'pill', tr('Close'), { type: 'button' }); close.onclick = () => d.close();
+  const head = h('div', 'ld-head'); head.append(h('h3', '', tr('Grammar Clash')), close);
+  const final = h('ol', 'gcg-final');
+  for (const p of g.players) { const li = h('li', p.id === myId ? 'me' : ''); li.append(h('b', '', p.name), h('span', 'hint', tr(`${p.right} right · best combo ${p.best}`)), h('span', 'gc-pts', String(p.score))); final.append(li); }
+  const rounds = h('div', 'gcg-rounds');
+  g.rounds.forEach((r, i) => {
+    const card = h('div', 'gcg-round');
+    const top = h('div', 'gcg-top'); top.append(h('b', '', `${i + 1}`), ...(r.double ? [h('span', 'gc-double', '×2')] : []), h('span', 'gc-why-pat', r.pattern));
+    card.append(top, jpLine(r.jp.replace('＿＿', `【${r.filled}】`), 'gc-q gc-q-sm'), h('p', 'gc-tr', lang() === 'ru' ? r.ru : r.en));
+    const picks = h('ul', 'gcg-picks');
+    for (const [id, p] of Object.entries(r.picks)) {
+      const li = h('li', `${p.right ? 'ok' : 'no'}${id === myId ? ' me' : ''}`);
+      li.append(h('b', '', name.get(id) ?? '?'), h('span', '', p.k === null ? tr('no answer') : r.options[p.k] ?? ''), h('span', 'gc-pts', p.right ? `+${p.points}` : '0'));
+      li.querySelector('span')!.setAttribute('lang', 'ja');
+      picks.append(li);
+    }
+    const stand = h('p', 'hint gcg-stand', `${tr('After this round')}: ${r.standings.map((s, k) => `${k + 1}. ${name.get(s.id) ?? '?'} ${s.score}`).join(' · ')}`);
+    card.append(picks, stand);
+    rounds.append(card);
+  });
+  d.append(head, final, rounds);
+  d.addEventListener('close', () => d.remove());
+  document.body.append(d);
+  d.showModal();
 }

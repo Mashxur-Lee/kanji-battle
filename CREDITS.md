@@ -50,14 +50,15 @@ The same list is shown in the game under **About** (main menu).
 
 ## Voices
 
-The chess wizards' spoken lines (`public/voices/`, made by `scripts/voices.mts`) were generated with
+The chess wizards' spoken lines and the Grammar page's (Master Fumi, the examples) (`public/voices/`, made by `scripts/voices.mts`) were generated with
 [VOICEVOX](https://voicevox.hiroshiba.jp/) (engine 0.26.2). Each character's terms allow commercial use with a credit:
 
-- Goblin — VOICEVOX:ちび式じい
+- Goblin — VOICEVOX:ずんだもん
 - Knight — VOICEVOX:†聖騎士 紅桜†
-- Witch — VOICEVOX:四国めたん
+- Witch — VOICEVOX:九州そら
 - Wizard — VOICEVOX:麒ヶ島宗麟
 - Dragon — VOICEVOX:剣崎雌雄
+- Master Fumi (Grammar) — VOICEVOX:麒ヶ島宗麟; the grammar examples and questions — VOICEVOX:雀松朱司
 
 (The game also credits them in About.) Each character's own terms of use apply; read them before changing a voice.
 

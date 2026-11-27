@@ -58,6 +58,19 @@ jobs:
         run: npm test 2>&1 | tee test-output.txt; test ${PIPESTATUS[0]} -eq 0
       - name: Build
         run: npm run build
+      # 0.9.9.9.9.6 (round 7): the end-to-end tests — a real browser (the runner's Chrome) plays the game on a computer screen
+      # and a phone screen, against a server of its own with a throwaway data file (never the database)
+      - name: Browser tests (end to end)
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npx playwright test
+      - name: Browser test report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: test-results/
+          retention-days: 7
       - name: Screenshots
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.scenario != '' }}
         env:

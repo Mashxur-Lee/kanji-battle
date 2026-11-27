@@ -7,7 +7,8 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BOT_VOICE, LINES, lineHash, spokenOf } from '../src/shared/chesslines';
+import { BOT_VOICE, EXAMPLE_VOICE, FUMI_LINES, FUMI_VOICE, LINES, lineHash, spokenOf, type BotVoice } from '../src/shared/chesslines';
+import { GRAMMAR, filledQuestion } from '../src/shared/grammar';
 import type { BotId } from '../src/shared/chess';
 
 const arg = (k: string) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : undefined; };
@@ -16,7 +17,7 @@ const FFMPEG = arg('--ffmpeg') ?? 'ffmpeg';
 const ALL = process.argv.includes('--all');
 const OUT = join(import.meta.dirname, '..', 'public', 'voices');
 
-async function synth(text: string, v: (typeof BOT_VOICE)[BotId]): Promise<Buffer> {
+async function synth(text: string, v: BotVoice): Promise<Buffer> {
   const q = await fetch(`${ENGINE}/audio_query?speaker=${v.style}&text=${encodeURIComponent(text)}`, { method: 'POST' });
   if (!q.ok) throw new Error(`audio_query ${q.status}`);
   const query = await q.json() as Record<string, number>;
@@ -27,24 +28,28 @@ async function synth(text: string, v: (typeof BOT_VOICE)[BotId]): Promise<Buffer
 }
 
 let made = 0, removed = 0;
-for (const bot of Object.keys(LINES) as BotId[]) {
-  const v = BOT_VOICE[bot];
-  const dir = join(OUT, bot);
+/** one folder of recordings: every line in it made (the ones missing, or all with --all), the ones no longer used removed */
+async function folder(name: string, voice: BotVoice, lines: string[], bitrate = '48k') {
+  const dir = join(OUT, name);
   mkdirSync(dir, { recursive: true });
   const want = new Set<string>();
-  for (const lines of Object.values(LINES[bot])) for (const line of lines ?? []) {
-    const file = `${lineHash(line.jp)}.mp3`;
+  for (const jp of lines) {
+    const file = `${lineHash(jp)}.mp3`;
+    if (want.has(file)) continue;
     want.add(file);
     if (!ALL && existsSync(join(dir, file))) continue;
     const wav = join(tmpdir(), `kw-voice-${process.pid}.wav`);
-    writeFileSync(wav, await synth(spokenOf(line.jp), v));
-    // mono mp3, loudness evened out; the Dragon with a cave's echo
-    const af = [...(v.echo ? ['aecho=0.8:0.7:60|140:0.35|0.2'] : []), 'loudnorm=I=-16:TP=-1.5'].join(',');
-    execFileSync(FFMPEG, ['-v', 'error', '-y', '-i', wav, '-af', af, '-ac', '1', '-ar', '24000', '-c:a', 'libmp3lame', '-b:a', '48k', join(dir, file)]);
+    writeFileSync(wav, await synth(spokenOf(jp), voice));
+    // mono mp3, loudness evened out; a voice's own effect first (the Knight's helmet, the Dragon's cave)
+    const af = [...(voice.fx ? [voice.fx] : []), 'loudnorm=I=-16:TP=-1.5'].join(',');
+    execFileSync(FFMPEG, ['-v', 'error', '-y', '-i', wav, '-af', af, '-ac', '1', '-ar', '24000', '-c:a', 'libmp3lame', '-b:a', bitrate, join(dir, file)]);
     rmSync(wav, { force: true });
     made++;
-    console.log(bot, file, spokenOf(line.jp));
+    console.log(name, file, spokenOf(jp));
   }
   for (const f of readdirSync(dir)) if (!want.has(f)) { rmSync(join(dir, f)); removed++; }
 }
+for (const bot of Object.keys(LINES) as BotId[]) await folder(bot, BOT_VOICE[bot], Object.values(LINES[bot]).flatMap((l) => (l ?? []).map((x) => x.jp)));
+await folder('fumi', FUMI_VOICE, Object.values(FUMI_LINES));
+await folder('grammar', EXAMPLE_VOICE, GRAMMAR.flatMap((g) => [...g.examples.map((e) => e.jp), ...g.questions.map((q) => filledQuestion(q))]), '32k');
 console.log(`${made} made, ${removed} removed`);

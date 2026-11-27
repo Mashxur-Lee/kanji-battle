@@ -81,6 +81,7 @@ hub.chess = new ChessHub((id, m) => { hub.sendTo(id, m); }, Date.now, Math.rando
 const grammarHub = new GrammarHub((id, m) => { hub.sendTo(id, m); }, Date.now, Math.random, undefined, {
   settle: (order) => ranked.settleField(order, 'clash'),
   invite: (friendId, from, code) => hub.sendTo(friendId, { type: 'clash_invite', from, code }),
+  record: (userId, game) => { void study.addClashGame(userId, game).catch(() => { /* not important */ }); }, // (round 7)
 });
 hub.grammar = grammarHub;
 setInterval(() => grammarHub.sweep(), 10 * 60_000).unref();

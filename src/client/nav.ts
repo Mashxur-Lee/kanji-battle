@@ -155,7 +155,13 @@ export function initNav() {
     setMore(false);
     // (0.9.9.9.9.6: the menu and the results are steps too; a battle or a lobby isn't one to go back to — it starts over)
     if (s === 'battle' || s === 'lobby') trail.length = 0;
-    else if ((on || s === 'menu' || s === 'results') && trail[trail.length - 1] !== s) { trail.push(s); if (trail.length > 20) trail.shift(); }
+    else if ((on || s === 'menu' || s === 'results') && trail[trail.length - 1] !== s) {
+      // 0.9.9.9.9.6 (round 7): a page you were on before — the trail goes back to it (Match history → a result → back
+      // to Match history, then Back opened the result again, and again: a loop)
+      const at = trail.indexOf(s);
+      if (at >= 0) trail.length = at + 1;
+      else { trail.push(s); if (trail.length > 20) trail.shift(); }
+    }
     for (const b of nav.querySelectorAll<HTMLElement>('.an-item:not(.an-more)')) b.classList.toggle('on', ITEMS.find((x) => x.id === b.dataset.nav)!.screens.includes(s));
     // (More lights up when the page is one of its own)
     more.classList.toggle('on', ITEMS.some((x) => !x.phone && x.screens.includes(s)));
