@@ -17,6 +17,13 @@ export interface LadderView { top: LadderRow[]; me: RankView & { id: string }; f
 /** 0.9.9.9.9.5: a replay saved to your account */
 /** 0.9.9.9.9.6 (round 4): a game of Kanji chess, as kept in Match history → Chess */
 export interface ChessGame { at: number; vs: string; vsBot?: string; /** (round 6) from the queue's Ranked side */ ranked?: boolean; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
+/** 0.9.9.9.9.6 (round 7): a game of Grammar Clash, as kept in Match history */
+export interface ClashGame {
+  at: number; ranked: boolean; level: string; place: number;
+  players: Array<{ id: string; name: string; avatar: string; score: number; right: number; best: number }>;
+  rounds: Array<{ jp: string; options: string[]; answer: number; filled: string; en: string; ru: string; pattern: string; double: boolean;
+    picks: Record<string, { k: number | null; right: boolean; points: number }>; standings: Array<{ id: string; score: number }> }>;
+}
 export interface SavedReplay { id: string; savedAt: number; at: number; mode: string; label: string }
 /** 0.9.9.9.9.6: a GIF to send */
 export interface GifItem { id: string; url: string; w: number; h: number; preview: string }
@@ -212,6 +219,7 @@ export const api = {
   /** 0.9.9.9.9.6 (round 5): an admin writes to every player as the team */
   broadcast: (text: string) => call<{ sent: number }>('POST', '/api/messages/broadcast', { text }),
   chessGames: () => call<{ games: ChessGame[] }>('GET', '/api/chess/games'),
+  clashGames: () => call<{ games: ClashGame[] }>('GET', '/api/clash/games'), // (round 7)
   saveChessGame: (g: { bot: string; color: 'w' | 'b'; moves: string[]; times: number[]; base: number; inc: number; reason: string; result: string }) => call<{ ok: true }>('POST', '/api/chess/games', g),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),
   player: (id: string) => call<{ profile: PublicProfile }>('GET', `/api/users/${encodeURIComponent(id)}`),

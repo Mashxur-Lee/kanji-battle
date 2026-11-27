@@ -9,6 +9,8 @@ export const QUEUE_MODES = ['reading', 'writing', 'rapid', 'boss', 'chess', 'cla
 const NO_LEVELS = new Set<GameMode>(['chess', 'clash']);
 /** Grammar Clash gathers 2–8: it starts with 8, or with whoever is there once the first has waited this long */
 export const CLASH_GATHER_MS = 12_000;
+/** (round 7) Grammar Clash players with no JLPT level in common meet after this long */
+export const CLASH_ANY_LEVEL_MS = 45_000;
 
 /** The player's side of matchmaking (a Session). */
 export interface QueueClient {
@@ -153,7 +155,13 @@ export class Matchmaker {
       // start right away, as if the host pressed Start / both pressed Ready
       if (mode === 'deck') for (const t of seated) room.setLobbyReady(t.id, true);
       else {
-        if (mode === 'clash') room.setSettings(seated[0].id, { level: 'mix', count: 10 }); // (round 5: every level's grammar)
+        // (round 5: every level's grammar; round 7: the JLPT level the players have in common, when they picked one)
+        if (mode === 'clash') {
+          const lv = (t: Ticket) => t.levels.filter((l) => /^N\d$/.test(l));
+          const both = ['N5', 'N4', 'N3', 'N2', 'N1'].filter((l) => seated.every((t) => !lv(t).length || lv(t).includes(l as Level)));
+          const any = seated.some((t) => lv(t).length);
+          room.setSettings(seated[0].id, { level: any && both.length ? both[Math.floor(this.rng() * both.length)] : 'mix', count: 10 });
+        }
         room.start(seated[0].id);
       }
     } finally {
@@ -172,7 +180,11 @@ export class Matchmaker {
       const options: Array<[Ticket[], GameMode]> = [];
       for (const m of a.modes) {
         const waited = (t: Ticket) => this.now() - t.since >= RAPID_ANY_AFTER_MS;
-        const fits = (b: Ticket) => m !== 'rapid' || a.levels.some((l) => b.levels.includes(l)) || (waited(a) && waited(b));
+        // (round 7) Grammar Clash: players who picked JLPT levels meet others with one in common (no levels: any)
+        const nLv = (t: Ticket) => t.levels.filter((l) => /^N\d$/.test(l));
+        const longWait = (t: Ticket) => this.now() - t.since >= CLASH_ANY_LEVEL_MS; // (it gathers for 12 s anyway: the level holds longer)
+        const fits = (b: Ticket) => m === 'clash' ? (!nLv(a).length || !nLv(b).length || nLv(a).some((l) => nLv(b).includes(l)) || (longWait(a) && longWait(b)))
+          : m !== 'rapid' || a.levels.some((l) => b.levels.includes(l)) || (waited(a) && waited(b));
         // (round 6: a ranked mode — only players on the same side of the queue)
         const others = this.tickets.slice(i + 1).filter((b) => b.modes.includes(m) && fits(b) && (!isRankedMode(m) || b.ranked === a.ranked));
         if (others.length >= sizeOf(m) - 1) options.push([[a, ...others.slice(0, sizeOf(m) - 1)], m]);

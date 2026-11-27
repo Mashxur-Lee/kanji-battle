@@ -22,6 +22,10 @@ serves the web game, the Android app (a WebView shell) and the Windows app (Elec
 ## Commands
 - `npm test` (or `npx tsx --test test/*.test.ts`) runs everything against MemoryStore. `store.test.ts` needs
   Postgres and fails locally, which is expected.
+- `npm run test:e2e` (0.9.9.9.9.6 round 7) runs the Playwright browser tests in `e2e/` on a computer and a phone screen,
+  using the installed Chrome, against their own server (port 3998, a throwaway data file, never the database).
+  `npm run test:all` runs both suites, `npm run test:coverage` writes `test-results/lcov.info`, and `npm run test:report`
+  opens the last browser-test report.
 - `npm run typecheck` checks the server and client. Locally the three.js typings may be missing; CI has them.
 - `npm run dev` builds the client and runs the server on :3000 (`PORT`); without `DATABASE_URL` it keeps data in a local JSON file.
 

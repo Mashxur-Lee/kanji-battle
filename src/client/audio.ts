@@ -165,6 +165,21 @@ function noise(at: number, dur: number, gain: number, cutoff: number, type: Biqu
   src.start(at);
 }
 
+/**
+ * 0.9.9.9.9.6 (round 7): a wooden chess piece knocked on a wooden board — a body thump and a few short wooden
+ * resonances (they die away fast, no sweep), with a tiny click on top. gain: how hard; pitch: a smaller (higher) or
+ * bigger piece; bright: how much click. A little random each time, as no two moves sound the same.
+ */
+function knock(at: number, gain = 1, pitch = 1, bright = 1) {
+  const j = pitch * (0.97 + Math.random() * 0.06);
+  tone(180 * j, at, 0.1, { gain: 0.26 * gain, attack: 0.0015 });
+  tone(610 * j, at, 0.055, { gain: 0.15 * gain, attack: 0.001 });
+  tone(1080 * j, at, 0.04, { gain: 0.075 * gain * bright, attack: 0.001 });
+  tone(1870 * j, at, 0.025, { gain: 0.035 * gain * bright, attack: 0.0008 });
+  tone(2950 * j, at, 0.014, { gain: 0.018 * gain * bright, attack: 0.0005 });
+  noise(at, 0.014, 0.16 * gain * bright, 3400 * j, 'bandpass');
+}
+
 const sfxOk = () => prefs.sfx && ensure() !== null && ctx!.state === 'running';
 
 export const sfx = {
@@ -212,47 +227,54 @@ export const sfx = {
     const t = ctx!.currentTime;
     [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
   },
-  // 0.9.9.9.9.6 (round 4): Kanji chess's own sounds — a wooden piece set down, a capture, check, checkmate
-  /** a piece set down on the board: a soft wooden tock */
-  chessMove() {
-    if (!sfxOk()) return;
-    const t = ctx!.currentTime;
-    tone(520, t, 0.07, { type: 'sine', gain: 0.22, to: 300, attack: 0.002 });
-    tone(1240, t, 0.03, { type: 'triangle', gain: 0.05, attack: 0.001 });
-    noise(t, 0.05, 0.12, 1800, 'bandpass');
-  },
-  /** a capture: the piece knocked aside, then the taker set down — two tocks and a low knock */
+  // 0.9.9.9.9.6 (round 4): Kanji chess's own sounds. Round 7 (the owner: "good, calm and relatable"): a real wooden piece —
+  // a short knock of a few wooden resonances and a click, never a pitch sweep — each move a little different; capture,
+  // castling, check, promotion and checkmate each with a sound of their own, all soft
+  /** a piece set down on the board */
+  chessMove() { if (sfxOk()) knock(ctx!.currentTime); },
+  /** a capture: the taken piece clacked aside, then the taker set down firmly */
   chessCapture() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    tone(420, t, 0.06, { gain: 0.18, to: 260, attack: 0.002 });
-    noise(t, 0.06, 0.14, 1400, 'bandpass');
-    tone(600, t + 0.07, 0.08, { gain: 0.24, to: 320, attack: 0.002 });
-    tone(150, t + 0.07, 0.18, { gain: 0.22, to: 80 });
-    noise(t + 0.07, 0.08, 0.16, 2200, 'bandpass');
+    knock(t, 0.7, 1.25, 1.5);
+    noise(t + 0.02, 0.05, 0.05, 1200, 'bandpass');
+    knock(t + 0.075, 1.15, 0.92, 1.1);
   },
-  /** check: two bright notes rising, a warning but a gentle one */
+  /** castling: the king, then the rook beside it */
+  chessCastle() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    knock(t, 0.95);
+    knock(t + 0.14, 0.85, 1.07);
+  },
+  /** check: a firmer knock and one quiet, low chime */
   chessCheck() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    bell(midi(81), t, 0.5, 0.12);
-    bell(midi(88), t + 0.09, 0.7, 0.13);
+    knock(t, 1.15, 1.02, 1.3);
+    bell(midi(76), t + 0.05, 0.45, 0.045);
   },
-  /** checkmate: a deep temple gong under a falling chord */
+  /** a pawn promoted: the knock, then two soft rising notes */
+  chessPromote() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    knock(t);
+    bell(midi(72), t + 0.08, 0.5, 0.04);
+    bell(midi(79), t + 0.18, 0.7, 0.045);
+  },
+  /** checkmate: the last knock and a warm, quiet chord that fades */
   chessMate() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    tone(midi(38), t, 2.4, { gain: 0.3, send: 0.5, attack: 0.01 });
-    tone(midi(38) * 2.02, t, 1.6, { gain: 0.1, send: 0.5, attack: 0.01 });
-    tone(midi(38) * 2.98, t, 1.0, { gain: 0.05, send: 0.5, attack: 0.01 });
-    [86, 81, 77, 74].forEach((n, i) => bell(midi(n), t + 0.05 + i * 0.11, 1.4, 0.1));
+    knock(t, 1.2, 0.97, 1.2);
+    for (const [n, d] of [[57, 0.1], [64, 0.16], [69, 0.22], [73, 0.28]] as const) tone(midi(n), t + d, 2.2, { gain: 0.05, send: 0.45, attack: 0.03 });
   },
-  /** the game begins: a light two-note call */
+  /** the game begins: two light knocks, as the first pieces are touched */
   chessStart() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    bell(midi(74), t, 0.6, 0.1);
-    bell(midi(79), t + 0.12, 0.9, 0.11);
+    knock(t, 0.6, 1.05);
+    knock(t + 0.16, 0.7);
   },
   mana() {
     if (!sfxOk()) return;

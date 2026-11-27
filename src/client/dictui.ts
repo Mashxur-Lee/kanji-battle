@@ -449,10 +449,23 @@ export function openDictionary(q = '') {
 let drawPad: HandwritingPad | null = null;
 let drawDone: ((text: string) => void) | null = null;
 let drawT = 0, drawN = 0;
+/** 0.9.9.9.9.6 (round 7): the characters picked so far — each with its own ✕ (a wrong one picked by mistake goes alone;
+ *  Clear wipes only the drawing — it took the picked characters with it) */
+let chosen: string[] = [];
+function paintChosen() {
+  $('drawTyped').replaceChildren(...chosen.map((c, i) => {
+    const chip = h('span', 'dd-chip', undefined, { lang: 'ja' });
+    const x = h('button', 'dd-chip-x', '✕', { type: 'button', 'aria-label': tr('Remove') });
+    x.onclick = () => { chosen.splice(i, 1); paintChosen(); };
+    chip.append(x, h('b', '', c));
+    return chip;
+  }));
+}
 export function openDraw(onSearch: (text: string) => void, start = '') {
   const d = $<HTMLDialogElement>('drawDialog');
   drawDone = onSearch;
-  $('drawTyped').textContent = start;
+  chosen = [...start];
+  paintChosen();
   const cands = $('drawCands');
   const hint = () => cands.replaceChildren(h('span', 'hint', tr('Draw one character - the closest ones show here')));
   const guess = async () => {
@@ -464,7 +477,7 @@ export function openDraw(onSearch: (text: string) => void, start = '') {
       if (n !== drawN) return;
       cands.replaceChildren(...r.chars.map((c) => {
         const b = h('button', 'dd-cand', c, { type: 'button', lang: 'ja' });
-        b.onclick = () => { $('drawTyped').textContent += c; drawPad!.clear(); hint(); };
+        b.onclick = () => { chosen.push(c); paintChosen(); drawPad!.clear(); hint(); };
         return b;
       }));
     } catch (e) { if (n === drawN) cands.replaceChildren(h('span', 'hint', (e as Error).message)); }
@@ -473,9 +486,9 @@ export function openDraw(onSearch: (text: string) => void, start = '') {
     drawPad = new HandwritingPad($<HTMLCanvasElement>('drawPad'), () => { clearTimeout(drawT); drawT = window.setTimeout(() => void guess(), 220); });
     drawPad.inkColour = '#f1effb'; // (dark like the rest of the game — it was a white sheet)
     $('drawUndo').onclick = () => drawPad!.undo();
-    $('drawClear').onclick = () => { drawPad!.clear(); $('drawTyped').textContent = ''; };
+    $('drawClear').onclick = () => { drawPad!.clear(); hint(); };
     $('drawClose').onclick = () => d.close();
-    $('drawSearch').onclick = () => { const t = $('drawTyped').textContent ?? ''; d.close(); if (t) drawDone?.(t); };
+    $('drawSearch').onclick = () => { const t = chosen.join(''); d.close(); if (t) drawDone?.(t); };
   }
   drawPad.clear();
   hint();

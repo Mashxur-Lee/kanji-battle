@@ -7347,3 +7347,73 @@ button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
 .hist-mode-name .hist-ranked { margin-left: 8px; font-size: .62rem; padding: 1px 7px; vertical-align: 2px; }
 #queue .rank-box.rank-modes .rank-card { padding: 8px 12px 8px 10px; gap: 10px; box-sizing: border-box; }
 #queue .rank-box[hidden] { display: none; }
+
+/* 0.9.9.9.9.6 (round 7): Master Fumi's hat sits on his head — it moves exactly with his face (it floated in front of him) */
+.tg .fumi .fu-hat { transform: translate(calc(var(--tx) * 2px), calc(var(--ty) * 2px)); }
+
+/* 0.9.9.9.9.6 (round 7): Grammar Clash — the chat on one side, the grammar of your mistake on the other */
+.gc-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; width: 100%; }
+.gc-center { min-width: 0; }
+.gc-side { background: rgba(14, 10, 34, .86); border: 1px solid rgba(185, 160, 255, .28); border-radius: 16px; padding: 12px 14px; color: #ece8ff; }
+.gc-side h4 { margin: 0 0 8px; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: #c7b8ff; }
+.gc-chatside .cc-list { max-height: 360px; min-height: 120px; overflow: auto; margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 4px; }
+.gc-chatside .cc-form { display: flex; gap: 6px; }
+.gc-chatside .cc-form input { flex: 1; min-width: 0; }
+.gc-whyside .gc-why { margin: 8px 0 0; }
+.gc-q.gc-q-sm { font-size: 1.05rem; }
+@media (min-width: 1100px) {
+  .gc-layout { grid-template-columns: 250px minmax(0, 1fr) 280px; }
+  .gc-chatside { grid-column: 1; grid-row: 1; position: sticky; top: 12px; }
+  .gc-center { grid-column: 2; grid-row: 1; }
+  .gc-whyside { grid-column: 3; grid-row: 1; position: sticky; top: 12px; }
+}
+@media (max-width: 1099px) {
+  .gc-center { order: 1; } .gc-whyside { order: 2; } .gc-chatside { order: 3; }
+  .gc-chatside .cc-list { max-height: 160px; }
+}
+:root[data-theme="light"] .gc-side { background: rgba(255, 255, 255, .94); color: #1d1838; border-color: rgba(107, 63, 214, .25); }
+:root[data-theme="light"] .gc-side h4 { color: #5a3fc0; }
+/* three right in a row: the omnipotence aura round the player's figure */
+.gc-av.gc-omni { position: relative; isolation: isolate; }
+.gc-av.gc-omni::before { content: ""; position: absolute; inset: -18%; z-index: -1; border-radius: 50%; background: conic-gradient(from 0deg, #ffd479, #ff7ad9, #8b6cff, #5fd4ff, #ffd479); filter: blur(6px); opacity: .85; animation: gcOmniSpin 2.4s linear infinite, gcOmniPulse 1.2s ease-in-out infinite alternate; }
+.gc-av.gc-omni::after { content: ""; position: absolute; inset: -6%; z-index: -1; border-radius: 50%; box-shadow: 0 0 18px 6px rgba(255, 212, 121, .55), inset 0 0 12px rgba(255, 255, 255, .5); animation: gcOmniPulse 1.2s ease-in-out infinite alternate-reverse; }
+@keyframes gcOmniSpin { to { transform: rotate(360deg); } }
+@keyframes gcOmniPulse { from { opacity: .55; } to { opacity: 1; } }
+.gc-omni-note { display: inline-block; margin-left: 8px; font-weight: 900; letter-spacing: .04em; background: linear-gradient(90deg, #ffd479, #ff7ad9, #8b6cff); -webkit-background-clip: text; background-clip: text; color: transparent; animation: gcOmniPulse .6s ease-in-out 4 alternate; }
+/* Match history → Grammar Clash */
+.clash-hist { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+.clash-hist .ch-place { font: 900 1.3rem/1 var(--brand, sans-serif); min-width: 2.4em; color: var(--muted, #a4a0c8); }
+.clash-hist.win .ch-place { color: var(--gold, #ffd479); }
+.clash-hist .ch-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.clash-game-dialog { width: min(720px, calc(100vw - 32px)); max-height: 86vh; overflow: auto; }
+.gcg-final { margin: 0 0 12px; padding-left: 1.4em; display: grid; gap: 4px; }
+.gcg-final li { display: flex; gap: 10px; align-items: baseline; }
+.gcg-final li.me b { color: var(--gold, #ffd479); }
+.gcg-final .gc-pts { margin-left: auto; font-weight: 800; }
+.gcg-rounds { display: grid; gap: 10px; }
+.gcg-round { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(185, 160, 255, .2); }
+.gcg-top { display: flex; gap: 8px; align-items: center; }
+.gcg-picks { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 3px; }
+.gcg-picks li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; font-size: .9rem; }
+.gcg-picks li.ok span:first-of-type { color: #3ddc84; } .gcg-picks li.no span:first-of-type { color: #ff8094; }
+.gcg-picks li.me b { color: var(--gold, #ffd479); }
+:root[data-theme="light"] .gcg-round { background: rgba(255, 255, 255, .8); }
+.mode-card[hidden] { display: none !important; } /* (0.9.9.9.9.6 round 7) */
+
+/* 0.9.9.9.9.6 (round 7): the queue's levels only for the modes that use them */
+#queuePick .q-levels-row[hidden], #qLevels label[hidden] { display: none !important; }
+/* 0.9.9.9.9.6 (round 7): the dictionary's drawn characters, each with a ✕ above it */
+.dd-typed { display: inline-flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; min-width: 0; }
+.dd-chip { position: relative; display: inline-grid; place-items: center; min-width: 2em; padding: 10px 4px 2px; font-size: 1.4rem; }
+.dd-chip b { font-weight: 700; }
+.dd-chip-x { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 0; font-size: .7rem; line-height: 20px; background: #ff5d73; color: #fff; cursor: pointer; }
+
+/* 0.9.9.9.9.6 (round 7): the chess result on a solid card (on a light board it was hard to read); the opponent from the
+   head to the stomach, bigger (the legs were cut off at the bottom) */
+.chess-over { background: rgba(8, 6, 20, .45); backdrop-filter: blur(2px); }
+.chess-over .co-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 28px; border-radius: 20px; background: rgba(16, 11, 40, .96); border: 1px solid rgba(185, 160, 255, .35); box-shadow: 0 18px 48px rgba(0, 0, 0, .55); text-align: center; max-width: 88%; }
+.chess-over .co-card span { color: #e4e0fa; }
+.chess-player .cp-pic, #chessOpp .cp-pic { width: 180px; height: 170px; overflow: hidden; place-items: start center; }
+#chessOpp .cp-pic svg { height: 100%; width: 100%; max-width: none; scale: 1.75; transform-origin: 50% 4%; }
+@media (max-width: 900px) { #chessOpp .cp-pic { width: 110px; height: 104px; } }
+@media (max-width: 600px) { #chessOpp .cp-pic { width: 92px; height: 88px; } }

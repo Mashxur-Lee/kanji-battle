@@ -108,13 +108,33 @@ export function parseLine(jp: string): Array<{ text: string; reading?: string }>
 // 0.9.9.9.9.6 (round 6): every line is also a recording — each wizard has a voice of their own, made with VOICEVOX
 // (scripts/voices.mts makes them; the voices are credited in CREDITS.md). The file is named by the line's words, so a
 // line changed without a new recording falls back to the device's voice instead of saying the old words.
-export const BOT_VOICE: Record<BotId, { name: string; style: number; pitch: number; speed: number; echo?: boolean }> = {
-  goblin: { name: 'ちび式じい', style: 42, pitch: 0.06, speed: 1.12 },
-  knight: { name: '†聖騎士 紅桜†', style: 51, pitch: 0, speed: 0.98 },
-  witch: { name: '四国めたん', style: 2, pitch: 0, speed: 1.02 },
+// (round 7, the owner: "the witch sounds like a 10 year old girl, she should have a mature voice; the dragon's voice should
+// be deeper; the knight talking through the helmet; the goblin is a bit hard to understand")
+// fx: an ffmpeg audio filter on the recording — the Knight's helmet (a narrow, ringing band), the Dragon three semitones
+// lower with a cave's echo
+export interface BotVoice { name: string; style: number; pitch: number; speed: number; fx?: string }
+export const BOT_VOICE: Record<BotId, BotVoice> = {
+  goblin: { name: 'ずんだもん', style: 3, pitch: 0.03, speed: 1.04 },
+  knight: { name: '†聖騎士 紅桜†', style: 51, pitch: -0.02, speed: 0.96, fx: 'highpass=f=280,lowpass=f=3400,aecho=0.8:0.55:7|13:0.38|0.26,equalizer=f=1400:t=q:w=1.2:g=5' },
+  witch: { name: '九州そら', style: 16, pitch: -0.04, speed: 0.97 },
   wizard: { name: '麒ヶ島宗麟', style: 53, pitch: 0, speed: 0.92 },
-  dragon: { name: '剣崎雌雄', style: 21, pitch: -0.1, speed: 0.86, echo: true },
+  dragon: { name: '剣崎雌雄', style: 21, pitch: -0.15, speed: 0.9, fx: 'asetrate=24000*0.84,aresample=24000,atempo=1.19,lowpass=f=5000,aecho=0.8:0.7:70|160:0.4|0.25' },
 };
+/** 0.9.9.9.9.6 (round 7): Master Fumi (the Grammar page) and the grammar examples' reader */
+export const FUMI_VOICE: BotVoice = { name: '麒ヶ島宗麟', style: 53, pitch: -0.02, speed: 0.95 };
+export const EXAMPLE_VOICE: BotVoice = { name: '雀松朱司', style: 52, pitch: 0, speed: 0.92 };
+/** what Master Fumi says aloud on the Grammar page (in Japanese — VOICEVOX speaks only Japanese) */
+export const FUMI_LINES = {
+  lesson: '{今日|きょう}の{文法|ぶんぽう}じゃ。よく{読|よ}んでみなさい。',
+  again: 'もう{一度|いちど}か。よい{心|こころ}がけじゃ。',
+  quiz: '{問題|もんだい}じゃ。{正|ただ}しいものを{選|えら}びなさい。',
+  right: '{正解|せいかい}じゃ！',
+  wrong: 'おしいのう。',
+  passed: '{合格|ごうかく}じゃ！よくやった。',
+  failed: 'もう{一度|いちど}{読|よ}んでから、やってみなさい。',
+} as const;
+export const fumiClip = (jp: string) => `voices/fumi/${lineHash(jp)}.mp3`;
+export const grammarClip = (jp: string) => `voices/grammar/${lineHash(jp)}.mp3`;
 /** a short hash of the words (FNV-1a), the recording's file name */
 export function lineHash(jp: string): string {
   let x = 0x811c9dc5;

@@ -7,13 +7,13 @@
 // Chess and can be watched again; the pieces taken and who is ahead; how long each move took; pieces shaped like
 // chess pieces; their own sounds; the wizards speak their lines in their own voices, with a face to go with them.
 import { toFen, BOTS, botMove, colorOf, inCheck, judgeMove, kindOf, legalMoves, makeMove, moveSan, moveUci, outcome, parseFen, PIECE_KANJI, PIECE_NAME, PIECE_READING, posKey, replay, sqName, START_FEN, type BotId, type Color, type Kind, type Move, type Position } from '../shared/chess';
-import { lineFor, parseLine, voiceClip, type Moment } from '../shared/chesslines';
+import { LINES, parseLine, voiceClip, type Moment } from '../shared/chesslines';
 import type { ChessRoomView, ClientMessage } from '../shared/protocol';
 import { api, type ChessGame } from './api';
 import * as audio from './audio';
 import { miniPiece, pieceSvg } from './chesspieces';
 import { lang, tr } from './i18n';
-import { showKanji } from './kanjihelp';
+import { showKanji, wordsTappable } from './kanjihelp';
 import * as ui from './ui';
 import { playClip, speakAs } from './voice';
 import { dragonSvg, heroSvg } from './wizard';
@@ -29,7 +29,6 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
   return e;
 };
-const HAN = /\p{Script=Han}/u;
 
 // ── the game in play ──
 type Mode = { kind: 'bot'; bot: BotId } | { kind: 'friend'; room: ChessRoomView };
@@ -174,6 +173,7 @@ function startBot() {
   if (pos.turn !== mine) botTurn();
 }
 function begin(b: number, i: number) {
+  saidThisGame.clear(); lastRemark = 0;
   pos = parseFen(START_FEN); moves = []; sans = []; times = []; history = []; selected = -1; over = null; thinking = false; pendingPromo = null; saved = false;
   base = b; inc = i; clocks = { w: b, b: b }; turnSince = Date.now(); moveSince = Date.now(); clockSkew = 0;
   flipped = mine === 'b';
@@ -249,7 +249,9 @@ function moveSound(m: Move, after: Position) {
   const o = outcome(after);
   if (o.over && o.reason === 'checkmate') audio.sfx.chessMate();
   else if (inCheck(after)) audio.sfx.chessCheck();
+  else if (m.promo) audio.sfx.chessPromote(); // (round 7)
   else if (m.captured) audio.sfx.chessCapture();
+  else if (m.castle) audio.sfx.chessCastle(); // (round 7)
   else audio.sfx.chessMove();
 }
 function play(m: Move) {
@@ -491,25 +493,33 @@ function setMood(mood: string, mark = '') {
   clearTimeout(moodTimer);
   if (mood !== 'calm') moodTimer = window.setTimeout(() => { pic.dataset.mood = 'calm'; seal.hidden = true; }, 3200);
 }
+// 0.9.9.9.9.6 (round 7): each line is said once a game (the owner: "they keep repeating the same voice line again and
+// again"); when a moment's lines are used up the wizard keeps quiet, and between remarks there's a short pause
+const saidThisGame = new Set<string>();
+let lastRemark = 0;
+const ALWAYS: Moment[] = ['hello', 'botWins', 'botLoses', 'draw'];
 function say(moment: Moment) {
   if (mode.kind !== 'bot') return;
-  const line = lineFor(mode.bot, moment);
+  if (!ALWAYS.includes(moment) && moment !== 'check' && Date.now() - lastRemark < 9000) return;
+  const fresh = (LINES[mode.bot][moment] ?? []).filter((l) => !saidThisGame.has(l.jp));
+  const line = fresh.length ? fresh[Math.floor(Math.random() * fresh.length)] : null;
   if (!line) return;
+  saidThisGame.add(line.jp);
+  lastRemark = Date.now();
   const box = $('chessBubble');
   const jp = h('p', 'cbb-jp', undefined, { lang: 'ja' });
   const parts = parseLine(line.jp);
   for (const part of parts) {
     if (!part.reading) { jp.append(part.text); continue; }
-    // the word with its reading over it; each kanji in it can be tapped for its meaning
+    // the word with its reading over it — tapped, the whole word's meaning (round 7: it split 勝負 into 勝 and 負), and its
+    // kanji one tap further
     const r = h('ruby');
-    for (const ch of part.text) {
-      if (HAN.test(ch)) { const k = h('button', 'cbb-k', ch, { type: 'button', title: tr('Tap for its meaning') }); k.onclick = (e) => { e.stopPropagation(); void showKanji(ch, k); }; r.append(k); }
-      else r.append(ch);
-    }
+    r.append(part.text);
     r.append(h('rt', '', part.reading));
     jp.append(r);
   }
   box.replaceChildren(jp, h('p', 'cbb-tr', lang() === 'ru' ? line.ru : line.en));
+  wordsTappable(jp);
   box.hidden = false;
   box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
   const [mood, mark] = MOOD[moment] ?? ['calm', ''];

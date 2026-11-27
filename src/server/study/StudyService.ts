@@ -87,6 +87,14 @@ export class StudyService {
     if (ok && !have.includes(g.id)) { have.push(g.id); await this.store.setValue(`grammar:${userId}`, JSON.stringify(have)); }
     return { passed: have, ok };
   }
+  /** 0.9.9.9.9.6 (round 7): your Grammar Clash games (the last 20) — Match history → Grammar Clash (its rounds, no replay) */
+  async clashGames(userId: string): Promise<unknown[]> {
+    try { const v = JSON.parse((await this.store.getValue(`clashgames:${userId}`)) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+  }
+  async addClashGame(userId: string, g: unknown) {
+    const list = [g, ...(await this.clashGames(userId))].slice(0, 20);
+    await this.store.setValue(`clashgames:${userId}`, JSON.stringify(list));
+  }
   async addChessGame(userId: string, g: ChessGameRecord) {
     const list = [g, ...(await this.chessGames(userId))].slice(0, 40);
     await this.store.setValue(`chessgames:${userId}`, JSON.stringify(list));

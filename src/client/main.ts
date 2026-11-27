@@ -1,6 +1,6 @@
 import { knowPlayer, setMentionSelf } from './mentions';
 import { openGrammar } from './grammarui';
-import { clashReconnected, initClash, onClashError, onClashInvite, onClashQueue, onClashRoom, setClashUser } from './clash';
+import { showClashHistory, clashReconnected, initClash, onClashError, onClashInvite, onClashQueue, onClashRoom, setClashUser } from './clash';
 import { chessReconnected, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
 import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
@@ -1261,6 +1261,15 @@ ui.$('studyBtn').onclick = () => {
 };
 ui.$('quizzesBtn').onclick = () => ui.show('quizzes');
 ui.$('grammarBtn').onclick = () => openGrammar(); // 0.9.9.9.9.6 (round 4)
+// 0.9.9.9.9.6 (round 7): a "new" badge goes once you have opened it (Grammar's stayed, visit after visit)
+{
+  const seen = (k: string) => { try { return localStorage.getItem(`kw:seen:${k}`) === '1'; } catch { return false; } };
+  for (const b of document.querySelectorAll<HTMLElement>('[data-new]')) {
+    const k = b.dataset.new!;
+    if (seen(k)) { b.hidden = true; continue; }
+    b.closest('button')?.addEventListener('click', () => { try { localStorage.setItem(`kw:seen:${k}`, '1'); } catch { /* private mode */ } b.hidden = true; });
+  }
+}
 ui.$('grammarBack').onclick = () => ui.show('menu');
 ui.$('quizzesBack').onclick = () => ui.show('menu');
 // 0.9.9.9.5: the Kana section (a kana mastered for the first time gives XP: the level bar follows)
@@ -1510,11 +1519,12 @@ async function openHistory() {
   void loadSaved(false);
 }
 // 0.9.9.9.9.5: match history's two tabs: your last matches, and the replays saved to your account
-function historyTab(tab: 'matches' | 'saved' | 'chess') {
+function historyTab(tab: 'matches' | 'saved' | 'chess' | 'clash') {
   for (const b of ui.$('historyTabs').querySelectorAll<HTMLElement>('button')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
   ui.$('historyList').hidden = tab !== 'matches';
   ui.$('savedList').hidden = tab !== 'saved';
-  ui.$('chessHistList').hidden = tab !== 'chess'; // 0.9.9.9.9.6 (round 4): your Kanji chess games
+  ui.$('chessHistList').hidden = tab !== 'chess';
+  ui.$('clashHistList').hidden = tab !== 'clash'; // 0.9.9.9.9.6 (round 4): your Kanji chess games
 }
 async function loadChessHistory() {
   showChessHistory(ui.$('chessHistList'), null);
@@ -1537,7 +1547,12 @@ async function unsave(id: string) {
     ui.showSavedReplays(r.saved, r.max, (x) => void openReplay(x), (x) => void unsave(x));
   } catch (err) { ui.toast((err as Error).message); }
 }
-for (const b of ui.$('historyTabs').querySelectorAll<HTMLElement>('button')) b.onclick = () => { const t = b.dataset.tab === 'saved' ? 'saved' : b.dataset.tab === 'chess' ? 'chess' : 'matches'; historyTab(t); if (t === 'saved') void loadSaved(true); if (t === 'chess') void loadChessHistory(); };
+for (const b of ui.$('historyTabs').querySelectorAll<HTMLElement>('button')) b.onclick = () => { const t = b.dataset.tab === 'saved' ? 'saved' : b.dataset.tab === 'chess' ? 'chess' : b.dataset.tab === 'clash' ? 'clash' : 'matches'; historyTab(t); if (t === 'saved') void loadSaved(true); if (t === 'chess') void loadChessHistory(); if (t === 'clash') void loadClashHistory(); };
+// 0.9.9.9.9.6 (round 7): Grammar Clash games — no replay, the rounds and the standings
+async function loadClashHistory() {
+  showClashHistory(ui.$('clashHistList'), null);
+  try { showClashHistory(ui.$('clashHistList'), (await api.clashGames()).games); } catch (err) { ui.toast((err as Error).message); }
+}
 async function openMatch(id: string) {
   try {
     const m = (await api.match(id)).match;

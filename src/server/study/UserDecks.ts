@@ -7,7 +7,7 @@ import type { Store, UserRecord } from '../db/Store';
 
 export interface UserDeck { id: string; name: string; words: string[]; createdAt: number }
 // (round 2: four — the owner)
-export const USER_DECKS_MAX = 4;
+export const USER_DECKS_MAX = 3; // (0.9.9.9.9.6 round 7: the owner — "make the limit for custom decks 3")
 export const USER_DECK_WORDS_MAX = 1000;
 /** one line of an import: the word, its reading, its meaning (the reading may be missing for a dictionary word) */
 export interface ImportRow { kanji: string; reading: string; meaning: string }

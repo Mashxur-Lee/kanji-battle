@@ -1,15 +1,19 @@
 // 0.9.9.9.9.6 (round 4): Grammar — the JLPT grammar, lesson by lesson. Master Fumi explains each point (what it
 // means, how it is formed and used, examples with furigana — each kanji tappable, each sentence spoken), then asks its
 // questions; all but one right and the lesson is passed (kept on your account). Levels N5 → N1.
-import { GRAMMAR_LEVELS, grammarOf, passMark, plainJp, shuffled, type GrammarLevel, type GrammarPoint } from '../shared/grammar';
-import { parseLine } from '../shared/chesslines';
+import { filledQuestion, GRAMMAR_LEVELS, grammarOf, passMark, plainJp, shuffled, type GrammarLevel, type GrammarPoint } from '../shared/grammar';
+import { FUMI_LINES, fumiClip, grammarClip, parseLine } from '../shared/chesslines';
 import { api } from './api';
 import * as audio from './audio';
 import { lang, tr } from './i18n';
 import { showKanji } from './kanjihelp';
 import { guideEl, guideMood, typeText } from './tutorguide';
 import * as ui from './ui';
-import { say as sayWord } from './voice';
+import { playClip, say as sayWord } from './voice';
+// 0.9.9.9.9.6 (round 7): Master Fumi speaks (a few words in Japanese, an old sage's voice) and every example and
+// question is read by a recorded voice (VOICEVOX); the device's voice if a recording can't play
+const fumiSays = (k: keyof typeof FUMI_LINES) => playClip(fumiClip(FUMI_LINES[k]), () => sayWord(plainJp(FUMI_LINES[k], true)));
+const readOut = (jp: string) => playClip(grammarClip(jp), () => sayWord(plainJp(jp, true)));
 
 const $ = ui.$;
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string, attrs: Record<string, string> = {}) => {
@@ -87,7 +91,7 @@ function openLesson(g: GrammarPoint) {
     const card = h('div', 'gr-ex');
     const play = h('button', 'gr-say', undefined, { type: 'button', 'aria-label': tr('Listen') });
     play.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z" fill="currentColor"/></svg>';
-    play.onclick = () => sayWord(plainJp(e.jp, true));
+    play.onclick = () => readOut(e.jp);
     card.append(play, jpLine(e.jp), h('p', 'gr-tr', t(e)));
     ex.append(card);
   }
@@ -105,6 +109,7 @@ function openLesson(g: GrammarPoint) {
   foot.append(back, ask);
   box.replaceChildren(top, main, foot);
   window.scrollTo({ top: 0 });
+  fumiSays(passed.has(g.id) ? 'again' : 'lesson');
   typeText(said, `${tr(passed.has(g.id) ? 'Again? Good - a lesson read twice stays.' : 'Today\'s lesson:')} ${g.pattern} - ${t(g.meaning)}. ${tr('Read how it works and the examples, then I will ask you a few questions.')}`, guide);
 }
 
@@ -117,6 +122,7 @@ function quiz(g: GrammarPoint, guide: HTMLElement, said: HTMLElement) {
   const top = box.querySelector('.gr-top')!;
   box.replaceChildren(top, area);
   typeText(said, tr('Choose what goes in the gap.'), guide);
+  fumiSays('quiz');
   const next = () => {
     if (i >= qs.length) return end();
     const q = qs[i];
@@ -140,7 +146,9 @@ function quiz(g: GrammarPoint, guide: HTMLElement, said: HTMLElement) {
         sentence.replaceWith(filled);
         if (ok) { right++; audio.sfx.correct(1); guideMood(guide, 'cheer'); typeText(said, tr('Right!'), guide); }
         else { audio.sfx.wrong(); guideMood(guide, 'think'); typeText(said, `${tr('Not quite - it is')} ${q.options[0]}.`, guide); }
-        sayWord(plainJp(q.jp.replace('＿＿', q.options[0]), true));
+        // (round 7: "正解じゃ！" / "おしいのう。", then the whole sentence, read)
+        fumiSays(ok ? 'right' : 'wrong');
+        setTimeout(() => readOut(filledQuestion(q)), 1100);
         go.hidden = false; go.focus();
       };
       opts.append(b);
@@ -151,6 +159,7 @@ function quiz(g: GrammarPoint, guide: HTMLElement, said: HTMLElement) {
     const ok = right >= passMark(g);
     if (ok) { passed.add(g.id); keep(); audio.sfx.win(); guideMood(guide, 'cheer'); }
     else guideMood(guide, 'think');
+    fumiSays(ok ? 'passed' : 'failed');
     typeText(said, ok ? `${tr('Lesson passed!')} ${right} / ${qs.length}.` : `${right} / ${qs.length}. ${tr(`You need ${passMark(g)} right - read the lesson once more and try again.`)}`, guide);
     try { const r = await api.passGrammar(g.id, right); for (const id of r.passed) passed.add(id); keep(); } catch { /* offline: kept on this device */ }
     const list = grammarOf(g.level);

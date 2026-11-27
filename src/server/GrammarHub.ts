@@ -18,8 +18,18 @@ export interface ClashHooks {
   settle?: (order: string[]) => Promise<Record<string, { before: number; after: number; games: number }>>;
   /** a friend asked to a room */
   invite?: (to: string, from: { id: string; name: string }, code: string) => boolean;
+  /** (round 7) a game over: kept in each player's Match history (its rounds and the standings — no replay) */
+  record?: (userId: string, game: ClashRecord) => void;
 }
-export const CLASH = { questionMs: 20_000, revealMs: 3_500, boardMs: 4_000, startMs: 4_000, gatherMs: 8_000, maxPlayers: 8, minPlayers: 2 };
+/** 0.9.9.9.9.6 (round 7): a finished game of Grammar Clash, as Match history shows it */
+export interface ClashRecord {
+  at: number; ranked: boolean; level: string; place: number;
+  players: Array<{ id: string; name: string; avatar: string; score: number; right: number; best: number }>;
+  rounds: Array<{ jp: string; options: string[]; answer: number; filled: string; en: string; ru: string; pattern: string; double: boolean;
+    picks: Record<string, { k: number | null; right: boolean; points: number }>; standings: Array<{ id: string; score: number }> }>;
+}
+// (round 7: a longer look at the answer and the board — the owner: "increase the delay by a bit")
+export const CLASH = { questionMs: 20_000, revealMs: 6_000, boardMs: 5_000, startMs: 4_000, gatherMs: 8_000, maxPlayers: 8, minPlayers: 2 };
 export type ClashLevel = GrammarLevel | 'mix';
 const COUNTS = [5, 10, 15, 20];
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -44,6 +54,8 @@ interface Room {
   ratings?: Record<string, { before: number; after: number; games: number }>; createdAt: number;
   /** (round 5) a game started by a room (the private lobby, the online queue): it gets the end */
   bound?: () => void;
+  /** (round 7) each round as it went, for Match history */
+  log?: ClashRecord['rounds'];
 }
 
 export class GrammarHub {
@@ -266,6 +278,10 @@ export class GrammarHub {
       s.score += points;
       s.last = { k: p ? p.k : null, right, points };
     }
+    // (round 7) the round, kept for Match history
+    (r.log ??= []).push({ jp: q.q.jp, options: q.options, answer: q.answer, filled: q.q.options[0], en: q.q.en, ru: q.q.ru, pattern: q.g.pattern, double: q.double,
+      picks: Object.fromEntries([...r.seats.values()].map((s) => [s.id, s.last ?? { k: null, right: false, points: 0 }])),
+      standings: [...r.seats.values()].sort((a, b) => b.score - a.score).map((s) => ({ id: s.id, score: s.score })) });
     r.status = 'reveal'; r.endsAt = this.now() + CLASH.revealMs;
     this.push(r);
     this.later(r, CLASH.revealMs, () => {
@@ -283,6 +299,13 @@ export class GrammarHub {
     this.timers.clearTimeout(r.timer);
     r.status = 'over'; r.endsAt = 0;
     this.push(r);
+    // (round 7) everyone's Match history: the standings and every round
+    if (this.hooks.record && r.log?.length) {
+      const order = this.order(r);
+      const players = order.map((id) => r.seats.get(id)!).map((s) => ({ id: s.id, name: s.name, avatar: s.avatar, score: s.score, right: s.right, best: s.best }));
+      for (const s of r.seats.values()) if (!s.guest) this.hooks.record(s.id, { at: this.now(), ranked: r.ranked, level: r.level, place: order.indexOf(s.id) + 1, players, rounds: r.log });
+    }
+    r.log = [];
     if (r.ranked && this.hooks.settle) {
       void this.hooks.settle(this.order(r)).then((ch) => { r.ratings = ch; this.push(r); }).catch(() => { /* not rated */ });
     }
