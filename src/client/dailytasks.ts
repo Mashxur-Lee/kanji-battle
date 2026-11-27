@@ -15,7 +15,7 @@ const store = {
   get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k: string, v: string) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* private mode */ } },
 };
-const ICON: Record<string, string> = { learn: '学', practice: '問', daily: '日' };
+const ICON: Record<string, string> = { learn: '学', practice: '問', daily: '日', grammar: '法' };
 /** what each task's "Go" button opens (set by main.ts); `battle` (0.9.9.9.6.9): a battle against the AI */
 export const taskActions: Partial<Record<string, () => void>> = {};
 // ── 0.9.9.9.6.9: "Today" — one button that takes you through the day: the streak tasks in order, then one battle.
@@ -25,8 +25,8 @@ const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${d.ge
 /** a battle finished today (main.ts, at the end of a game) */
 export function noteBattle() { store.set(BATTLE_DAY, localDay()); if (last) renderTasks(last); }
 // (0.9.9.9.9.6: the streak's two tasks only — a battle isn't one, and "Next today: a battle" said it was)
-const TODAY_ORDER = ['practice', 'daily'] as const;
-const NEXT_LABEL: Record<string, string> = { learn: 'Study', practice: 'A quiz', daily: 'Daily challenge', battle: 'A battle' };
+const TODAY_ORDER = ['practice', 'grammar', 'daily'] as const;
+const NEXT_LABEL: Record<string, string> = { learn: 'Study', practice: 'A quiz', daily: 'Daily challenge', battle: 'A battle', grammar: 'A grammar lesson' };
 /** the next step of today, or null when all of it is done */
 export function todayNext(p: Profile): { id: string; label: string } | null {
   const tasks = p.tasks ?? [];

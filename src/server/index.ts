@@ -82,6 +82,7 @@ const grammarHub = new GrammarHub((id, m) => { hub.sendTo(id, m); }, Date.now, M
   settle: (order) => ranked.settleField(order, 'clash'),
   invite: (friendId, from, code) => hub.sendTo(friendId, { type: 'clash_invite', from, code }),
   record: (userId, game) => { void study.addClashGame(userId, game).catch(() => { /* not important */ }); }, // (round 7)
+  passed: (userId) => study.grammarPassed(userId), // (0.9.9.9.9.7 round 2)
 });
 hub.grammar = grammarHub;
 setInterval(() => grammarHub.sweep(), 10 * 60_000).unref();

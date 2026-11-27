@@ -210,9 +210,9 @@ test('0.9.9.9.9.6 AI memory pictures: painted once per kanji, kept, a daily cap;
 
 // ── the rest ──
 test('0.9.9.9.9.6 the daily streak: two tasks (a quiz, the daily challenge) — no study count, no battle step; kept: a moment with the flame', () => {
-  assert.deepEqual(DAILY_TASKS.map((t) => t.id), ['practice', 'daily']);
+  assert.deepEqual(DAILY_TASKS.map((t) => t.id), ['practice', 'daily', 'grammar']); // (0.9.9.9.9.7 round 2: and a grammar lesson)
   const dt = src('src/client/dailytasks.ts');
-  assert.ok(dt.includes("const TODAY_ORDER = ['practice', 'daily'] as const;"));
+  assert.ok(dt.includes("const TODAY_ORDER = ['practice', 'grammar', 'daily'] as const;"));
   assert.ok(dt.includes('celebrateMoment((box) => {') && dt.includes("fl.classList.add('burst', 'sk-flame');"));
 });
 
@@ -289,7 +289,7 @@ test('0.9.9.9.9.6 round 2 decks: four at most, Custom spells becomes "My words" 
 test('0.9.9.9.9.6 round 2: the Games page, CAST! no longer swings a sword, the phone\'s back in a chat, GIF replies, the dark drawing pad', () => {
   const html = src('public/index.html');
   assert.ok(html.includes('id="gamesBtn"') && html.includes('<section id="games" class="screen" hidden>'));
-  assert.ok(src('src/client/nav.ts').includes("btn: 'gamesBtn', screens: ['games', 'queue', 'private', 'modes']"));
+  assert.ok(src('src/client/nav.ts').includes("btn: 'gamesBtn', screens: ['games', 'queue', 'private', 'modes', 'songs']")); // (0.9.9.9.9.7 round 2: and Song lyrics)
   assert.ok(src('src/client/main.ts').includes('if (!isSwordId(myStaff())) arena()?.thrust();'));
   assert.ok(src('src/client/appshell.ts').includes("const chatBack = document.querySelector<HTMLElement>('#inbox.thread-open .msg-back');"));
   const inbox = src('src/client/inbox.ts');

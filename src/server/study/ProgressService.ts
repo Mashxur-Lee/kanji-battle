@@ -1,4 +1,5 @@
 import { LEVELS, studyLevelOf, type Level } from '../../shared/protocol';
+import { GRAMMAR } from '../../shared/grammar';
 import { DAILY_TASKS, MONTH_GOALS, seasonOf, type DailyTaskState, type MonthGoalId } from '../../shared/progress';
 import type { DayActivity, Store, UserRecord } from '../db/Store';
 import { VOCAB } from '../vocab';
@@ -90,8 +91,20 @@ export class ProgressService {
   /** Today's daily tasks (Study 10 spells, a quiz, the daily challenge, a passage) and how far along each is. */
   async tasks(userId: string, day: string): Promise<DailyTaskState[]> {
     const a = (await this.store.activity(userId, day)).find((r) => r.day === day);
-    const value: Record<string, number> = { learn: a?.reviews ?? 0, practice: (a?.quizzes ?? 0) + (a?.passages ?? 0), daily: a?.challenges ?? 0 };
+    const value: Record<string, number> = { learn: a?.reviews ?? 0, practice: (a?.quizzes ?? 0) + (a?.passages ?? 0), daily: a?.challenges ?? 0, grammar: await this.grammarToday(userId, day) };
     return DAILY_TASKS.map((t) => ({ id: t.id, label: t.label, target: t.target, value: Math.min(t.target, value[t.id] ?? 0) }));
+  }
+
+  /** 0.9.9.9.9.7 (round 2): a grammar lesson passed today — or every lesson passed already (nothing left to do) */
+  async grammarToday(userId: string, day: string): Promise<number> {
+    if ((await this.store.getValue(`grammarday:${userId}`)) === day) return 1;
+    let passed: unknown = [];
+    try { passed = JSON.parse((await this.store.getValue(`grammar:${userId}`)) ?? '[]'); } catch { /* none */ }
+    return Array.isArray(passed) && passed.length >= GRAMMAR.length ? 1 : 0;
+  }
+  async grammarPassedToday(userId: string, day: string) {
+    await this.store.setValue(`grammarday:${userId}`, day);
+    await this.checkStreak(userId, day);
   }
 
   /** All the tasks done today → the streak goes up (once a day; a missed day starts it over). */

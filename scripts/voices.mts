@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BOT_VOICE, EXAMPLE_VOICE, FUMI_LINES, FUMI_VOICE, LINES, lineHash, spokenOf, type BotVoice } from '../src/shared/chesslines';
+import { BOT_VOICE, EXAMPLE_VOICE, FUMI_LINES, FUMI_VOICE, fumiLessonLine, LINES, lineHash, spokenOf, type BotVoice } from '../src/shared/chesslines';
 import { GRAMMAR, filledQuestion } from '../src/shared/grammar';
 import type { BotId } from '../src/shared/chess';
 
@@ -50,6 +50,7 @@ async function folder(name: string, voice: BotVoice, lines: string[], bitrate = 
   for (const f of readdirSync(dir)) if (!want.has(f)) { rmSync(join(dir, f)); removed++; }
 }
 for (const bot of Object.keys(LINES) as BotId[]) await folder(bot, BOT_VOICE[bot], Object.values(LINES[bot]).flatMap((l) => (l ?? []).map((x) => x.jp)));
-await folder('fumi', FUMI_VOICE, Object.values(FUMI_LINES));
+// (round 2) and each lesson named aloud as it opens — first time, and again
+await folder('fumi', FUMI_VOICE, [...Object.values(FUMI_LINES), ...GRAMMAR.flatMap((g) => [fumiLessonLine(g.pattern, false), fumiLessonLine(g.pattern, true)])]);
 await folder('grammar', EXAMPLE_VOICE, GRAMMAR.flatMap((g) => [...g.examples.map((e) => e.jp), ...g.questions.map((q) => filledQuestion(q))]), '32k');
 console.log(`${made} made, ${removed} removed`);

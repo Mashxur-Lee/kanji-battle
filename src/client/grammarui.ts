@@ -2,8 +2,9 @@
 // means, how it is formed and used, examples with furigana — each kanji tappable, each sentence spoken), then asks its
 // questions; all but one right and the lesson is passed (kept on your account). Levels N5 → N1.
 import { filledQuestion, GRAMMAR, GRAMMAR_LEVELS, grammarOf, passMark, plainJp, shuffled, type GrammarLevel, type GrammarPoint } from '../shared/grammar';
+import { openDictionary } from './dictui';
 import { toRomaji } from '../shared/kana';
-import { FUMI_LINES, fumiClip, grammarClip, parseLine } from '../shared/chesslines';
+import { FUMI_LINES, fumiClip, fumiLessonLine, grammarClip, parseLine } from '../shared/chesslines';
 import { api } from './api';
 import * as audio from './audio';
 import { lang, tr } from './i18n';
@@ -34,7 +35,8 @@ const keep = () => { try { localStorage.setItem(KEY, JSON.stringify([...passed])
 let searchWired = false;
 export function openGrammar() {
   ui.show('grammar');
-  if (!searchWired) { searchWired = true; let t = 0; ($('grammarSearch') as HTMLInputElement).oninput = () => { clearTimeout(t); t = window.setTimeout(showList, 120); }; }
+  if (!searchWired) { searchWired = true; $('grammarDict').onclick = () => openDictionary(); // (0.9.9.9.9.7 round 2)
+    let t = 0; ($('grammarSearch') as HTMLInputElement).oninput = () => { clearTimeout(t); t = window.setTimeout(showList, 120); }; }
   showList();
   void api.grammarPassed().then((r) => { for (const id of r.passed) passed.add(id); keep(); if (!$('grammarList').hidden) showList(); }).catch(() => { /* offline: what this device knows */ });
 }
@@ -122,7 +124,8 @@ function openLesson(g: GrammarPoint) {
   foot.append(back, ask);
   box.replaceChildren(top, main, foot);
   window.scrollTo({ top: 0 });
-  fumiSays(passed.has(g.id) ? 'again' : 'lesson');
+  // (0.9.9.9.9.7 round 2: the lesson's own name, in Japanese — it was the same words every time)
+  { const line = fumiLessonLine(g.pattern, passed.has(g.id)); playClip(fumiClip(line), () => sayWord(plainJp(line, true))); }
   typeText(said, `${tr(passed.has(g.id) ? 'Again? Good - a lesson read twice stays.' : 'Today\'s lesson:')} ${g.pattern} - ${t(g.meaning)}. ${tr('Read how it works and the examples, then I will ask you a few questions.')}`, guide);
 }
 

@@ -15,6 +15,11 @@ const PATCHES: Patch[] = [
       "Kanji chess: new wooden sounds for moves, captures, castling and check (Kenney, CC0); games against the Dragon are kept in Match history again; Chess and Grammar Clash in Match history look like your other matches.",
       "After 500 cards in a day, Study spells suggests a break - a game of chess or Grammar Clash.",
       "Fixed: Master Fumi's portrait on computers and in the tour bubbles; the email window no longer covers the tutorial; Back during the tutorial no longer closes the Android app; the menu no longer grows taller after opening Messages.",
+      "A grammar lesson is now one of the daily streak tasks - done by itself once you have passed every lesson.",
+      "Grammar: Master Fumi names each lesson aloud in Japanese; the Dictionary is a tap away on the Grammar page.",
+      "Grammar Clash: add AI players to your room - they answer as well as their level allows; every game has at least one question from the lessons you have passed; the Omnipotence flames are flames again.",
+      "Kanji chess: the wizards are shown from the waist up with their staffs, and the Dragon whole. Master Fumi is easy to see in the tour bubbles.",
+      "Song lyrics (Games) is open: five old Japanese songs - 春の小川, 夏は来ぬ, 茶摘, 赤とんぼ and 雪 - sung by the game; type the hidden words in romaji as it sings, and the song waits for you at the end of a line. All of them are public domain.",
     ],
     ru: [
       "Грамматика: 210 уроков от N5 до N1 (было 96), каждый пример и вопрос читаются вслух, и поиск по всем урокам — по конструкции, значению или ромадзи.",
@@ -23,6 +28,11 @@ const PATCHES: Patch[] = [
       "Шахматы кандзи: новые деревянные звуки хода, взятия, рокировки и шаха (Kenney, CC0); партии с Драконом снова сохраняются в «Истории матчей»; шахматы и Грамматическая битва в «Истории матчей» выглядят как остальные матчи.",
       "После 500 карточек за день «Учить заклинания» предложит отдохнуть — сыграть в шахматы или Грамматическую битву.",
       "Исправлено: портрет Мастера Фуми на компьютере и в подсказках обзора; окно с почтой больше не закрывает обучение; «Назад» во время обучения больше не сворачивает приложение на Android; меню больше не становится выше после открытия «Сообщений».",
+      "Урок грамматики теперь одно из ежедневных заданий серии — засчитывается сам, когда пройдены все уроки.",
+      "Грамматика: Мастер Фуми называет каждый урок вслух по-японски; словарь — в одно нажатие со страницы грамматики.",
+      "Грамматическая битва: добавляйте в комнату ИИ-игроков — они отвечают в меру своего уровня; в каждой игре есть хотя бы один вопрос из пройденных вами уроков; пламя Всемогущества снова похоже на пламя.",
+      "Шахматы кандзи: волшебники показаны по пояс со своими посохами, а Дракон — целиком. Мастера Фуми хорошо видно в подсказках обзора.",
+      "Открыты «Слова песен» (Игры): пять старинных японских песен — 春の小川, 夏は来ぬ, 茶摘, 赤とんぼ и 雪 — поёт сама игра; печатайте скрытые слова ромадзи, пока она поёт, а в конце строки песня вас подождёт. Все они — общественное достояние.",
     ],
   },
   {

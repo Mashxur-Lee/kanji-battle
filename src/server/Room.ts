@@ -1,5 +1,5 @@
 import { PausableClock } from './clock';
-import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
+import { Bot, botLevels, botName, isBotLevel, type BotHost, type BotLevel } from './Bot';
 import { borderOf, FLAMES, POSES, STAFFS } from '../shared/progress';
 import { CHAT_MAX_LENGTH, MODE_LABEL, type BossView, type MatchDetail, type MissedWord, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { CHARACTERS, levelOf, type MatchOutcome } from '../shared/progress';
@@ -96,7 +96,7 @@ export interface RoomDeps {
   /** a player left the room during such a game */
   externalLeave?: (mode: 'chess' | 'clash', id: PlayerId) => void;
 }
-export interface ExternalPlayer { id: PlayerId; name: string; avatar: string; staff: string; flame?: string }
+export interface ExternalPlayer { id: PlayerId; name: string; avatar: string; staff: string; flame?: string; /** (0.9.9.9.9.7 round 2) an AI player's level (Grammar Clash) */ bot?: BotLevel }
 /** 0.9.9.9.9.6 (round 5): the host's settings for chess (the clock) and Grammar Clash (the level, how many questions) */
 export interface RoomSettings { base: number; inc: number; level: string; count: number }
 export const isExternal = (m: GameMode): m is 'chess' | 'clash' => m === 'chess' || m === 'clash';
@@ -206,7 +206,7 @@ export class Room {
     if (this.opts.tutorial || mode === this.roomMode) return null;
     const max = mode === 'boss' ? BOSS_PARTY_SIZE : mode === 'clash' ? CLASH_ROOM_MAX : mode === 'chess' ? 2 : this.opts.maxPlayers;
     // (round 5) no AI players in chess or Grammar Clash
-    if (isExternal(mode)) for (const b of this.roster.filter((p) => p.bot)) { b.bot!.dispose(); this.roster = this.roster.filter((p) => p !== b); }
+    if (mode === 'chess') for (const b of this.roster.filter((p) => p.bot)) { b.bot!.dispose(); this.roster = this.roster.filter((p) => p !== b); }
     if (this.humans.length > max) return `Too many players for ${MODE_LABEL[mode]} - it is for ${max}`;
     while (this.roster.length > max) {
       const b = [...this.roster].reverse().find((p) => p.bot);
@@ -334,7 +334,8 @@ export class Room {
   /** Host adds an AI player (knowledge N5–N1) to the lobby: an opponent in duels, a teammate vs the dragon. */
   addBot(by: PlayerId, level: unknown) {
     if (by !== this.hostId || this.phase !== 'lobby' || !isBotLevel(level)) return;
-    if (isExternal(this.mode)) return this.clients.get(by)?.send({ type: 'error', message: this.mode === 'chess' ? 'Play the wizards on the Kanji chess page' : 'Grammar Clash is for people - invite your friends' });
+    // (0.9.9.9.9.7 round 2: Grammar Clash takes AI players too — they answer like the battles' AIs, by their level)
+    if (this.mode === 'chess') return this.clients.get(by)?.send({ type: 'error', message: 'Play the wizards on the Kanji chess page' });
     if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Room is full' });
     const id = `ai-${this.code}-${++this.nextBot}`;
     const bot = new Bot(id, level, this.botHost());
@@ -556,7 +557,8 @@ export class Room {
   /** 0.9.9.9.9.6 (round 5): chess / Grammar Clash — the players go to the game's hub; back to the lobby when it ends */
   private startExternal(mode: 'chess' | 'clash') {
     if (!this.deps.external) { for (const c of this.clients.values()) c.send({ type: 'error', message: 'This game needs the internet' }); return; }
-    const players = this.humans.map((p) => ({ id: p.id, name: p.name, avatar: p.profile.character ?? 'wizard', staff: p.profile.staff ?? 'verdant', flame: p.profile.flame ?? 'blue' }));
+    // (round 2: Grammar Clash's AI players come along, with their level)
+    const players = (mode === 'clash' ? this.roster : this.humans).map((p) => ({ id: p.id, name: p.name, avatar: p.profile.character ?? 'wizard', staff: p.profile.staff ?? 'verdant', flame: p.profile.flame ?? 'blue', ...(p.bot ? { bot: p.bot.level } : {}) }));
     this.phase = 'game';
     this.gamesPlayed++;
     for (const p of this.roster) p.ready = false;

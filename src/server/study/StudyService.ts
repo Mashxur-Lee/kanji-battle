@@ -79,12 +79,14 @@ export class StudyService {
     try { const v = JSON.parse((await this.store.getValue(`grammar:${userId}`)) ?? '[]'); return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
   }
   /** a lesson's questions answered: passed with all but one right (the lesson must exist) */
-  async passGrammar(userId: string, id: unknown, right: unknown): Promise<{ passed: string[]; ok: boolean }> {
+  async passGrammar(userId: string, id: unknown, right: unknown, day?: string): Promise<{ passed: string[]; ok: boolean }> {
     const g = typeof id === 'string' ? grammarById(id) : null;
     if (!g) throw new StudyError('No such lesson');
     const have = await this.grammarPassed(userId);
     const ok = Number(right) >= passMark(g);
     if (ok && !have.includes(g.id)) { have.push(g.id); await this.store.setValue(`grammar:${userId}`, JSON.stringify(have)); }
+    // (0.9.9.9.9.7 round 2) passed — a lesson read again counts too: today's grammar task
+    if (ok && day) await this.progress.grammarPassedToday(userId, day);
     return { passed: have, ok };
   }
   /** 0.9.9.9.9.6 (round 7): your Grammar Clash games (the last 20) — Match history → Grammar Clash (its rounds, no replay) */

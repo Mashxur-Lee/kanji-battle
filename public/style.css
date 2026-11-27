@@ -7461,3 +7461,52 @@ dialog:not([open]) { display: none !important; }
 /* 0.9.9.9.9.7 (the general check): Kana's sets in the light theme — the unchosen ones were dark pills on a light page */
 :root[data-theme="light"] .kana-sets button { background: rgba(255, 255, 255, .85); color: #5d587a; border-color: rgba(107, 63, 214, .25); }
 :root[data-theme="light"] .kana-sets button[aria-selected="true"] { color: #b0346e; background: rgba(255, 158, 199, .22); border-color: #e06a9e; }
+
+/* 0.9.9.9.9.7 (round 2): Grammar Clash's Omnipotence flames rise past the figure's box — it clipped them to a square */
+.gc-av { overflow: visible; }
+/* (round 2) the chess wizard from the waist up with the staff in hand (only the head showed, the staff cut off); the
+   Dragon — a wide figure — whole, its head not cut */
+#chessOpp .cp-pic { width: 190px; height: 170px; }
+#chessOpp .cp-pic svg { scale: 1.28; transform-origin: 50% 8%; }
+#chessOpp .cp-pic[data-bot="dragon"] svg { scale: 1; transform-origin: 50% 50%; }
+@media (max-width: 900px) { #chessOpp .cp-pic { width: 112px; height: 104px; } }
+@media (max-width: 600px) { #chessOpp .cp-pic { width: 96px; height: 90px; } }
+/* the small Fumi: a little more of his hat */
+.tg-small .tg-body { inset: -32% -30% -38% -30%; }
+.gr-tools { display: flex; justify-content: flex-end; margin: 0 0 8px; } /* (0.9.9.9.9.7 round 2) */
+
+/* 0.9.9.9.9.7 (round 2): Song lyrics */
+.songs-screen { width: min(820px, 100%); margin: 0 auto; }
+.song-mode { margin: 6px 0 14px; display: inline-flex; flex-wrap: wrap; }
+.song-mode [aria-selected="true"] { background: linear-gradient(180deg, #a48bff, #7c5cff); color: #fff; }
+.song-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.song-card { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 16px; text-align: left; background: var(--card); border: 1px solid var(--line); color: var(--text); cursor: pointer; }
+.song-card:hover { border-color: var(--accent); }
+.sc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sc-jp { font: 800 1.5rem/1.2 var(--jp, serif); }
+.sc-lvl { font-size: .72rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(164, 139, 255, .18); color: #c7b8ff; }
+.sc-romaji { font-weight: 700; }
+.sc-credit { color: var(--muted); font-size: .74rem; line-height: 1.35; }
+.song-free { margin-top: 14px; }
+.song-play { display: grid; gap: 12px; padding: 18px; border-radius: 20px; background: rgba(14, 10, 34, .88); border: 1px solid rgba(185, 160, 255, .28); color: #ece8ff; }
+.song-title { font-size: 1.1rem; } .song-title b { font: 800 1.4rem var(--jp, serif); }
+.song-track { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.song-track i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #6ee7ff, #a48bff); transition: width .2s linear; }
+.song-line { min-height: 170px; display: grid; align-content: start; gap: 6px; text-align: center; cursor: text; }
+.sl-jp { font-size: 1.7rem; margin: 6px 0 0; }
+.sl-romaji { font: 700 1.35rem/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .04em; margin: 0; }
+.sl-w.hid { color: #8f86c4; } .sl-w.cur { color: #ffd479; border-bottom: 2px solid #ffd479; } .sl-w.ok.hid, .sl-w.hid.ok { color: #3ddc84; }
+.sl-tr { color: #c7c1ec; margin: 0; }
+.sl-next { margin: 8px 0 0; color: #8f86c4; font-size: .8rem; } .sl-next-jp { color: #8f86c4; font-size: 1rem; margin: 0; }
+.song-wait { text-align: center; color: #ffd479; font-weight: 700; margin: 0; animation: gcOmniPulse .8s ease-in-out infinite alternate; }
+.song-type { display: flex; gap: 8px; }
+.song-input { flex: 1; min-width: 0; font: 700 1.2rem ui-monospace, Consolas, monospace; text-align: center; }
+.song-input.bad { animation: moodShake .35s linear 1; border-color: #ff6b81; }
+.song-score { text-align: center; margin: 0; }
+.song-done { display: grid; gap: 8px; justify-items: center; text-align: center; }
+.song-done b { font: 900 1.6rem var(--brand, sans-serif); color: var(--gold, #ffd479); }
+.song-done-btns { display: flex; gap: 10px; }
+.song-done-btns .big { margin: 0; }
+:root[data-theme="light"] .song-play { background: rgba(255, 255, 255, .95); color: #1d1838; border-color: rgba(107, 63, 214, .25); }
+:root[data-theme="light"] .sl-tr { color: #4a4566; } :root[data-theme="light"] .sl-w.hid { color: #7a72a8; }
+@media (max-width: 600px) { .sl-jp { font-size: 1.3rem; } .sl-romaji { font-size: 1.05rem; } .song-line { min-height: 150px; } }

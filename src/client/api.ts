@@ -215,7 +215,7 @@ export const api = {
   // 0.9.9.9.9.6 (round 4): your Kanji chess games; a game against a wizard is sent here when it ends
   // 0.9.9.9.9.6 (round 4): the grammar lessons passed
   grammarPassed: () => call<{ passed: string[] }>('GET', '/api/grammar'),
-  passGrammar: (id: string, right: number) => call<{ passed: string[]; ok: boolean }>('POST', '/api/grammar/pass', { id, right }),
+  passGrammar: (id: string, right: number) => call<{ passed: string[]; ok: boolean }>('POST', '/api/grammar/pass', { id, right, today: today() }),
   /** 0.9.9.9.9.6 (round 5): an admin writes to every player as the team */
   broadcast: (text: string) => call<{ sent: number }>('POST', '/api/messages/broadcast', { text }),
   chessGames: () => call<{ games: ChessGame[] }>('GET', '/api/chess/games'),

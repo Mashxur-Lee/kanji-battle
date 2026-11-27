@@ -9,15 +9,18 @@
 //   · The server keeps the clock and the score (an answer says only which choice; its time is the server's).
 //   · Ranked: the final order moves everyone's rating — each pair of players counts as one game between them.
 import { REAL_TIMERS, type TimerHandle, type Timers } from './clock';
+import { botChance, type BotLevel } from './Bot';
 import { GRAMMAR, grammarOf, shuffled, type GrammarLevel, type GrammarPoint, type GrammarQuestion } from '../shared/grammar';
 import type { ClashView, ClientMessage, ServerMessage } from '../shared/protocol';
 
-export interface ClashPlayer { id: string; name: string; avatar: string; staff: string; /** (0.9.9.9.9.7) Customize → Omnipotence: the colour of their flames */ flame?: string; guest?: boolean }
+export interface ClashPlayer { id: string; name: string; avatar: string; staff: string; /** (0.9.9.9.9.7 round 2) an AI player: its level */ bot?: BotLevel; /** (0.9.9.9.9.7) Customize → Omnipotence: the colour of their flames */ flame?: string; guest?: boolean }
 export interface ClashHooks {
   /** ranked: the final order (best first) → each player's rating change */
   settle?: (order: string[]) => Promise<Record<string, { before: number; after: number; games: number }>>;
   /** a friend asked to a room */
   invite?: (to: string, from: { id: string; name: string }, code: string) => boolean;
+  /** (0.9.9.9.9.7 round 2) the grammar lessons a player has passed — each game has at least one question from them */
+  passed?: (userId: string) => Promise<string[]>;
   /** (round 7) a game over: kept in each player's Match history (its rounds and the standings — no replay) */
   record?: (userId: string, game: ClashRecord) => void;
 }
@@ -205,7 +208,8 @@ export class GrammarHub {
       // in a game: their score stays on the board (ranked: they finish last)
       s.left = true;
       this.say(r, null, 'left', s);
-      const live = [...r.seats.values()].filter((x) => !x.left);
+      // (0.9.9.9.9.7 round 2: when only AI players are left, the game ends)
+      const live = [...r.seats.values()].filter((x) => !x.left && !x.bot);
       if (!live.length) return this.finish(r);
       if (r.status === 'question' && live.every((x) => r.picks.has(x.id))) return this.reveal(r);
     }
@@ -240,15 +244,35 @@ export class GrammarHub {
   }
 
   // ── the game ──
-  private pickQuestions(level: ClashLevel, count: number): Q[] {
-    const pool = (level === 'mix' ? GRAMMAR : grammarOf(level)).flatMap((g) => g.questions.map((q) => ({ q, g })));
+  /**
+   * the questions: random from the level — and (0.9.9.9.9.7 round 2, the owner: "use at least one from the player's
+   * completed grammar") one from a lesson each player has passed, when they have passed one in this level
+   */
+  pickQuestions(level: ClashLevel, count: number, passedBy: string[][] = []): Q[] {
+    const lessons = level === 'mix' ? GRAMMAR : grammarOf(level);
+    const pool = lessons.flatMap((g) => g.questions.map((q) => ({ q, g })));
     const bag = [...pool];
     for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(this.rnd() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
     const n = Math.min(count, bag.length);
-    return bag.slice(0, n).map(({ q, g }, i) => ({ q, g, ...shuffled(q, this.rnd), double: isDouble(i, n) }));
+    const chosen: typeof bag = [];
+    for (const ids of passedBy) {
+      const mine = bag.filter((x) => ids.includes(x.g.id) && !chosen.includes(x));
+      if (mine.length && chosen.length < n) chosen.push(mine[Math.floor(this.rnd() * mine.length)]);
+    }
+    for (const x of bag) { if (chosen.length >= n) break; if (!chosen.includes(x)) chosen.push(x); }
+    // (the players' own questions somewhere in the game, not all first)
+    for (let i = chosen.length - 1; i > 0; i--) { const j = Math.floor(this.rnd() * (i + 1)); [chosen[i], chosen[j]] = [chosen[j], chosen[i]]; }
+    return chosen.map(({ q, g }, i) => ({ q, g, ...shuffled(q, this.rnd), double: isDouble(i, n) }));
   }
   private begin(r: Room) {
     r.qs = this.pickQuestions(r.level, r.count);
+    // (round 2) the players' passed lessons are looked up during the countdown; the questions are made again with them
+    if (this.hooks.passed) {
+      const people = [...r.seats.values()].filter((s) => !s.bot);
+      void Promise.all(people.map((s) => this.hooks.passed!(s.id).catch(() => [] as string[]))).then((lists) => {
+        if (r.status === 'starting' && lists.some((l) => l.length)) r.qs = this.pickQuestions(r.level, r.count, lists);
+      });
+    }
     r.i = -1; r.status = 'starting'; r.endsAt = this.now() + CLASH.startMs;
     for (const s of r.seats.values()) Object.assign(s, { score: 0, streak: 0, best: 0, right: 0, last: undefined });
     this.push(r);
@@ -263,6 +287,7 @@ export class GrammarHub {
     if (r.i >= r.qs.length) return this.finish(r);
     r.status = 'question'; r.picks = new Map(); r.startedAt = this.now(); r.endsAt = r.startedAt + CLASH.questionMs;
     this.push(r);
+    this.botsAnswer(r);
     this.later(r, CLASH.questionMs, () => this.reveal(r));
   }
   private reveal(r: Room) {
@@ -291,6 +316,30 @@ export class GrammarHub {
       this.later(r, CLASH.boardMs, () => this.ask(r));
     });
   }
+  /**
+   * (0.9.9.9.9.7 round 2) the AI players answer — as the battles' AIs do: right as often as their level manages a question
+   * of that level (an N3 AI gets N3 grammar right 70% of the time, N5 grammar 95%), after a few seconds (higher levels
+   * are quicker); a wrong answer is one of the other choices
+   */
+  private botsAnswer(r: Room) {
+    const q = r.qs[r.i], at = r.i;
+    for (const s of r.seats.values()) {
+      if (!s.bot || s.left) continue;
+      const speed = { BEGINNER: 1, N5: 0.9, N4: 0.8, N3: 0.7, N2: 0.6, N1: 0.5 }[s.bot];
+      const ms = Math.round((2500 + this.rnd() * 9000) * speed);
+      const right = this.rnd() < botChance(s.bot, q.g.level);
+      const wrong = [0, 1, 2, 3].filter((k) => k !== q.answer);
+      const k = right ? q.answer : wrong[Math.floor(this.rnd() * wrong.length)];
+      const t = this.timers.setTimeout(() => {
+        if (!this.rooms.has(r.id) || r.status !== 'question' || r.i !== at || r.picks.has(s.id)) return;
+        r.picks.set(s.id, { k, ms: Math.max(0, this.now() - r.startedAt) });
+        const live = [...r.seats.values()].filter((x) => !x.left);
+        if (live.every((x) => r.picks.has(x.id))) return this.reveal(r);
+        this.push(r);
+      }, ms);
+      (t as { unref?: () => void }).unref?.();
+    }
+  }
   /** the order at the end: the score; ties by right answers; anyone who left after those still here */
   order(r: Room): string[] {
     return [...r.seats.values()].sort((a, b) => Number(a.left) - Number(b.left) || b.score - a.score || b.right - a.right).map((s) => s.id);
@@ -303,7 +352,7 @@ export class GrammarHub {
     if (this.hooks.record && r.log?.length) {
       const order = this.order(r);
       const players = order.map((id) => r.seats.get(id)!).map((s) => ({ id: s.id, name: s.name, avatar: s.avatar, score: s.score, right: s.right, best: s.best }));
-      for (const s of r.seats.values()) if (!s.guest) this.hooks.record(s.id, { at: this.now(), ranked: r.ranked, level: r.level, place: order.indexOf(s.id) + 1, players, rounds: r.log });
+      for (const s of r.seats.values()) if (!s.guest && !s.bot) this.hooks.record(s.id, { at: this.now(), ranked: r.ranked, level: r.level, place: order.indexOf(s.id) + 1, players, rounds: r.log });
     }
     r.log = [];
     if (r.ranked && this.hooks.settle) {
@@ -330,7 +379,7 @@ export class GrammarHub {
     };
   }
   private push(r: Room, only?: string) {
-    for (const id of only ? [only] : r.seats.keys()) if (!r.seats.get(id)?.left || id === only) this.send(id, { type: 'clash', room: this.view(r, id) });
+    for (const id of only ? [only] : r.seats.keys()) if ((!r.seats.get(id)?.left || id === only) && !r.seats.get(id)?.bot) this.send(id, { type: 'clash', room: this.view(r, id) });
   }
   /** rooms nobody has touched for an hour (a lobby left open) go */
   sweep() {
