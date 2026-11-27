@@ -133,7 +133,7 @@ export const BETA_BORDER = 'border:beta';
 // (both done: the streak goes up and +500 XP)
 export const DAILY_TASKS = [
   // 0.9.9.7.1: the JLPT quiz OR a reading passage — one task (three a day, not four)
-  { id: 'practice', label: 'A JLPT quiz (7/10) or a reading passage (4/8)', target: 1 },
+  { id: 'practice', label: '7/10 in any quiz', target: 1 }, // (0.9.9.9.9.6 round 5: the JLPT or the onomatopoeia quiz; a reading passage at 4/8 still counts)
   { id: 'daily', label: 'Play the daily challenge', target: 1 },
 ] as const;
 /** 0.9.9.4.3: a quiz counts for the daily task at 7/10 or better, a passage at 4/8 (the same share of a shorter one) */

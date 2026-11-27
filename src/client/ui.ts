@@ -67,11 +67,14 @@ export const show = (screen: Screen) => {
 };
 
 // 0.9.9.4.3: a menu error goes away by itself (it used to stay for days)
-let errorTimer = 0;
+// 0.9.9.9.9.6 (round 5): an error is a window now (signed in on another device, a room that's gone…) — red text under
+// the menu's cards went unseen (the owner: "it should appear as a window")
+let lastError = '';
 export const setError = (text: string) => {
-  $('error').textContent = text;
-  clearTimeout(errorTimer);
-  if (text) errorTimer = window.setTimeout(() => { $('error').textContent = ''; }, 10_000);
+  $('error').textContent = '';
+  if (!text || text === lastError) return;
+  lastError = text;
+  void alertBox('Something needs your attention', text).then(() => { lastError = ''; });
 };
 
 const secs = (ms: number) => (ms / 1000).toFixed(1) + 's';
@@ -1672,6 +1675,12 @@ export function confirmBox(title: string, text: string, yes = 'Leave', no = 'Sta
     if (!d.open) d.showModal();
     $('confirmNo').focus();
   });
+}
+
+/** 0.9.9.9.9.6 (round 5): a message in a window, one button (the confirm window, without its No) */
+export function alertBox(title: string, text: string, ok = 'OK'): Promise<void> {
+  $('confirmNo').hidden = true;
+  return confirmBox(title, text, ok, '', false).then(() => { $('confirmNo').hidden = false; });
 }
 
 /** Match history: one row per game, newest first. */

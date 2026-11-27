@@ -7186,3 +7186,118 @@ button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
 .cb-dragon.on { border-color: #ff7a59; box-shadow: 0 4px 0 #8f2a17, 0 0 0 3px rgba(255, 122, 89, .2); }
 @media (max-width: 1100px) { .chess-bots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .chess-bots { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cb-dragon { grid-column: 1 / -1; } }
+/* the daily streak's moment: no sun rays (the owner: "goofy") — a small soft glow behind the flame instead */
+.ach-pop.streak-moment .ach-rays { left: 22px; width: 64px; height: 64px; margin-top: -32px; background: radial-gradient(circle, color-mix(in srgb, var(--ac, #ffb347) 50%, transparent) 0, transparent 68%); filter: none; animation: skGlow 2.6s ease-out both; }
+@keyframes skGlow { from { transform: scale(.6); opacity: 0; } 25% { opacity: .9; } to { transform: scale(1.35); opacity: 0; } }
+/* the dictionary's draw-a-kanji: every candidate shown (two rows were cut off), Undo / Clear / Search on one line */
+.dd-cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; height: auto; min-height: 98px; overflow: visible; align-content: start; }
+.dd-cands > .hint { grid-column: 1 / -1; align-self: center; }
+.dd-cand { margin: 0; width: auto; height: 46px; }
+.dd-row { flex-wrap: nowrap; }
+.dd-row .dd-typed { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-row .pill { flex: none; padding: 8px 12px; }
+.dd-row .big { flex: none; padding: 10px 18px; }
+/* the dictionary's example sentence: the word itself was dark purple on the dark panel (invisible) — light, and gold */
+.dict-word .fc-ex-ja mark, .dict-panel .fc-ex-ja mark, .dict-rail .fc-ex-ja mark { background: rgba(255, 212, 121, .18); color: #ffd479; box-shadow: inset 0 -2px 0 rgba(255, 212, 121, .55); }
+.dict-word .fc-ex-ja mark rt, .dict-panel .fc-ex-ja mark rt, .dict-rail .fc-ex-ja mark rt { color: #ffe7a8; }
+:root[data-theme="light"] :is(.dict-word, .dict-panel, .dict-rail) .fc-ex-ja mark { background: rgba(185, 147, 255, .25); color: #3b1f8a; box-shadow: inset 0 -2px 0 rgba(107, 63, 214, .5); }
+:root[data-theme="light"] :is(.dict-word, .dict-panel, .dict-rail) .fc-ex-ja mark rt { color: #5b3fb0; }
+/* the deck windows (New deck, Rename, Import): rounded like every other window (they were sharp squares) */
+.ud-dialog { border-radius: 20px; box-shadow: 0 24px 70px rgba(0, 0, 0, .55); }
+.ud-dialog::backdrop { background: rgba(4, 3, 16, .6); }
+.ud-dialog .ud-input { border-radius: 12px; }
+.ud-dialog h3 { font-size: 1rem; letter-spacing: .06em; }
+/* the Team inbox: Message everyone (an admin, as the team) */
+.msg-bcast { display: flex; flex-direction: column; gap: 8px; padding: 10px; margin-bottom: 8px; border-radius: 14px; background: rgba(255, 212, 121, .08); border: 1px solid rgba(255, 212, 121, .3); }
+.msg-bcast .pill { margin: 0; align-self: flex-start; }
+.msg-bcast-form { display: flex; flex-direction: column; gap: 8px; }
+.msg-bcast-form[hidden] { display: none; }
+.msg-bcast-text { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 12px; font: inherit; resize: vertical; }
+.msg-bcast-send { margin: 0; align-self: flex-end; padding: 9px 18px; }
+
+/* (round 5) the import window, our own: two steps on the left (paste, how it's split), the cards on the right — each a
+   little flashcard, the reading over the word like furigana, the meaning under it */
+.ud-dialog.ud-import { width: min(1180px, calc(100vw - 24px)); }
+.ud-cols { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(0, 1.5fr); gap: 20px; align-items: start; }
+.ud-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ud-step { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.ud-step-n { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; font: 900 .9rem/1 var(--ui, sans-serif); color: #2a1c0e; background: linear-gradient(160deg, #ffe7a3, #e3a93a); box-shadow: 0 2px 0 #9a6a18; }
+.ud-step b { font-size: 1rem; }
+.ud-import .ud-area { min-height: 180px; border-radius: 14px; background-image: repeating-linear-gradient(transparent 0 27px, rgba(185, 160, 255, .12) 27px 28px); line-height: 28px; padding-top: 6px; }
+.ud-seps { display: flex; flex-direction: column; gap: 12px; }
+.ud-sep { display: flex; flex-direction: column; gap: 6px; }
+.ud-sep-lbl { font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #a4a0c8; }
+.ud-seg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ud-opt { margin: 0; padding: 7px 12px; border-radius: 10px; font: 700 .88rem/1 var(--ui, sans-serif); background: rgba(255, 255, 255, .05); border: 1px solid rgba(160, 140, 255, .3); color: inherit; box-shadow: none; cursor: pointer; }
+.ud-opt.on { background: linear-gradient(180deg, #a48bff, #7b5cf0); color: #fff; border-color: transparent; }
+.ud-seg .ud-custom { width: 92px; padding: 7px 10px; border-radius: 10px; font-size: .88rem; }
+.ud-seg .ud-custom.on { border-color: #a48bff; box-shadow: 0 0 0 2px rgba(164, 139, 255, .35); }
+.ud-import .ud-prev { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; max-height: min(56dvh, 560px); overflow-y: auto; padding: 2px; }
+.ud-import .ud-prev > .hint { grid-column: 1 / -1; }
+.ud-import .ud-card { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 26px 10px 10px; border-radius: 16px; background: linear-gradient(170deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .02)); border: 1px solid rgba(160, 140, 255, .25); grid-template-columns: none; }
+.ud-import .ud-card.bad { border-color: rgba(255, 120, 140, .55); background: rgba(255, 90, 110, .07); }
+.ud-import .ud-card .ud-n { position: absolute; left: 10px; top: 7px; text-align: left; font-size: .72rem; }
+.ud-import .ud-card .ud-x { position: absolute; right: 6px; top: 4px; width: 22px; height: 22px; font-size: .7rem; }
+.ud-import .ud-card .ud-from { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); font-size: .62rem; padding: 3px 7px; max-width: calc(100% - 70px); overflow: hidden; text-overflow: ellipsis; }
+.ud-import .ud-f { text-align: center; border-radius: 8px; padding: 5px 8px; background: transparent; border-color: transparent; }
+.ud-import .ud-f:hover, .ud-import .ud-f:focus { border-color: rgba(160, 140, 255, .45); background: rgba(0, 0, 0, .2); }
+.ud-import .ud-f.ud-reading { font-size: .85rem; color: #c7b8ff; padding: 2px 6px; }
+.ud-import .ud-f.ud-kanji { font-size: 1.6rem; font-weight: 800; padding: 2px 6px; }
+.ud-import .ud-f.ud-meaning { font-size: .9rem; color: #d8d4f2; }
+.ud-import .ud-card.bad .ud-f:placeholder-shown { border-color: rgba(255, 120, 140, .55); }
+:root[data-theme="light"] .ud-import .ud-card { background: #faf9ff; border-color: #ddd6f6; }
+:root[data-theme="light"] .ud-import .ud-f.ud-reading { color: #5a3fc0; }
+:root[data-theme="light"] .ud-import .ud-f.ud-meaning { color: #3d3866; }
+:root[data-theme="light"] .ud-opt { background: #f1effa; color: #1d1838; border-color: #d6d0f0; }
+:root[data-theme="light"] .ud-opt.on { background: linear-gradient(180deg, #a48bff, #7b5cf0); color: #fff; }
+:root[data-theme="light"] .ud-sep-lbl { color: #5d5880; }
+@media (max-width: 860px) {
+  .ud-cols { grid-template-columns: 1fr; }
+  .ud-import .ud-prev { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: none; }
+  .ud-import .ud-area { min-height: 130px; }
+}
+
+/* (round 5) Master Fumi's 2.5D portrait (fumibust.ts): layers at their depths, a face that moves */
+.tg .tg-body svg.fumi { height: 100%; width: auto; max-width: 100%; overflow: visible; }
+.fumi .fu-l { transition: transform .35s cubic-bezier(.2, .8, .3, 1); }
+.tg .fumi .fu-back { transform: translate(calc(var(--tx) * -5px), calc(var(--ty) * -2px)); }
+.tg .fumi .fu-mid { transform: translate(calc(var(--tx) * 2px), calc(var(--ty) * 2px)); }
+.tg .fumi .fu-front { transform: translate(calc(var(--tx) * 5px), calc(var(--ty) * 3px)); }
+.tg .fumi .fu-hat { transform: translate(calc(var(--tx) * 8px), calc(var(--ty) * 2px)) rotate(calc(var(--tx) * 2deg)); transform-origin: 100px 80px; }
+.tg .fumi .fu-iris { transform: translate(calc(var(--tx) * 2.5px), calc(var(--ty) * 2px)); transition: transform .25s; }
+/* the face, by mood: open eyes that blink, a smile (idle) */
+.fumi .fu-eyes-happy, .fumi .fu-eyes-calm, .fumi .fu-m { display: none; }
+.fumi .fu-m-smile { display: inline; }
+.fumi .fu-eyes-open { transform-box: fill-box; transform-origin: center; animation: fuBlink 4.6s infinite; }
+@keyframes fuBlink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.08); } }
+.fumi .fu-brow { transform-box: fill-box; transform-origin: center; transition: transform .3s; }
+/* talking: the mouth opens and closes */
+.tg[data-mood="talk"] .fumi .fu-m-smile { display: none; }
+.tg[data-mood="talk"] .fumi .fu-m-talk { display: inline; transform-box: fill-box; transform-origin: center; animation: fuTalk .26s ease-in-out infinite alternate; }
+@keyframes fuTalk { from { transform: scaleY(.25); } to { transform: scaleY(1.05); } }
+/* glad: eyes closed in a smile, a grin, brows up */
+.tg[data-mood="cheer"] .fumi .fu-eyes-open { display: none; }
+.tg[data-mood="cheer"] .fumi .fu-eyes-happy { display: inline; }
+.tg[data-mood="cheer"] .fumi .fu-m-smile { display: none; }
+.tg[data-mood="cheer"] .fumi .fu-m-grin { display: inline; }
+.tg[data-mood="cheer"] .fumi .fu-brow { transform: translateY(-4px); }
+.tg[data-mood="cheer"] .fumi .fu-cheek { opacity: .75; }
+/* amazed (pointing something out): wide eyes, a round mouth */
+.tg[data-mood="point"] .fumi .fu-eyes-open { animation: none; transform: scale(1.14); }
+.tg[data-mood="point"] .fumi .fu-m-smile { display: none; }
+.tg[data-mood="point"] .fumi .fu-m-o { display: inline; }
+.tg[data-mood="point"] .fumi .fu-brow { transform: translateY(-5px); }
+/* thinking: one brow up, the eyes up and aside, a flat mouth */
+.tg[data-mood="think"] .fumi .fu-m-smile { display: none; }
+.tg[data-mood="think"] .fumi .fu-m-flat { display: inline; }
+.tg[data-mood="think"] .fumi .fu-brow-l { transform: translateY(-6px) rotate(-8deg); }
+.tg[data-mood="think"] .fumi .fu-brow-r { transform: translateY(2px) rotate(6deg); }
+.tg[data-mood="think"] .fumi .fu-iris { transform: translate(-2.5px, -3px); }
+/* a bow: eyes closed, calm */
+.tg[data-mood="bow"] .fumi .fu-eyes-open { display: none; }
+.tg[data-mood="bow"] .fumi .fu-eyes-calm { display: inline; }
+/* the whole head tilts a little with the moods (on top of tutorguide's body moves) */
+.tg .tg-body { transform-origin: 50% 90%; }
+.tg-small .tg-body svg.fumi { height: 100%; }
+.ud-import .ud-foot .big { white-space: nowrap; }
+.ud-import .ud-area { background-image: none; line-height: 1.6; }

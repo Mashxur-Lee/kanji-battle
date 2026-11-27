@@ -1180,6 +1180,22 @@ const RU: Record<string, string> = {
   'It goes back to being kept for a week from its match, so it may be gone right away.': 'Он снова будет храниться неделю с его матча — так что может сразу исчезнуть.',
   'Copied!': 'Скопировано!',
   'The host left the room': 'Хозяин покинул комнату',
+  // 0.9.9.9.9.6 (round 5)
+  "Something needs your attention": "Обратите внимание",
+  "OK": "ОК",
+  "Message everyone": "Написать всем",
+  "A message from the team to every player": "Сообщение от команды всем игрокам",
+  "Send to everyone": "Отправить всем",
+  "Message everyone?": "Написать всем?",
+  "Every player gets it in their conversation with the team (and a notification).": "Каждый игрок получит его в переписке с командой (и уведомление).",
+  "One message to everyone a minute - wait a moment": "Не больше одного сообщения всем в минуту — подождите",
+  "Paste your words": "Вставьте слова",
+  "How are they split?": "Как они разделены?",
+  "One word per card - from a word list, a spreadsheet or another app's export. The reading may come first in the meaning: 猫 → ねこ - cat.": "Одно слово — одна карточка: из списка слов, таблицы или экспорта другого приложения. Чтение может стоять в начале значения: 猫 → ねこ - кошка.",
+  "Learning grammar": "Учит грамматику",
+  "Playing Kanji chess": "Играет в шахматы кандзи",
+  "7/10 in any quiz": "7/10 в любом тесте",
+  "Today’s streak task: 7/10 in any quiz - JLPT or onomatopoeia - or half right in a reading passage.": "Задание серии на сегодня: 7/10 в любом тесте — JLPT или ономатопея — или половина верно в тексте для чтения.",
   // 0.9.9.9.9.6 (round 5): chess and Grammar Clash in the private game and the queue; the Dragon
   "Leave the room": "Покинуть комнату",
   "Rating": "Рейтинг",
@@ -1483,6 +1499,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^“(.+)” goes; its words stay in My words with their progress\.$/, "«$1» удалится; её слова останутся в «Моих словах» со своим прогрессом."],
   [/^(\d+) words? added$/, "Добавлено слов: $1"],
   [/^(\d+) skipped:$/, "Пропущено: $1"],
+  [/^Sent to (\d+) players$/, "Отправлено игрокам: $1"], // (round 5: the Team inbox's Message everyone)
   // 0.9.9.9.9.6 (round 4): Grammar Clash
   [/^(Ranked|Quick match): (\d+) of 8 players - the game starts with 2 or more$/, (_m, k, n) => `${k === 'Ranked' ? 'Рейтинговая' : 'Быстрая игра'}: ${n} из 8 игроков — игра начнётся, когда наберётся 2 и больше`],
   [/^(\d+) questions$/, (_m, n) => `${n} ${plural(Number(n), 'вопрос', 'вопроса', 'вопросов')}`],

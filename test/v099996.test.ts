@@ -729,3 +729,44 @@ test('0.9.9.9.9.6 round 5: the Dragon (2400) — a deep search on a clock, alway
   assert.ok(src('src/client/chess.ts').includes("new Worker('chessworker.js')"));
   assert.ok(src('src/client/chess.ts').includes("if (d.parentElement !== document.body) document.body.append(d);"), 'the replay window opens from the page itself (it froze the app)');
 });
+
+test('0.9.9.9.9.6 round 5: grammar N5 to N1 all there; Master Fumi\'s 2.5D portrait with a face that moves', async () => {
+  const { grammarOf } = await import('../src/shared/grammar');
+  for (const l of ['N3', 'N2', 'N1'] as const) assert.ok(grammarOf(l).length >= 15, `${l} lessons`);
+  const { fumiBust } = await import('../src/client/fumibust');
+  const svg = fumiBust();
+  for (const part of ['fu-back', 'fu-mid', 'fu-front', 'fu-hat', 'fu-eyes-open', 'fu-eyes-happy', 'fu-m-talk', 'fu-m-grin', 'fu-m-o', 'fu-m-flat', 'fu-brow-l']) assert.ok(svg.includes(part), part);
+  assert.ok(src('src/client/tutorguide.ts').includes('body.innerHTML = fumiBust();'), 'the guide is the portrait, not the arena sprite');
+  const css = src('public/style.css');
+  assert.ok(css.includes('.tg[data-mood="cheer"] .fumi .fu-eyes-happy { display: inline; }') && css.includes('@keyframes fuBlink'));
+});
+
+test('0.9.9.9.9.6 round 5: the small fixes — any quiz counts, errors in a window, the draw search, the example word, the deck window, the streak\'s glow', () => {
+  assert.ok(src('src/shared/progress.ts').includes("{ id: 'practice', label: '7/10 in any quiz', target: 1 }"));
+  const decks = src('src/client/decks.ts');
+  assert.ok(!decks.includes("if (mode === 'jlpt') {\n    void api.task('quiz'"), 'the onomatopoeia quiz counts too');
+  const ui = src('src/client/ui.ts');
+  assert.ok(ui.includes("void alertBox('Something needs your attention', text)") && ui.includes('export function alertBox('));
+  const css = src('public/style.css');
+  assert.ok(css.includes('.dd-cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));') && css.includes('.dd-row { flex-wrap: nowrap; }'));
+  assert.ok(css.includes('.dict-word .fc-ex-ja mark, .dict-panel .fc-ex-ja mark, .dict-rail .fc-ex-ja mark { background: rgba(255, 212, 121, .18); color: #ffd479;'));
+  assert.ok(css.includes('.ud-dialog { border-radius: 20px;'));
+  assert.ok(css.includes('.ach-pop.streak-moment .ach-rays {') && css.includes('@keyframes skGlow'), 'no sun rays behind the streak');
+  assert.ok(src('src/client/userdecks.ts').includes("left.append(step('1', tr('Paste your words')), intro, area, step('2', tr('How are they split?')), seps);"), 'the import window: our own layout');
+});
+
+test('0.9.9.9.9.6 round 5: the team writes to every player (admins only; not guests; once a minute)', async () => {
+  const { MessageService } = await import('../src/server/study/MessageService');
+  const store = new MemoryStore();
+  const delivered: string[] = [];
+  const svc = new MessageService(store, { deliver: (to: unknown) => { if (Array.isArray(to)) for (const x of to) delivered.push(x.id); } } as never);
+  const admin = await store.create({ username: 'boss', passwordHash: 'x', email: 'b@e.x' } as never);
+  await store.update(admin.id, { role: 'admin' });
+  const p1 = await store.create({ username: 'one', passwordHash: 'x', email: 'o@e.x' } as never);
+  const guest = await store.create({ username: 'guest1', passwordHash: 'x', email: null } as never);
+  await store.update(guest.id, { unlocks: ['guest'] });
+  await assert.rejects(svc.broadcast(p1, 'hi'), /Only the team/);
+  const r = await svc.broadcast((await store.findById(admin.id))!, 'Hello everyone');
+  assert.ok(r.sent >= 2 && delivered.includes(p1.id));
+  await assert.rejects(svc.broadcast((await store.findById(admin.id))!, 'again'), /a minute/);
+});

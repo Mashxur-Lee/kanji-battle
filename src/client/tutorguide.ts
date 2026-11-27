@@ -3,7 +3,7 @@
 // floor), the whole figure turning a little towards your pointer, breathing, hopping when you get something right.
 // What it says types itself out in a speech bubble (a tap shows it all at once). It stands beside every tutorial card,
 // and peeks out of the spotlight bubbles in the menu and battle tours.
-import { heroSvg } from './wizard';
+import { fumiBust } from './fumibust';
 
 const el = (tag: string, cls = '', text?: string) => {
   const e = document.createElement(tag);
@@ -30,7 +30,7 @@ export function guideEl(size: 'big' | 'small' = 'big'): HTMLElement {
   const glow = el('div', 'tg-glow');
   const floor = el('div', 'tg-floor');
   const body = el('div', 'tg-body');
-  body.innerHTML = heroSvg('wizard', 'me');
+  body.innerHTML = fumiBust(); // (round 5: his 2.5D portrait — head, neck, a face that moves)
   stage.append(glow, floor);
   if (size === 'big') for (const [g, x, y, z, s] of MOTES) {
     const m = el('span', `tg-mote ${z < 0 ? 'back' : 'front'}`, g);

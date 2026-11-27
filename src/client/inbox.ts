@@ -235,10 +235,33 @@ function previewOf(c: Conversation): string {
   return who + what;
 }
 const BELL_MENTION = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.6"/><path d="M15.6 12v1.4a2.6 2.6 0 0 0 5.2 0V12a8.8 8.8 0 1 0-3.5 7"/></svg>';
+/** 0.9.9.9.9.6 (round 5): the Team inbox's "Message everyone" — the team writes to every player at once */
+function broadcastBox(): HTMLElement {
+  const box = h('div', 'msg-bcast');
+  const open = h('button', 'pill msg-bcast-open', tr('Message everyone')) as HTMLButtonElement; open.type = 'button';
+  const form = h('div', 'msg-bcast-form');
+  form.hidden = true;
+  const area = h('textarea', 'msg-bcast-text') as HTMLTextAreaElement; area.rows = 3; area.maxLength = 2000; area.placeholder = tr('A message from the team to every player');
+  const send = h('button', 'big msg-bcast-send', tr('Send to everyone')) as HTMLButtonElement; send.type = 'button';
+  open.onclick = () => { form.hidden = !form.hidden; if (!form.hidden) area.focus(); };
+  send.onclick = async () => {
+    const t = area.value.trim();
+    if (!t) { area.focus(); return; }
+    if (!(await ui.confirmBox('Message everyone?', 'Every player gets it in their conversation with the team (and a notification).', 'Send', 'Cancel', false))) return;
+    send.disabled = true;
+    try { const r = await api.broadcast(t); area.value = ''; form.hidden = true; ui.toast(tr(`Sent to ${r.sent} players`), 4000); }
+    catch (e) { ui.toast((e as Error).message, 4000); }
+    send.disabled = false;
+  };
+  form.append(area, send);
+  box.append(open, form);
+  return box;
+}
 function renderList() {
   const list = $('msgList');
-  if (!convs.length) { list.replaceChildren(h('p', 'hint msg-empty', side === 'support' ? 'No messages to the team yet.' : 'No messages yet - write to a friend from their profile.')); return; }
-  list.replaceChildren(...convs.map((c) => {
+  const top = side === 'support' ? [broadcastBox()] : [];
+  if (!convs.length) { list.replaceChildren(...top, h('p', 'hint msg-empty', side === 'support' ? 'No messages to the team yet.' : 'No messages yet - write to a friend from their profile.')); return; }
+  list.replaceChildren(...top, ...convs.map((c) => {
     const b = h('button', `msg-conv${c.id === openId ? ' on' : ''}${c.unread ? ' unread' : ''}`) as HTMLButtonElement;
     b.type = 'button'; b.dataset.id = c.id;
     const txt = h('span', 'msg-c-txt');

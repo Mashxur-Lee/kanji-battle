@@ -10,6 +10,7 @@ import { GIF_URL } from '../gifs';
 import { randomBytes } from 'node:crypto';
 import type { ChatGroup, DirectMessage, GroupMember, GroupPerms, GroupRole, Store, UserRecord } from '../db/Store';
 import { DEFAULT_PERMS, SUPPORT_ID } from '../db/Store';
+import { isGuest } from '../auth/AuthService';
 import type { DmView, PlayerStatus } from '../../shared/protocol';
 import { picUrl } from './StudyService';
 import { blocks } from './SocialService';
@@ -436,6 +437,32 @@ export class MessageService {
     else if (to !== SUPPORT_ID) this.hooks.deliver([{ id: u.id, muted: true }], v, fromName);
     return v;
   }
+
+  /**
+   * 0.9.9.9.9.6 (round 5): the team writes to every player at once (an admin, from the Team inbox) — it lands in each
+   * player's conversation with the team, as any answer of the team's does (live for those online, a push for the
+   * others). Guests and banned accounts are left out. Once a minute at most.
+   */
+  async broadcast(u: UserRecord, text: unknown): Promise<{ sent: number }> {
+    if (u.role !== 'admin') throw new MessageError('Only the team can do that', 403);
+    const t = typeof text === 'string' ? text.replace(/\r\n?/g, '\n').trim().slice(0, MESSAGE_MAX) : '';
+    if (!t) throw new MessageError('Write something first');
+    const last = this.broadcastAt ?? 0;
+    if (this.now() - last < 60_000) throw new MessageError('One message to everyone a minute - wait a moment', 429);
+    this.broadcastAt = this.now();
+    const users = (await this.store.list()).filter((x) => !isGuest(x) && !x.banned && x.id !== SUPPORT_ID);
+    let sent = 0;
+    for (const rec of users) {
+      const m = await this.store.addMessage({ fromId: SUPPORT_ID, toId: rec.id, text: t, at: this.now(), kind: null, by: u.id, media: null, fwd: null });
+      const v = view(m);
+      const quiet = quietFor(rec, SUPPORT_ID, t);
+      this.hooks.deliver([{ id: rec.id, muted: quiet }], v, 'Kanji Wizards team');
+      if (!this.online(rec.id) && !quiet) this.hooks.push?.(rec.id, SUPPORT_ID, 'Kanji Wizards team', t);
+      sent++;
+    }
+    return { sent };
+  }
+  private broadcastAt?: number;
 
   /**
    * 0.9.9.9.6.5: an invite to your room (or a challenge from their profile) also lands in your conversation with
