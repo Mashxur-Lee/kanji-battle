@@ -254,8 +254,36 @@ function broadcastBox(): HTMLElement {
     send.disabled = false;
   };
   form.append(area, send);
-  box.append(open, form);
+  box.append(open, playerPicker(), form);
   return box;
+}
+/** 0.9.9.9.9.6 (round 6): the Team inbox — write to one player (found by name or login) as the team */
+let allPlayers: Promise<{ id: string; username: string; name?: string | null; banned?: boolean }[]> | null = null;
+function playerPicker(): HTMLElement {
+  const wrap = h('div', 'msg-pick');
+  const q = h('input', 'msg-pick-q') as HTMLInputElement;
+  q.type = 'search'; q.placeholder = tr('Message a player - name or login'); q.autocomplete = 'off'; q.maxLength = 40;
+  const hits = h('div', 'msg-pick-hits');
+  const show = async () => {
+    const t = q.value.trim().toLowerCase();
+    if (!t) { hits.replaceChildren(); return; }
+    allPlayers ??= api.users().then((r) => r.users).catch((e) => { allPlayers = null; throw e; });
+    let list;
+    try { list = await allPlayers; } catch (e) { hits.replaceChildren(h('p', 'hint', (e as Error).message)); return; }
+    if (q.value.trim().toLowerCase() !== t) return;
+    const found = list.filter((u) => u.username.toLowerCase().includes(t) || (u.name ?? '').toLowerCase().includes(t))
+      .sort((a, b) => Number(!a.username.toLowerCase().startsWith(t)) - Number(!b.username.toLowerCase().startsWith(t))).slice(0, 6);
+    hits.replaceChildren(...(found.length ? found.map((u) => {
+      const b = h('button', 'msg-pick-hit') as HTMLButtonElement; b.type = 'button';
+      b.append(h('b', '', u.name || u.username), h('small', '', `@${u.username}`));
+      b.onclick = () => { q.value = ''; hits.replaceChildren(); void openInbox(u.id, true); };
+      return b;
+    }) : [h('p', 'hint', tr('No player by that name'))]));
+  };
+  let timer = 0;
+  q.oninput = () => { clearTimeout(timer); timer = window.setTimeout(() => void show(), 180); };
+  wrap.append(q, hits);
+  return wrap;
 }
 function renderList() {
   const list = $('msgList');

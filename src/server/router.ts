@@ -79,7 +79,7 @@ export interface ApiExtras {
   /** 0.9.9.9.5.1: whether push to the Android app is set up (FIREBASE_SERVICE_ACCOUNT) — shown to admins */
   pushOn?: () => boolean;
   /** 0.9.9.9.9: the ranked ladder and replays */
-  ranked?: { ladder(me: UserRecord, friendIds: string[]): Promise<unknown>; replay(id: string): Promise<unknown | null>;
+  ranked?: { ladder(me: UserRecord, friendIds: string[], limit?: number, mode?: unknown): Promise<unknown>; replay(id: string): Promise<unknown | null>;
     savedList(userId: string): Promise<{ saved: unknown[]; max: number }>; saveFor(userId: string, id: string, label: string): Promise<'ok' | 'gone' | 'full'>; unsaveFor(userId: string, id: string): Promise<boolean> }; // (study/RankedService — kept out of the offline app's bundle)
   /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
   inviteDecline?: (userId: string, name: string, fromId: string) => void;
@@ -403,7 +403,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         // 0.9.9.9.9: the ranked ladder: the top 50, you, your friends
         const u = await auth.authenticate(r.token);
         const friends = social ? (await social.list(u.id)).filter((f) => f.status === 'accepted').map((f) => f.id) : [];
-        return res(200, await ranked.ladder(u, friends));
+        return res(200, await ranked.ladder(u, friends, 50, query.get('mode') ?? 'rapid'));
       } else if (ranked && r.method === 'GET' && /^\/api\/replays\/[\w-]{16}$/.test(url)) {
         // 0.9.9.9.9: a match's replay — anyone with the link (the id can't be guessed); kept two weeks
         if (!limiter.allow(`rp:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);

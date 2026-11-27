@@ -20,7 +20,7 @@ import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
 import { UserDecks } from './UserDecks';
 /** a finished game of Kanji chess, as kept for one player */
-export interface ChessGameRecord { at: number; vs: string; vsBot?: string; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
+export interface ChessGameRecord { at: number; vs: string; vsBot?: string; ranked?: boolean; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
 import { addPlay, cleanStats, isQuizKind, mergeStats, type QuizStats } from '../../shared/quizstats';
 
 export const DAILY_NEW = 25; // default new words a day in "All spells"

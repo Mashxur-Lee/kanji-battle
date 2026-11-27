@@ -12,7 +12,7 @@ import type { Store, UserRecord } from '../db/Store';
 import { displayName } from '../db/Store';
 import type { MatchResult, ReplayData } from '../Room';
 import type { RatingChange } from '../../shared/protocol';
-import { PLACEMENT, rankView, rate, START_RATING, type RankView } from '../../shared/ranked';
+import { isRankedMode, PLACEMENT, RANKED_MODES, rankView, rate, START_RATING, type RankedMode, type RankView } from '../../shared/ranked';
 import { picUrl } from './StudyService';
 
 const zip = promisify(gzip), unzip = promisify(gunzip);
@@ -28,23 +28,35 @@ export const isReplayId = (s: string) => /^[\w-]{16}$/.test(s);
 
 export interface LadderRow extends RankView { id: string; name: string; login: string; pic: string | null; place: number }
 
+/** 0.9.9.9.9.6 (round 6): a player's rating in one ranked mode (1000, no games, until they play it) */
+export const ratingIn = (u: Pick<UserRecord, 'ratings'>, mode: RankedMode) => ({ rating: u.ratings?.[mode]?.r ?? START_RATING, games: u.ratings?.[mode]?.g ?? 0 });
+
 export class RankedService {
   constructor(private readonly store: Store) {}
 
-  /** a finished match: the ratings of a ranked one move (returns each player's change; empty if it wasn't ranked) */
-  async settle(results: MatchResult[]): Promise<Record<string, RatingChange>> {
+  /** (round 6) a mode's rating moved: kept with the others (and the whole-game rating, the profile's, moves along) */
+  private async put(u: UserRecord, mode: RankedMode, after: number, games: number) {
+    const fresh = (await this.store.findById(u.id)) ?? u;
+    await this.store.update(u.id, { ratings: { ...(fresh.ratings ?? {}), [mode]: { r: after, g: games } } });
+  }
+
+  /** a finished match: the ratings of a ranked one move — in its mode (returns each player's change; empty if it wasn't ranked) */
+  async settle(results: MatchResult[], mode: string = 'rapid'): Promise<Record<string, RatingChange>> {
     const rated = results.filter((r) => r.ranked);
-    if (rated.length !== 2) return {};
+    if (rated.length !== 2 || !isRankedMode(mode)) return {};
     const [a, b] = rated;
     const [ua, ub] = await Promise.all([this.store.findById(a.id), this.store.findById(b.id)]);
     if (!ua || !ub) return {};
     const score = a.outcome === 'win' ? 1 : a.outcome === 'draw' ? 0.5 : 0;
-    const [da, db] = rate({ rating: ua.rating ?? START_RATING, games: ua.rated ?? 0 }, { rating: ub.rating ?? START_RATING, games: ub.rated ?? 0 }, score);
+    const [da, db] = rate(ratingIn(ua, mode), ratingIn(ub, mode), score);
+    // (the profile's overall rating moves as before)
+    const [oa, ob] = rate({ rating: ua.rating ?? START_RATING, games: ua.rated ?? 0 }, { rating: ub.rating ?? START_RATING, games: ub.rated ?? 0 }, score);
     const out: Record<string, RatingChange> = {};
-    for (const [u, d] of [[ua, da], [ub, db]] as const) {
-      const before = u.rating ?? START_RATING, games = (u.rated ?? 0) + 1;
-      await this.store.update(u.id, { rating: before + d, rated: games });
-      out[u.id] = { before, after: before + d, games };
+    for (const [u, d, o] of [[ua, da, oa], [ub, db, ob]] as const) {
+      const { rating: before, games: g } = ratingIn(u, mode);
+      await this.store.update(u.id, { rating: (u.rating ?? START_RATING) + o, rated: (u.rated ?? 0) + 1 });
+      await this.put(u, mode, before + d, g + 1);
+      out[u.id] = { before, after: before + d, games: g + 1, mode };
     }
     return out;
   }
@@ -53,10 +65,10 @@ export class RankedService {
    * 0.9.9.9.9.6 (round 4): a game of 2–8 (Grammar Clash, ranked): the final order, best first. Each pair of players
    * counts as a game between them, the changes summed and divided by the others' number (one game's worth in all).
    */
-  async settleField(order: string[]): Promise<Record<string, RatingChange>> {
+  async settleField(order: string[], mode: RankedMode = 'clash'): Promise<Record<string, RatingChange>> {
     const users = (await Promise.all(order.map((id) => this.store.findById(id)))).filter((u): u is NonNullable<typeof u> => !!u);
     if (users.length < 2) return {};
-    const side = (u: (typeof users)[number]) => ({ rating: u.rating ?? START_RATING, games: u.rated ?? 0 });
+    const side = (u: (typeof users)[number]) => ratingIn(u, mode);
     const delta = new Map<string, number>(users.map((u) => [u.id, 0]));
     for (let a = 0; a < users.length; a++) for (let b = a + 1; b < users.length; b++) {
       const [da, db] = rate(side(users[a]), side(users[b]), 1); // a finished above b
@@ -64,10 +76,11 @@ export class RankedService {
     }
     const out: Record<string, RatingChange> = {};
     for (const u of users) {
-      const before = u.rating ?? START_RATING, games = (u.rated ?? 0) + 1;
+      const { rating: before, games: g } = ratingIn(u, mode);
       const after = Math.max(100, before + Math.round(delta.get(u.id)! / (users.length - 1)));
-      await this.store.update(u.id, { rating: after, rated: games });
-      out[u.id] = { before, after, games };
+      await this.put(u, mode, after, g + 1);
+      await this.store.update(u.id, { rated: (u.rated ?? 0) + 1 });
+      out[u.id] = { before, after, games: g + 1, mode };
     }
     return out;
   }
@@ -77,18 +90,33 @@ export class RankedService {
     const rank = games >= PLACEMENT ? (await this.store.ratedAbove(u.rating ?? START_RATING, PLACEMENT)) + 1 : null;
     return rankView(u.rating, games, rank);
   }
+  /** (round 6) a player's place in one mode */
+  async viewIn(u: Pick<UserRecord, 'ratings'>, mode: RankedMode): Promise<RankView> {
+    const { rating, games } = ratingIn(u, mode);
+    const rank = games >= PLACEMENT ? (await this.store.ratedAboveIn(mode, rating, PLACEMENT)) + 1 : null;
+    return rankView(rating, games, rank);
+  }
+  /** (round 6) your rank in every ranked mode (the queue's Ranked side shows them all) */
+  async mine(u: UserRecord) {
+    const out = {} as Record<RankedMode, RankView>;
+    for (const m of RANKED_MODES) out[m] = await this.viewIn(u, m);
+    return out;
+  }
 
   /** the top of the ladder, you, and your friends who play ranked */
-  async ladder(me: UserRecord, friendIds: string[], limit = 50) {
-    const row = (u: UserRecord, place: number): LadderRow => ({ id: u.id, name: displayName(u), login: u.username, pic: picUrl(u), place, ...rankView(u.rating, u.rated) });
-    const top = (await this.store.ladder(limit + 10, PLACEMENT)).filter((u) => !isGuest(u)).slice(0, limit);
+  async ladder(me: UserRecord, friendIds: string[], limit = 50, rawMode: unknown = 'rapid') {
+    // 0.9.9.9.9.6 (round 6): one mode's ladder (Rapid, Deck Duel, Kanji chess, Grammar Clash), and your rank in each
+    const mode: RankedMode = isRankedMode(rawMode) ? rawMode : 'rapid';
+    const row = (u: UserRecord, place: number): LadderRow => { const x = ratingIn(u, mode); return { id: u.id, name: displayName(u), login: u.username, pic: picUrl(u), place, ...rankView(x.rating, x.games) }; };
+    const top = (await this.store.ladderIn(mode, limit + 10, PLACEMENT)).filter((u) => !isGuest(u)).slice(0, limit);
     const friends: LadderRow[] = [];
     for (const id of friendIds.slice(0, 200)) {
       const f = await this.store.findById(id);
-      if (f && (f.rated ?? 0) > 0) friends.push(row(f, (f.rated ?? 0) >= PLACEMENT ? (await this.store.ratedAbove(f.rating ?? START_RATING, PLACEMENT)) + 1 : 0));
+      const x = f && ratingIn(f, mode);
+      if (f && x && x.games > 0) friends.push(row(f, x.games >= PLACEMENT ? (await this.store.ratedAboveIn(mode, x.rating, PLACEMENT)) + 1 : 0));
     }
     friends.sort((x, y) => y.rating - x.rating);
-    return { top: top.map((u, i) => row(u, i + 1)), me: { ...(await this.view(me)), id: me.id }, friends };
+    return { mode, top: top.map((u, i) => row(u, i + 1)), me: { ...(await this.viewIn(me, mode)), id: me.id }, modes: await this.mine(me), friends };
   }
 
   /** keeps a replay; its id (null: too big) */

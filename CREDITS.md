@@ -48,6 +48,19 @@ The same list is shown in the game under **About** (main menu).
   reused under the same licence, with attribution as above. The game's own code is not covered by these licences.
 - Stroke-order diagrams in the game are drawn from the same reference patterns.
 
+## Voices
+
+The chess wizards' spoken lines (`public/voices/`, made by `scripts/voices.mts`) were generated with
+[VOICEVOX](https://voicevox.hiroshiba.jp/) (engine 0.26.2). Each character's terms allow commercial use with a credit:
+
+- Goblin — VOICEVOX:ちび式じい
+- Knight — VOICEVOX:†聖騎士 紅桜†
+- Witch — VOICEVOX:四国めたん
+- Wizard — VOICEVOX:麒ヶ島宗麟
+- Dragon — VOICEVOX:剣崎雌雄
+
+(The game also credits them in About.) Each character's own terms of use apply; read them before changing a voice.
+
 ## Fonts
 
 - **Dela Gothic One** (titles) by artakana, and **M PLUS Rounded 1c** (everything else) by the M+ Fonts Project — both under the

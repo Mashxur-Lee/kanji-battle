@@ -92,6 +92,20 @@ export function speak(kana: string): Promise<void> {
 }
 
 /** 0.9.9.9.9.6 (round 4): a chess wizard says its line in its own voice (its rate and pitch); kana, so the reading is right */
+/** 0.9.9.9.9.6 (round 6): a recorded line (a chess wizard's own voice); if it can't play, `fallback` (the device's voice) */
+let clip: HTMLAudioElement | null = null;
+export function playClip(url: string, fallback: () => void) {
+  if (!prefs.on || prefs.vol <= 0 || document.visibilityState !== 'visible') return;
+  try { clip?.pause(); } catch { /* fine */ }
+  synth?.cancel();
+  const a = new Audio(url);
+  a.volume = Math.max(0, Math.min(1, prefs.vol));
+  clip = a;
+  let fell = false;
+  const fall = () => { if (fell || clip !== a) return; fell = true; fallback(); };
+  a.onerror = fall;
+  void a.play().catch(fall);
+}
 export function speakAs(kana: string, rate: number, pitch: number) {
   if (!prefs.on || prefs.vol <= 0 || document.visibilityState !== 'visible') return;
   if (android) { try { if (android.canSpeak()) android.speak(kana, rate, pitch); } catch { /* no voice */ } return; }

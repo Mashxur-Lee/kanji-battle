@@ -37,6 +37,20 @@ export function checkBuild(server: string | undefined) {
   try { tried = sessionStorage.getItem('kw:update-to') ?? ''; } catch { /* private mode */ }
   if (tried === server) return;
   updating = true;
+  // 0.9.9.9.9.6 (round 6): the third start in a row still on the old version (the owner's phone "keeps trying to update
+  // but can't"): the offline copy is dropped and the page loads straight from the server — the copy is made again after
+  let fails = 0;
+  try { const [b, n] = (localStorage.getItem('kw:update-fails') ?? '').split(':'); fails = b === server ? Number(n) || 0 : 0; localStorage.setItem('kw:update-fails', `${server}:${fails + 1}`); } catch { /* private mode */ }
+  if (fails >= 2) {
+    void (async () => {
+      while (!reloadOk()) await new Promise((r) => setTimeout(r, 3000));
+      try { sessionStorage.setItem('kw:update-to', server); } catch { /* private mode */ }
+      ui.toast(tr('Updating to the new version…'), 2500);
+      try { for (const r of (await navigator.serviceWorker?.getRegistrations()) ?? []) await r.unregister(); } catch { /* fine */ }
+      setTimeout(() => location.reload(), 900);
+    })();
+    return;
+  }
   void (async () => {
     const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
     await reg?.update().catch(() => undefined); // the new service worker installs (it fetches the new files) and takes over
@@ -156,6 +170,9 @@ function initBack() {
   const mo = new MutationObserver(() => syncGuard());
   for (const el of document.querySelectorAll('.screen, dialog')) mo.observe(el, { attributes: true, attributeFilter: ['hidden', 'open'] });
   // the Android app (0.9.9.4) asked the page directly; keep answering for APKs from before this patch
+  // 0.9.9.9.9.6 (round 6): the Android app asks this first — no history involved (the WebView skipped our extra entries
+  // when they were added without a tap, and back in a chat left the app). false: at the menu, the app goes away
+  (window as { kwBackNative?: () => boolean }).kwBackNative = () => goBack();
   (window as { kwBack?: () => boolean }).kwBack = () => { if (guarded) { history.back(); return true; } return goBack(); };
 }
 

@@ -217,7 +217,7 @@ test('0.9.9.9.9.6 the daily streak: two tasks (a quiz, the daily challenge) — 
 });
 
 test('0.9.9.9.9.6 ranked: Rapid and Deck Duel only; the queue\'s mode rules open from the (!) only', () => {
-  assert.ok(src('src/server/Matchmaker.ts').includes("room.ranked = mode === 'rapid' || mode === 'deck' || mode === 'chess' || mode === 'clash';"), 'round 5: chess and Grammar Clash too');
+  assert.ok(src('src/server/Matchmaker.ts').includes('room.ranked = ranked;'), 'round 6: the Ranked side decides');
   const q = src('src/client/queue.ts');
   assert.ok(q.includes("info.addEventListener('click', toggle);"));
   assert.ok(!q.includes("el.addEventListener('focusin', open);"), 'picking a mode no longer opens it');
@@ -769,4 +769,101 @@ test('0.9.9.9.9.6 round 5: the team writes to every player (admins only; not gue
   const r = await svc.broadcast((await store.findById(admin.id))!, 'Hello everyone');
   assert.ok(r.sent >= 2 && delivered.includes(p1.id));
   await assert.rejects(svc.broadcast((await store.findById(admin.id))!, 'again'), /a minute/);
+});
+
+test('0.9.9.9.9.6 round 6: back in a chat goes to the list, not out of the app; a notification\'s link is used once', () => {
+  const java = src('mobile/android/app/src/main/java/com/kanjiwizards/app/MainActivity.java');
+  assert.ok(java.includes('kwBackNative') && java.includes('moveTaskToBack(true)'), 'the app asks the page first');
+  assert.ok(java.includes('FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY') && java.includes('setIntent(intent)'), 'a link from Recents is not replayed');
+  assert.ok(src('src/client/appshell.ts').includes('kwBackNative = () => goBack()'));
+  const main = src('src/client/main.ts');
+  assert.ok(main.includes('const startLink = (() => {') && main.includes('const ib = startLink.inbox;'), 'read as the page starts');
+  assert.ok(!main.includes("new URLSearchParams(location.search).get('inbox')"), 'not read again on a reconnect');
+});
+
+test('0.9.9.9.9.6 round 6: an update that does not fit makes room, and the third failed start loads from the server', () => {
+  const sw = src('src/client/sw.js');
+  assert.ok(sw.includes('await caches.delete(RUNTIME);') && sw.includes('const again = bad.splice(0);'));
+  const shell = src('src/client/appshell.ts');
+  assert.ok(shell.includes("localStorage.getItem('kw:update-fails')") && shell.includes('r.unregister()'));
+});
+
+test('0.9.9.9.9.6 round 6: the team writes to one player; the pieces fit their squares; Fumi\'s hat stays on', () => {
+  const inbox = src('src/client/inbox.ts');
+  assert.ok(inbox.includes('box.append(open, playerPicker(), form);') && inbox.includes('void openInbox(u.id, true)'));
+  const css = src('public/style.css');
+  assert.ok(css.includes('.csq .piece .pc-img { bottom: 1%; height: 101%; }'));
+  assert.ok(css.includes('.tg .fumi .fu-hat { transform: translate(calc(var(--tx) * 5.5px), calc(var(--ty) * 3px)) rotate(calc(var(--tx) * .6deg)); }'));
+  assert.ok(css.includes('.tg-small { width: 66px; height: 66px; border-radius: 50%; overflow: hidden;'), 'the small Fumi: a round portrait');
+});
+
+test('0.9.9.9.9.6 round 6: Master Fumi shows each page round the first time; every step has Russian', async () => {
+  const { PAGE_TOURS } = await import('../src/client/pagetours');
+  const i18n = src('src/client/i18n.ts');
+  const html = src('public/index.html');
+  for (const page of ['games', 'study', 'customize', 'quizzes', 'kana', 'daily', 'progress', 'history', 'grammar', 'inbox', 'dict', 'private']) {
+    assert.ok(PAGE_TOURS[page]?.length, page);
+    assert.ok(html.includes(`<section id="${page}"`), `${page} is a page`);
+    for (const s of PAGE_TOURS[page]) {
+      const key = (t: string) => i18n.includes(`'${t.replace(/'/g, "\'")}':`) || i18n.includes(`${JSON.stringify(t)}:`);
+      assert.ok(key(s.title) && key(s.text), `${page}: ${s.title}`);
+    }
+  }
+  assert.ok(src('src/client/main.ts').includes('resetPageTours();'), 'How to play: the tours again');
+});
+
+test('0.9.9.9.9.6 round 6: every chess wizard line has its own recorded voice (VOICEVOX, credited)', async () => {
+  const { existsSync } = await import('node:fs');
+  const { LINES, BOT_VOICE, voiceClip } = await import('../src/shared/chesslines');
+  let n = 0;
+  for (const [bot, moments] of Object.entries(LINES)) for (const lines of Object.values(moments)) for (const l of lines ?? []) {
+    assert.ok(existsSync(join('public', voiceClip(bot as never, l.jp))), `${bot}: ${l.jp}`); n++;
+  }
+  assert.ok(n >= 70);
+  const credits = src('CREDITS.md'), about = src('public/index.html');
+  for (const v of Object.values(BOT_VOICE)) assert.ok(credits.includes(`VOICEVOX:${v.name}`) && about.includes(`VOICEVOX:${v.name}`), v.name);
+  assert.ok(src('src/client/chess.ts').includes('playClip(voiceClip(bot, line.jp), () => speakAs('), 'the device\'s voice if a recording can\'t play');
+});
+
+test('0.9.9.9.9.6 round 6: the queue\'s two sides — Ranked shows ranked modes only and meets only ranked players; Unranked rooms are not rated', async () => {
+  const { Matchmaker } = await import('../src/server/Matchmaker');
+  const rooms: Array<{ mode: string; ranked: boolean }> = [];
+  const mk = { create: (mode: string) => { const r = { mode, ranked: false, setSettings() {}, start() {}, setLobbyReady() {}, leave() {} }; rooms.push(r); return r; } };
+  const mm = new Matchmaker(mk as never, () => 0, () => 0);
+  const found: Record<string, string[]> = {};
+  const c = (id: string) => ({ inRoom: () => false, joinMatched: async () => true, send: (m: { state?: string; mode?: string; matchId?: number }) => { if (m.state === 'found') { (found[id] ??= []).push(m.mode!); mm.accept(id, m.matchId!); } } });
+  const tick = () => new Promise((r) => setTimeout(r, 10));
+  assert.equal(mm.enqueue('a', c('a') as never, ['reading'], ['N5'], true), 'Pick at least one mode', 'Reading is not on the Ranked side');
+  mm.enqueue('a', c('a') as never, ['rapid'], ['N5'], true);
+  mm.enqueue('b', c('b') as never, ['rapid'], ['N5'], false);
+  await tick();
+  assert.equal(found.a, undefined, 'a ranked and an unranked player do not meet');
+  mm.enqueue('c', c('c') as never, ['rapid'], ['N5'], false);
+  await tick();
+  assert.deepEqual(rooms.map((r) => [r.mode, r.ranked]), [['rapid', false]], 'two unranked: an unranked room');
+  mm.enqueue('d', c('d') as never, ['rapid'], ['N5'], true);
+  await tick();
+  assert.deepEqual(rooms.at(-1), { ...rooms.at(-1)!, mode: 'rapid', ranked: true }, 'two ranked: a ranked room');
+});
+
+test('0.9.9.9.9.6 round 6: every ranked mode has a rating (and a ladder) of its own; Match history says ranked or not', async () => {
+  const store = new MemoryStore();
+  const { RankedService } = await import('../src/server/study/RankedService');
+  const ranked = new RankedService(store);
+  const ann = await store.create({ username: 'ann', passwordHash: 'x', role: 'user' } as never), bob = await store.create({ username: 'bob', passwordHash: 'x', role: 'user' } as never);
+  const res = (w: string, l: string) => [{ id: w, outcome: 'win', ranked: true }, { id: l, outcome: 'loss', ranked: true }] as never;
+  await ranked.settle(res(ann.id, bob.id), 'rapid');
+  await ranked.settle(res(bob.id, ann.id), 'chess');
+  await ranked.settle(res(bob.id, ann.id), 'chess');
+  const a = (await store.findById(ann.id))!;
+  assert.equal(a.ratings?.rapid?.r, 1020); assert.equal(a.ratings?.chess?.r, 962); assert.equal(a.ratings?.chess?.g, 2);
+  assert.equal(a.ratings?.deck, undefined, 'a mode not played: no rating yet');
+  assert.deepEqual(await ranked.settle(res(ann.id, bob.id), 'reading'), {}, 'Reading is never rated');
+  await ranked.settleField([ann.id, bob.id], 'clash');
+  assert.equal((await store.findById(ann.id))!.ratings?.clash?.g, 1);
+  const board = await ranked.ladder((await store.findById(bob.id))!, [ann.id], 50, 'chess');
+  assert.equal(board.mode, 'chess'); assert.equal(board.me.rating, 1038); assert.equal(board.friends[0].rating, 962);
+  assert.ok(board.modes.rapid && board.modes.deck && board.modes.clash);
+  assert.ok(src('src/client/ui.ts').includes("m.ranked ? 'Ranked' : 'Unranked'") && src('src/client/chess.ts').includes("g.ranked ? 'Ranked' : 'Unranked'"));
+  assert.ok(src('src/server/ChessHub.ts').includes('...(r.bound?.ranked ? { ranked: true } : {})'), 'chess games remember it');
 });

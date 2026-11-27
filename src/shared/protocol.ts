@@ -144,7 +144,7 @@ export interface MatchSummary {
   ranked?: boolean;
 }
 /** 0.9.9.9.9: a ranked match moved your rating */
-export interface RatingChange { before: number; after: number; games: number }
+export interface RatingChange { before: number; after: number; games: number; /** (round 6) the mode whose rating moved */ mode?: string }
 /** …and everything the results screen needs to show it again. */
 export interface MatchDetail extends MatchSummary {
   you: PlayerId;
@@ -222,7 +222,7 @@ export type ClientMessage =
   | { type: 'ready' }
   | { type: 'lobby_ready'; ready: boolean }
   | { type: 'add_bot'; level: string }
-  | { type: 'queue'; modes: string[]; levels?: string[] }
+  | { type: 'queue'; modes: string[]; levels?: string[]; /** 0.9.9.9.9.6 (round 6): the Ranked side */ ranked?: boolean }
   | { type: 'queue_cancel' }
   | { type: 'queue_accept'; matchId: number }
   | { type: 'remove_bot'; id: string }

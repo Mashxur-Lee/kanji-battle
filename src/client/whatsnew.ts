@@ -44,6 +44,11 @@ const PATCHES: Patch[] = [
       'The tutorial\'s Master Fumi is a 2.5D portrait now - his head and shoulders, turning with your pointer, blinking, talking, and with a face for every mood.',
       'The onomatopoeia quiz counts for the daily streak (7/10 in any quiz). The team can write to every player at once.',
       'Fixed and improved: errors appear in a window, not as red text under the menu; the dictionary\'s draw search shows every match, its buttons on one line; the word in an example sentence is visible again; the deck windows are rounded like the others; the import window has a layout of its own; the daily streak\'s moment has a soft glow instead of the sun rays; friends see when you are playing chess or Grammar Clash.',
+      "The online queue has two sides: Unranked (every mode, friendly games) and Ranked (Rapid, Deck Duel, Kanji chess and Grammar Clash). Each ranked mode has a rating and a ladder of its own, and Match history shows whether a game was ranked.",
+      "The chess wizards speak in voices of their own - the Goblin, the Knight, the Witch, the Wizard and the Dragon each sound different (voices made with VOICEVOX).",
+      "Master Fumi shows you round each page the first time you open it - Study, Customize, Quizzes, Kana, Progress and the rest. How to play brings the tours back.",
+      "Master Fumi's hat stays on his head, and in the tour bubbles he is a round portrait you can see.",
+      "Fixed: back in a chat on Android goes to the list of chats, not out of the app; opening a chat no longer jumps to the team's; the chess pieces fit their squares; an update that kept failing on a phone now gets through. The team can write to one player.",
     ],
     ru: [
       'вои колоды в «Изучении заклинаний»: создайте, назовите и наполните — введите или вставьте список, импортируйте текстовый экспорт Quizlet / Anki или файл колоды Anki (.apkg) прямо из AnkiDroid. Каждая колода изучается отдельно, с тем же интервальным повторением.',
@@ -81,6 +86,11 @@ const PATCHES: Patch[] = [
       'Мастер Фуми из обучения теперь — портрет в 2.5D: голова и плечи, поворачивается за курсором, моргает, говорит, и у каждого настроения своё выражение лица.',
       'Тест по ономатопее засчитывается для серии (7/10 в любом тесте). Команда может написать сразу всем игрокам.',
       'Исправлено и улучшено: ошибки появляются в окне, а не красным текстом под меню; поиск рисованием в словаре показывает все варианты, а кнопки — в одну строку; слово в примере снова видно; окна колод скруглены, как остальные; у окна импорта свой вид; момент ежедневной серии — с мягким сиянием вместо лучей; друзья видят, когда вы играете в шахматы или Грамматическую битву.',
+      "У онлайн-очереди две стороны: «Без рейтинга» (все режимы, дружеские игры) и «Рейтинг» (Рапид, Дуэль колод, Шахматы кандзи и Грамматическая битва). У каждого рейтингового режима свой рейтинг и своя таблица, а в «Истории матчей» видно, была ли игра рейтинговой.",
+      "Шахматные волшебники говорят своими голосами — Гоблин, Рыцарь, Ведьма, Волшебник и Дракон звучат по-разному (голоса сделаны в VOICEVOX).",
+      "Мастер Фуми показывает каждую страницу, когда вы открываете её впервые, — Учёбу, Настройку героя, Тесты, Кану, Прогресс и другие. В «Как играть» обзоры можно включить снова.",
+      "Шляпа Мастера Фуми больше не съезжает с головы, а в подсказках обзора он — круглый портрет, который хорошо видно.",
+      "Исправлено: «Назад» в чате на Android ведёт к списку чатов, а не закрывает приложение; открытый чат больше не перескакивает на чат с командой; шахматные фигуры помещаются в клетки; обновление, которое не устанавливалось на телефоне, теперь проходит. Команда может написать одному игроку.",
     ],
   },
   {

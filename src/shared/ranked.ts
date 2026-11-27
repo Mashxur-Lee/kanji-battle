@@ -42,3 +42,9 @@ export const rankView = (rating: number | undefined, games: number | undefined, 
   const r = rating ?? START_RATING, g = games ?? 0;
   return { rating: r, games: g, tier: g >= PLACEMENT ? tierOf(r).id : null, placement: g < PLACEMENT ? g : null, ...(rank !== undefined ? { rank } : {}) };
 };
+
+// 0.9.9.9.9.6 (round 6): the online queue has two sides, Unranked (every mode) and Ranked (only these), and each of
+// these modes has a rating of its own (the owner: "1v1 rapid should have its own ranking, deck duel and etc.")
+export const RANKED_MODES = ['rapid', 'deck', 'chess', 'clash'] as const;
+export type RankedMode = (typeof RANKED_MODES)[number];
+export const isRankedMode = (m: unknown): m is RankedMode => (RANKED_MODES as readonly unknown[]).includes(m);

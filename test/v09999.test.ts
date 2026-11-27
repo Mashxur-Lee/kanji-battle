@@ -82,7 +82,9 @@ test('0.9.9.9.9 a ranked room\'s first game is ranked (a forfeit is a loss); its
 });
 
 test('0.9.9.9.9 the queue makes ranked rooms for 1v1, not for Boss', () => {
-  assert.match(src('src/server/Matchmaker.ts'), /room\.ranked = mode === 'rapid' \|\| mode === 'deck' \|\| mode === 'chess' \|\| mode === 'clash';/); // (0.9.9.9.9.6 round 5: chess and Grammar Clash too)
+  // (0.9.9.9.9.6 round 6: from the queue's Ranked side, in the ranked modes only)
+  const mm = src('src/server/Matchmaker.ts');
+  assert.ok(mm.includes('room.ranked = ranked;') && mm.includes('ranked: tickets[0].ranked && isRankedMode(mode)'));
 });
 
 test('0.9.9.9.9 settle: both ratings move once; the ladder lists players after their placement games', async () => {
@@ -95,8 +97,8 @@ test('0.9.9.9.9 settle: both ratings move once; the ladder lists players after t
     { id: l, outcome: 'loss', accuracy: 0, missed: [], forfeited: false, vsAi: false, ranked },
   ];
   const ch = await ranked.settle(res(ann.id, bob.id));
-  assert.deepEqual(ch[ann.id], { before: 1000, after: 1020, games: 1 });
-  assert.deepEqual(ch[bob.id], { before: 1000, after: 980, games: 1 });
+  assert.deepEqual(ch[ann.id], { before: 1000, after: 1020, games: 1, mode: 'rapid' });
+  assert.deepEqual(ch[bob.id], { before: 1000, after: 980, games: 1, mode: 'rapid' });
   assert.deepEqual(await ranked.settle(res(ann.id, bob.id, false)), {}, 'not ranked: nothing moves');
   for (let i = 0; i < PLACEMENT; i++) await ranked.settle(res(ann.id, cat.id));
   const board = await ranked.ladder((await store.findById(bob.id))!, [ann.id]);

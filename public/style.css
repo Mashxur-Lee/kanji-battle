@@ -7301,3 +7301,49 @@ button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
 .tg-small .tg-body svg.fumi { height: 100%; }
 .ud-import .ud-foot .big { white-space: nowrap; }
 .ud-import .ud-area { background-image: none; line-height: 1.6; }
+
+/* 0.9.9.9.9.6 (round 6): the pieces fit their squares (the king was 1.2 squares tall and covered the piece above) */
+.csq .piece .pc-img { bottom: 1%; height: 101%; }
+.csq.sel .piece .pc-img { transform: translateX(-50%) translateY(-2%) scale(1.02); }
+
+/* 0.9.9.9.9.6 (round 6): Master Fumi's hat moves with his head (at the screen's edge it slid off and tipped over) */
+.tg .fumi .fu-hat { transform: translate(calc(var(--tx) * 5.5px), calc(var(--ty) * 3px)) rotate(calc(var(--tx) * .6deg)); }
+/* (round 6) the small Fumi in the tour's bubbles and the tips: a round portrait, his face filling it (he was a dark speck) */
+.tg-small { width: 66px; height: 66px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 40%, #4a3a9a, #1d1748 72%); box-shadow: 0 0 0 2px rgba(185, 160, 255, .55), 0 4px 14px rgba(0, 0, 0, .4); perspective: none; }
+.tg-small .tg-glow, .tg-small .tg-floor { display: none; }
+.tg-small .tg-stage { transform: none; }
+.tg-small .tg-body { inset: -6% -40% -62% -40%; transform: none; animation: none; place-items: start center; }
+.tg-small .tg-body svg.fumi { height: 100%; filter: none; }
+.tut-bubble .tg-small { left: 10px; top: 12px; bottom: auto; }
+.coach-tip .tg-small { left: 10px; top: 50%; bottom: auto; transform: translateY(-50%); }
+.tut-bubble.tb-guided { padding-left: 88px; }
+:root[data-theme="light"] .tg-small { background: radial-gradient(circle at 50% 40%, #efe8ff, #c9b8ff 75%); }
+.how-acts { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.how-acts .big { margin: 0; }
+/* (round 6) the Team inbox: write to one player */
+.msg-pick { position: relative; margin-top: 8px; }
+.msg-pick-q { width: 100%; box-sizing: border-box; }
+.msg-pick-hits { display: grid; gap: 4px; margin-top: 4px; }
+.msg-pick-hits:empty { display: none; }
+.msg-pick-hit { display: flex; align-items: baseline; gap: 8px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(185, 160, 255, .2); color: inherit; text-align: left; cursor: pointer; }
+.msg-pick-hit:hover { background: rgba(164, 139, 255, .18); }
+.msg-pick-hit small { opacity: .7; }
+:root[data-theme="light"] .msg-pick-hit { background: rgba(255, 255, 255, .8); }
+
+/* 0.9.9.9.9.6 (round 6): the online queue's two sides; a rank card per ranked mode; ranked or not in Match history */
+.q-side { display: inline-flex; margin: 4px 0 6px; }
+.q-side [data-side] { min-width: 120px; }
+.q-side [aria-selected="true"] { background: linear-gradient(180deg, #a48bff, #7c5cff); color: #fff; }
+#queue.q-ranked .q-side [data-side="ranked"][aria-selected="true"] { background: linear-gradient(180deg, #ffd479, #e0a43a); color: #2a1a00; }
+#queue .rank-box.rank-modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.rank-box.rank-modes .rank-card { width: 100%; min-width: 0; }
+.rank-card .rc-mode { display: block; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; opacity: .75; }
+@media (max-width: 700px) { #queue .rank-box.rank-modes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ld-modes { margin-bottom: 8px; flex-wrap: wrap; }
+.hist-ranked { font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--muted, #a4a0c8); white-space: nowrap; align-self: center; }
+.hist-ranked.on { background: rgba(255, 212, 121, .16); color: #ffd479; }
+:root[data-theme="light"] .hist-ranked { background: rgba(0, 0, 0, .06); color: #5d587a; }
+:root[data-theme="light"] .hist-ranked.on { background: rgba(224, 164, 58, .18); color: #8a5a00; }
+.hist-mode-name .hist-ranked { margin-left: 8px; font-size: .62rem; padding: 1px 7px; vertical-align: 2px; }
+#queue .rank-box.rank-modes .rank-card { padding: 8px 12px 8px 10px; gap: 10px; box-sizing: border-box; }
+#queue .rank-box[hidden] { display: none; }

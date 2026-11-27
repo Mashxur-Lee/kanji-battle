@@ -6,6 +6,8 @@ import * as ui from './ui';
 import * as audio from './audio';
 import { renderDeckGuide } from './deckui';
 import { tr } from './i18n';
+import { isRankedMode } from '../shared/ranked';
+import { renderRankBox, setRankSide } from './ladder';
 
 // The online queue screen: pick modes + levels (or Deck Duel on its own) and search for a player.
 
@@ -13,11 +15,11 @@ import { tr } from './i18n';
 const QUEUE_MODES: GameMode[] = ['reading', 'writing', 'rapid', 'boss', 'chess', 'clash'];
 const NO_LEVELS = new Set<GameMode>(['chess', 'clash']);
 const KEY = 'kb:queue';
-type Saved = { modes: GameMode[]; levels: Level[]; pick?: 'battle' | 'deck' };
+type Saved = { modes: GameMode[]; levels: Level[]; pick?: 'battle' | 'deck'; /** (round 6) the Ranked side */ ranked?: boolean };
 const load = (): Saved => { try { return { modes: ['reading', 'rapid'], levels: ['N5'], ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return { modes: ['reading', 'rapid'], levels: ['N5'] }; } };
 const save = (s: Saved) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode */ } };
 
-let send: (m: { type: 'queue'; modes: string[]; levels?: string[] } | { type: 'queue_cancel' } | { type: 'queue_accept'; matchId: number }) => void = () => {};
+let send: (m: { type: 'queue'; modes: string[]; levels?: string[]; ranked?: boolean } | { type: 'queue_cancel' } | { type: 'queue_accept'; matchId: number }) => void = () => {};
 let me: () => string = () => '';
 let tick = 0;
 let searching = false;
@@ -62,7 +64,21 @@ function chip(value: string, label: string, on: boolean, group: string) {
 }
 const picked = (id: string) => [...document.querySelectorAll<HTMLInputElement>(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
 let pick: 'battle' | 'deck' = 'battle';
-function remember() { save({ modes: picked('qModes').filter((m) => m !== 'deck') as GameMode[], levels: picked('qLevels') as Level[], pick }); }
+let rankedSide = false;
+// (the modes ticked on the other side are kept: a ranked pick doesn't untick Reading on the Unranked side)
+function remember() { const s = load(); const shown = new Set(sideModes()); save({ modes: [...s.modes.filter((m) => !shown.has(m)), ...picked('qModes').filter((m) => m !== 'deck') as GameMode[]], levels: picked('qLevels') as Level[], pick, ranked: rankedSide }); }
+/** 0.9.9.9.9.6 (round 6): the modes on the side you're on — Ranked shows only the ranked ones */
+const sideModes = () => QUEUE_MODES.filter((m) => !rankedSide || isRankedMode(m));
+function setSide(ranked: boolean) {
+  rankedSide = ranked;
+  for (const b of document.querySelectorAll<HTMLElement>('#qSide [data-side]')) b.setAttribute('aria-selected', String((b.dataset.side === 'ranked') === ranked));
+  ui.$('qSideSub').textContent = tr(ranked
+    ? 'Ranked: Rapid, Deck Duel, Kanji chess and Grammar Clash - each has its own rating. You meet only other ranked players; leaving a ranked game is a loss.'
+    : 'Tick what you\'d like to play. You\'ll be matched with the first player who wants the same, and the game starts straight away. Boss Elimination waits for a full party of 4.');
+  ui.$('queue').classList.toggle('q-ranked', ranked);
+  setRankSide(ranked);
+  void renderRankBox();
+}
 /** Battle modes or Deck Duel (it's queued on its own: picking it clears the others, and the other way round). */
 function choose(p: 'battle' | 'deck', silent = false) {
   if (p === 'deck' && !canPlay('deck')) { if (!silent) ui.toast(lockText('deck'), 5000); p = 'battle'; }
@@ -88,12 +104,13 @@ export function initQueue(sender: typeof send, myId: () => string) {
   ui.$('queueBack').onclick = () => { if (searching) send({ type: 'queue_cancel' }); stopSearching(); ui.show('games'); }; // (0.9.9.9.9.6: back to Games)
   ui.$('qStart').onclick = () => {
     askNotifyPermission(); // so a found match can reach you in another tab
-    if (pick === 'deck') return send({ type: 'queue', modes: ['deck'] });
+    if (pick === 'deck') return send({ type: 'queue', modes: ['deck'], ranked: rankedSide });
     const modes = picked('qModes').filter((m) => m !== 'deck'), levels = picked('qLevels');
     if (!modes.length) return ui.toast('Tick at least one mode');
     if (!levels.length && modes.some((m) => !NO_LEVELS.has(m as GameMode))) return ui.toast('Tick at least one level');
-    send({ type: 'queue', modes, levels });
+    send({ type: 'queue', modes, levels, ranked: rankedSide });
   };
+  for (const b of document.querySelectorAll<HTMLElement>('#qSide [data-side]')) b.onclick = () => { if (searching) return; setSide(b.dataset.side === 'ranked'); remember(); openQueue(); };
   ui.$('qCancel').onclick = () => send({ type: 'queue_cancel' });
 }
 
@@ -101,13 +118,14 @@ export function initQueue(sender: typeof send, myId: () => string) {
 export function searchOnly(mode: GameMode) {
   openQueue();
   askNotifyPermission();
-  send({ type: 'queue', modes: [mode], levels: [] });
+  send({ type: 'queue', modes: [mode], levels: [], ranked: rankedSide && isRankedMode(mode) });
 }
 
 export function openQueue() {
   const s = load();
+  setSide(!!s.ranked);
   // 0.9.9.9.9.5: a tile per mode — its seal, its name, a (!) with its rules — Deck Duel among them
-  ui.$('qModes').replaceChildren(...[...QUEUE_MODES, 'deck' as GameMode].map((m) => {
+  ui.$('qModes').replaceChildren(...[...sideModes(), 'deck' as GameMode].map((m) => {
     const open = canPlay(m), isDeck = m === 'deck';
     const c = chip(m, '', open && (isDeck ? s.pick === 'deck' : s.pick !== 'deck' && s.modes.includes(m)), 'qm');
     c.classList.add('q-tile', `q-${m}`);

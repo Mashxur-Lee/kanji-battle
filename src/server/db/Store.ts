@@ -1,4 +1,5 @@
 import type { KanaProgress } from '../../shared/kanachart';
+import type { RankedMode } from '../../shared/ranked';
 import type { QuizStats } from '../../shared/quizstats';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -59,11 +60,14 @@ export interface UserRecord {
   /** 0.9.9.9.9: the ranked ladder — the rating (1000 to start) and how many ranked matches were played */
   rating?: number;
   rated?: number;
+  /** 0.9.9.9.9.6 (round 6): a rating for each ranked mode — r: the rating, g: ranked games of that mode */
+  ratings?: Partial<Record<RankedMode, ModeRating>>;
 }
 export interface DailyPlan { per: Partial<Record<Level, number>>; day: string | null; done: Partial<Record<Level, number>> }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'> & { email?: string | null; emailKey?: string | null };
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats' | 'wins' | 'losses' | 'email' | 'emailKey' | 'username' | 'rating' | 'rated'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats' | 'wins' | 'losses' | 'email' | 'emailKey' | 'username' | 'rating' | 'rated' | 'ratings'>>;
+export interface ModeRating { r: number; g: number }
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -187,6 +191,9 @@ export interface Store {
   ladder(limit: number, minGames: number): Promise<UserRecord[]>;
   /** how many such players are rated above `rating` */
   ratedAbove(rating: number, minGames: number): Promise<number>;
+  /** 0.9.9.9.9.6 (round 6): the same, for one ranked mode's own rating */
+  ladderIn(mode: RankedMode, limit: number, minGames: number): Promise<UserRecord[]>;
+  ratedAboveIn(mode: RankedMode, rating: number, minGames: number): Promise<number>;
   /** 0.9.9.9.9: a match's replay (compressed), by its id; removed after a while (sweepReplays) */
   saveReplay(id: string, at: number, data: Buffer): Promise<void>;
   replay(id: string): Promise<Buffer | null>;
@@ -576,6 +583,11 @@ export class MemoryStore implements Store {
     return [...this.users.values()].filter((r) => !r.banned && (r.rated ?? 0) >= minGames).sort((a, b) => (b.rating ?? 1000) - (a.rating ?? 1000) || a.username.localeCompare(b.username)).slice(0, limit).map((r) => ({ ...r }));
   }
   async ratedAbove(rating: number, minGames: number) { let n = 0; for (const r of this.users.values()) if (!r.banned && (r.rated ?? 0) >= minGames && (r.rating ?? 1000) > rating) n++; return n; }
+  async ladderIn(mode: RankedMode, limit: number, minGames: number) {
+    const m = (r: UserRecord) => r.ratings?.[mode];
+    return [...this.users.values()].filter((r) => !r.banned && (m(r)?.g ?? 0) >= minGames).sort((a, b) => (m(b)?.r ?? 1000) - (m(a)?.r ?? 1000) || a.username.localeCompare(b.username)).slice(0, limit).map((r) => ({ ...r }));
+  }
+  async ratedAboveIn(mode: RankedMode, rating: number, minGames: number) { let n = 0; for (const r of this.users.values()) { const x = r.ratings?.[mode]; if (!r.banned && (x?.g ?? 0) >= minGames && (x?.r ?? 1000) > rating) n++; } return n; }
   protected replays = new Map<string, { at: number; data: Buffer }>();
   async saveReplay(id: string, at: number, data: Buffer) { this.replays.set(id, { at, data }); }
   async replay(id: string) { return this.replays.get(id)?.data ?? null; }
