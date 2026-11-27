@@ -289,7 +289,7 @@ test('0.9.9.9.9.6 round 2 decks: four at most, Custom spells becomes "My words" 
 test('0.9.9.9.9.6 round 2: the Games page, CAST! no longer swings a sword, the phone\'s back in a chat, GIF replies, the dark drawing pad', () => {
   const html = src('public/index.html');
   assert.ok(html.includes('id="gamesBtn"') && html.includes('<section id="games" class="screen" hidden>'));
-  assert.ok(src('src/client/nav.ts').includes("btn: 'gamesBtn', screens: ['games', 'queue', 'private', 'modes']"));
+  assert.ok(src('src/client/nav.ts').includes("btn: 'gamesBtn', screens: ['games', 'queue', 'private', 'modes', 'songs']")); // (0.9.9.9.9.7 round 2: and Song lyrics)
   assert.ok(src('src/client/main.ts').includes('if (!isSwordId(myStaff())) arena()?.thrust();'));
   assert.ok(src('src/client/appshell.ts').includes("const chatBack = document.querySelector<HTMLElement>('#inbox.thread-open .msg-back');"));
   const inbox = src('src/client/inbox.ts');

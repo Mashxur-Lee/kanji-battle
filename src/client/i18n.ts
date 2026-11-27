@@ -769,6 +769,19 @@ const RU: Record<string, string> = {
   'Type yama': 'Напечатайте yama',
   '✓ やま - your first spell!': '✓ やま — ваше первое заклинание!',
   'Almost - type yama (or やま)': 'Почти — напечатайте yama (или やま)',
+  // 0.9.9.9.9.7 (round 2): Song lyrics
+  "A song plays and its words show - type the hidden ones in romaji as it sings. If a line ends before you have typed it, the song waits for you.": "Играет песня, и видны её слова — печатайте скрытые ромадзи, пока она звучит. Если строка закончилась раньше, чем вы её напечатали, песня подождёт.",
+  "Easy - every other word": "Легко — каждое второе слово",
+  "Hard - every word": "Сложно — все слова",
+  "All these songs are over a hundred years old and free for everyone (public domain). The game sings and plays them itself.": "Всем этим песням больше ста лет, и они свободны для всех (общественное достояние). Игра сама поёт и играет их.",
+  "Waiting for you - type the missing words": "Ждём вас — напечатайте пропущенные слова",
+  "Type the word in romaji": "Напечатайте слово ромадзи",
+  "Skip (Esc)": "Пропустить (Esc)",
+  "Song finished!": "Песня закончилась!",
+  "Sing again": "Спеть ещё раз",
+  "Other songs": "Другие песни",
+  "Songs:": "Песни:",
+  "- public domain, sung and played by the game (VOICEVOX:冥鳴ひまり).": "— общественное достояние, поёт и играет сама игра (VOICEVOX:冥鳴ひまり).",
   // 0.9.9.9.9.7 (round 2): the grammar streak task, AI players in Grammar Clash
   "Pass a grammar lesson": "Пройти урок грамматики",
   "A grammar lesson": "Урок грамматики",
@@ -1827,6 +1840,8 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Playing since (.+)$/, 'Играет с $1'],
   [/^(\d+) online now · (\d+) accounts · (\d+) banned$/, 'Сейчас в сети: $1 · аккаунтов: $2 · заблокировано: $3'],
   [/^(\d+) cards today - impressive! Give your brain a rest: how about a game of Kanji chess or Grammar Clash\?$/, '$1 карточек за сегодня — впечатляет! Дай мозгу отдохнуть: как насчёт партии в Шахматы кандзи или Грамматическую битву?'],
+  [/^(\d+) of (\d+) words$/, '$1 из $2 слов'],
+  [/^(\d+) of (\d+) words · (\d+) mistyped$/, '$1 из $2 слов · ошибок: $3'],
   [/^last day: (.+)$/, 'последний день: $1'],
   [/^(\d+) learned today · (\d+) learned in total$/, 'выучено сегодня: $1 · всего: $2'],
 ];

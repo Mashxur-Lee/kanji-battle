@@ -19,6 +19,7 @@ const PATCHES: Patch[] = [
       "Grammar: Master Fumi names each lesson aloud in Japanese; the Dictionary is a tap away on the Grammar page.",
       "Grammar Clash: add AI players to your room - they answer as well as their level allows; every game has at least one question from the lessons you have passed; the Omnipotence flames are flames again.",
       "Kanji chess: the wizards are shown from the waist up with their staffs, and the Dragon whole. Master Fumi is easy to see in the tour bubbles.",
+      "Song lyrics (Games) is open: five old Japanese songs - 春の小川, 夏は来ぬ, 茶摘, 赤とんぼ and 雪 - sung by the game; type the hidden words in romaji as it sings, and the song waits for you at the end of a line. All of them are public domain.",
     ],
     ru: [
       "Грамматика: 210 уроков от N5 до N1 (было 96), каждый пример и вопрос читаются вслух, и поиск по всем урокам — по конструкции, значению или ромадзи.",
@@ -31,6 +32,7 @@ const PATCHES: Patch[] = [
       "Грамматика: Мастер Фуми называет каждый урок вслух по-японски; словарь — в одно нажатие со страницы грамматики.",
       "Грамматическая битва: добавляйте в комнату ИИ-игроков — они отвечают в меру своего уровня; в каждой игре есть хотя бы один вопрос из пройденных вами уроков; пламя Всемогущества снова похоже на пламя.",
       "Шахматы кандзи: волшебники показаны по пояс со своими посохами, а Дракон — целиком. Мастера Фуми хорошо видно в подсказках обзора.",
+      "Открыты «Слова песен» (Игры): пять старинных японских песен — 春の小川, 夏は来ぬ, 茶摘, 赤とんぼ и 雪 — поёт сама игра; печатайте скрытые слова ромадзи, пока она поёт, а в конце строки песня вас подождёт. Все они — общественное достояние.",
     ],
   },
   {

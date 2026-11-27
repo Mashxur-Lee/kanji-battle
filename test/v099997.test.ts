@@ -156,3 +156,28 @@ test('0.9.9.9.9.7 round 2: Fumi names each lesson in Japanese; the Dictionary on
   assert.ok(css.includes('#chessOpp .cp-pic svg { scale: 1.28;') && css.includes('#chessOpp .cp-pic[data-bot="dragon"] svg { scale: 1;'));
   assert.ok(css.includes('.gc-av { overflow: visible; }'), 'the flames are no longer cut to a square');
 });
+
+test('0.9.9.9.9.7 round 2: Song lyrics — public-domain songs, every note with its syllable, sung by the game; romaji typed any common way', async () => {
+  const { SONGS, songTimeline, melodyNotes, sameWord, lineWords } = await import('../src/shared/songs');
+  assert.ok(SONGS.length >= 5);
+  for (const s of SONGS) {
+    assert.ok(/public domain/.test(s.credit), `${s.id}: why it is free`);
+    assert.ok(existsSync(join('public', 'songs', `${s.id}.mp3`)), `${s.id}: performed`);
+    const sung = melodyNotes(s).filter((n) => n.midi !== null && !n.slur).length;
+    const syllables = s.lines.reduce((n, l) => n + l.kana.split(/\s+/).length, 0);
+    assert.equal(sung, syllables, `${s.id}: one syllable for every sung note`);
+    for (const l of songTimeline(s)) {
+      assert.ok(l.end > l.start, `${s.id}: a line takes time`);
+      assert.ok(l.notes.filter((n) => n.syllable).every((n) => n.midi !== null));
+      assert.ok(lineWords(l).length >= 3);
+    }
+  }
+  // the melodies as written: 春の小川 starts ミソ ラ ソ (E4 G4 A4 G4), 赤とんぼ ドファファソ (C4 F4 F4 G4)
+  assert.deepEqual(melodyNotes(SONGS.find((s) => s.id === 'haru-no-ogawa')!).slice(0, 4).map((n) => n.midi), [64, 67, 69, 67]);
+  assert.deepEqual(melodyNotes(SONGS.find((s) => s.id === 'akatonbo')!).slice(0, 4).map((n) => n.midi), [60, 65, 65, 67]);
+  assert.ok(!SONGS.find((s) => s.id === 'haru-no-ogawa')!.lines[0].romaji.includes('iku yo'), 'the 1912 words, not the 1942 revision (still protected)');
+  for (const [a, b] of [['tumoru', 'tsumoru'], ['yuyake', 'yuuyake'], ['ha', 'wa'], ['sinobine', 'shinobine'], ['hutte', 'futte']]) assert.ok(sameWord(a, b), `${a} = ${b}`);
+  assert.ok(!sameWord('suke', 'sake'));
+  assert.ok(src('src/client/songs.ts').includes('player.pause();') && src('public/index.html').includes('data-go="songsOpen"'), 'the song waits at a line\'s end; the Games tile opens it');
+  assert.ok(src('CREDITS.md').includes('VOICEVOX:冥鳴ひまり') && src('public/index.html').includes('VOICEVOX:冥鳴ひまり'));
+});

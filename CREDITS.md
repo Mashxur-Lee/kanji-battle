@@ -62,6 +62,14 @@ The chess wizards' spoken lines and the Grammar page's (Master Fumi, the example
 
 (The game also credits them in About.) Each character's own terms of use apply; read them before changing a voice.
 
+## Songs (Song lyrics)
+
+Five songs in the public domain in Japan and in the US: 春の小川 (1912, Takano Tatsuyuki / Okano Teiichi — the original
+1912 words, not the 1942 revision), 夏は来ぬ (1896, Sasaki Nobutsuna / Koyama Sakunosuke), 茶摘 (1912, a school song),
+赤とんぼ (1921/1927, Miki Rofū / Yamada Kōsaku) and 雪 (1911, a school song). The melodies were checked against the scores in
+the songs' Wikipedia articles. The game performs them itself (`scripts/songs.mts`): the voice is VOICEVOX:冥鳴ひまり
+(its singing mode), the music box and bass are synthesised. No recording or arrangement by anyone else is used.
+
 ## Sounds
 
 The chess pieces' knocks (`public/sounds/chess/`) are from [Kenney](https://www.kenney.nl)'s "Impact Sounds" (CC0: free for any use; credited with thanks).

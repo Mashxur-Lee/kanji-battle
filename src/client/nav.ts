@@ -29,7 +29,7 @@ const ICON: Record<string, string> = {
 interface Item { id: string; label: string; icon: keyof typeof ICON; btn?: string; screens: string[]; phone?: boolean }
 const ITEMS: Item[] = [
   { id: 'home', label: 'Home', icon: 'home', screens: ['menu'], phone: true },
-  { id: 'play', label: 'Games', icon: 'play', btn: 'gamesBtn', screens: ['games', 'queue', 'private', 'modes'], phone: true }, // (0.9.9.9.9.6: the Games page)
+  { id: 'play', label: 'Games', icon: 'play', btn: 'gamesBtn', screens: ['games', 'queue', 'private', 'modes', 'songs'], phone: true }, // (0.9.9.9.9.6: the Games page)
   { id: 'study', label: 'Study', icon: 'study', btn: 'studyBtn', screens: ['study', 'dict'], phone: true },
   { id: 'daily', label: 'Daily', icon: 'daily', btn: 'dailyBtn', screens: ['daily'], phone: true },
   { id: 'quizzes', label: 'Quizzes', icon: 'quiz', btn: 'quizzesBtn', screens: ['quizzes'] },
