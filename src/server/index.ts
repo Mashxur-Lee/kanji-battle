@@ -74,6 +74,8 @@ hub.chess = new ChessHub((id, m) => { hub.sendTo(id, m); }, Date.now, Math.rando
   invite: (friendId, from, code) => hub.sendTo(friendId, { type: 'chess_invite', from, code }),
   mayInvite: async (fromId, toId) => (await social.list(fromId)).some((f) => f.id === toId && f.status === 'accepted'),
   record: (userId, game) => { void study.addChessGame(userId, game).catch(() => { /* not important */ }); },
+  // (round 5) a ranked game from the online queue moves both ratings (the ladder's 1v1 rule)
+  rate: (w, b, winner) => ranked.settle([{ id: w, outcome: winner === null ? 'draw' : winner === 'w' ? 'win' : 'loss', ranked: true }, { id: b, outcome: winner === null ? 'draw' : winner === 'b' ? 'win' : 'loss', ranked: true }] as never),
 });
 // 0.9.9.9.9.6 (round 4): Grammar Clash, the grammar quiz for 2–8 (ranked through the ladder; the ranked service is made below)
 const grammarHub = new GrammarHub((id, m) => { hub.sendTo(id, m); }, Date.now, Math.random, undefined, {
@@ -209,6 +211,12 @@ const rooms = new RoomManager({
   spellIds: async (id) => new Set((await store.cards(id)).filter((c) => (c.deck ?? 'all') === 'all').map((c) => c.vocabId)),
   // after every match: XP + missed words into each player's "Struggling spells"
   onGameStart: (mode, playerIds) => { for (const id of playerIds) void insights.event(id, `game_start:${mode}`); },
+  // 0.9.9.9.9.6 (round 5): Kanji chess and Grammar Clash from the private game's lobby and the online queue
+  external: (mode, players, { ranked, settings }, onEnd) => {
+    if (mode === 'chess') hub.chess!.startMatch(players[0], players[1], settings.base, settings.inc, ranked, onEnd);
+    else grammarHub.startMatch(players, settings.level, settings.count, ranked, onEnd);
+  },
+  externalLeave: (mode, id) => { if (mode === 'chess') hub.chess!.leaveUser(id); else grammarHub.leaveUser(id); },
   // 0.9.9.9.9.2: a ranked match not counted (answers faster than a person can give them): to the admin's inbox
   onSuspect: (who, mode) => {
     for (const s of who) void store.addReport({ kind: 'report', userId: s.id, username: s.name, text: `Ranked match not counted: ${s.name} answered ${s.correct} words right in ${s.avgMs} ms on average (${mode}) - faster than a person can read and type. A script?`, meta: `auto · ${mode}`, at: Date.now() }).catch(() => {});

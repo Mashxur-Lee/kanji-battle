@@ -566,10 +566,9 @@
     <div class="page-head"><h2>Games</h2></div>
     <p class="sub">Battle players online, friends or bots - more games are on the way.</p>
     <div class="games-grid">
-      <button class="game-tile gt-online" type="button" data-go="queueBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">戦</span><b>Online battle</b><span>Reading, Writing, Rapid, Boss and Deck Duel against players - Rapid and Deck Duel are ranked</span><span id="gamesOnline" class="online-pill" hidden></span></button>
-      <button class="game-tile gt-private" type="button" data-go="privateBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">友</span><b>Private game</b><span>Play friends with a room code, or bots - bots work offline too</span></button>
+      <button class="game-tile gt-online" type="button" data-go="queueBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">戦</span><b>Online battle</b><span>Reading, Writing, Rapid, Boss, Deck Duel, Kanji chess and Grammar Clash against players - Rapid, Deck Duel, chess and Grammar Clash are ranked</span><span id="gamesOnline" class="online-pill" hidden></span></button>
+      <button class="game-tile gt-private" type="button" data-go="privateBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">友</span><b>Private game</b><span>Play friends with a room code - every mode, Kanji chess and Grammar Clash too - or bots, offline too</span></button>
       <button class="game-tile gt-chess" type="button" data-go="chessOpen"><span class="gt-glyph" lang="ja" aria-hidden="true">将</span><b>Kanji chess</b><span>Chess where every piece is its kanji - 馬 the knight, 王 the king. Four wizards to beat, or a friend</span><i class="gt-badge gt-new">New</i></button>
-      <button class="game-tile gt-clash" type="button" data-go="clashOpen"><span class="gt-glyph" lang="ja" aria-hidden="true">闘</span><b>Grammar Clash</b><span>A grammar quiz for 2 to 8 players - faster answers score more, combos, double questions, a leaderboard after each one. Ranked too</span><i class="gt-badge gt-new">New</i></button>
       <div class="game-tile gt-soon" aria-disabled="true"><span class="gt-glyph" lang="ja" aria-hidden="true">歌</span><b>Song lyrics</b><span>A Japanese song plays - type its missing lyrics in time</span><i class="gt-badge">Coming soon</i></div>
     </div>
   </section>
@@ -577,39 +576,7 @@
   <!-- 0.9.9.9.9.6: KANJI CHESS — the bot wizards (or a friend), every piece its kanji -->
   <!-- 0.9.9.9.9.6 (round 4): GRAMMAR CLASH — the grammar quiz for 2–8 players -->
   <section id="clash" class="screen clash-screen" hidden>
-    <button id="clashBack" class="back" type="button">← Games</button>
-    <div id="clashSetup" class="gc-setup">
-      <header class="chess-head"><span class="chess-seal gc-seal" lang="ja" aria-hidden="true">闘</span><div><h2>Grammar Clash</h2><p class="sub">A grammar quiz for 2 to 8 players. Pick the right ending before the time runs out - the faster, the more points.</p></div></header>
-      <div class="gc-cols">
-        <div class="chess-panel">
-          <h3>Find players</h3>
-          <p class="hint">2 to 8 players, mixed N5 and N4 grammar, 10 questions. Ranked moves your rating by where you finish.</p>
-          <div class="gc-qbtns"><button id="clashQuick" class="big" type="button">Quick match</button><button id="clashRanked" class="big alt" type="button">Ranked</button></div>
-          <div id="clashQueue" class="gc-queue" hidden><span class="gc-spin" aria-hidden="true"></span><span id="clashQueueText"></span><button id="clashQueueCancel" class="pill" type="button">Cancel</button></div>
-        </div>
-        <div class="chess-panel">
-          <h3>Play with friends</h3>
-          <div class="chess-row"><span class="chess-lbl">Grammar</span><div id="clashLevel" class="chess-seg"></div></div>
-          <div class="chess-row"><span class="chess-lbl">Questions</span><div id="clashCount" class="chess-seg"></div></div>
-          <button id="clashCreate" class="big" type="button">Create a room</button>
-          <div class="cf-join"><input id="clashCode" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="clashJoin" class="big" type="button">Join</button></div>
-        </div>
-      </div>
-    </div>
-    <div id="clashLobby" class="chess-lobby" hidden>
-      <header class="chess-head"><span class="chess-seal gc-seal" lang="ja" aria-hidden="true">闘</span><div><h2>Grammar Clash</h2><p id="clashLobbyHint" class="sub"></p></div>
-        <div class="clb-code"><span class="hint">Game code</span><b id="clashLobbyCode" class="chess-code"></b><button id="clashCopy" class="pill" type="button">Copy</button></div></header>
-      <div class="clb-main">
-        <div class="chess-panel clb-panel">
-          <div id="clashSeats" class="gc-seats"></div>
-          <div class="chess-row"><span class="chess-lbl">Grammar</span><div id="clashLobbyLevel" class="chess-seg"></div></div>
-          <div class="chess-row"><span class="chess-lbl">Questions</span><div id="clashLobbyCount" class="chess-seg"></div></div>
-          <div class="clb-btns"><button id="clashReady" class="big" type="button">Ready</button><button id="clashStart" class="big" type="button">Start</button><button id="clashLeave" class="pill" type="button">Leave</button></div>
-        </div>
-        <div class="chess-panel chess-chat"><h3>Chat</h3><ol id="clashChat" class="cc-list" aria-live="polite"></ol>
-          <form id="clashChatForm" class="cc-form"><input maxlength="200" placeholder="Say something…" autocomplete="off"><button class="pill" type="submit">Send</button></form></div>
-      </div>
-    </div>
+    <button id="clashBack" class="back" type="button">← Lobby</button>
     <div id="clashPlay" class="gc-play" hidden>
       <div id="clashTop" class="gc-top"></div>
       <div id="clashTimerRow" class="gc-timer"><div class="gc-track"><i id="clashBar"></i></div><b id="clashSecs"></b></div>
@@ -622,7 +589,7 @@
       <h2 id="clashOverTitle"></h2>
       <div id="clashPodium" class="gc-podium"></div>
       <div id="clashOverList" class="gc-list"></div>
-      <div class="clb-btns"><button id="clashAgain" class="big" type="button">Play again</button><button id="clashExit" class="pill" type="button">Leave</button></div>
+      <div class="clb-btns"><button id="clashAgain" class="big" type="button">Back to lobby</button><button id="clashExit" class="pill" type="button">Leave the room</button></div>
       <div class="chess-panel chess-chat"><ol id="clashOverChat" class="cc-list" aria-live="polite"></ol>
         <form id="clashOverChatForm" class="cc-form"><input maxlength="200" placeholder="Say something…" autocomplete="off"><button class="pill" type="submit">Send</button></form></div>
     </div>
@@ -640,27 +607,12 @@
         <div class="chess-row"><span class="chess-lbl">Clock</span><div id="chessTime" class="chess-seg"></div></div>
         <button id="chessStart" class="big chess-go" type="button">Play</button>
       </div>
+      <!-- 0.9.9.9.9.6 (round 5): a friend game is a room of the private game (its lobby, like every mode), or the queue -->
       <div id="chessFriendSetup" class="chess-panel" hidden>
-        <div class="chess-row"><span class="chess-lbl">Clock</span><div id="chessFriendTime" class="chess-seg"></div></div>
         <div class="chess-friend">
-          <div class="cf-box"><h3>Start a game</h3><p class="hint">You get a 4-letter code - your friend types it in. Sides are drawn by lot.</p><button id="chessCreate" class="big" type="button">Create a game</button>
-            <div id="chessWait" class="chess-wait" hidden><span class="hint">Your code</span><b id="chessWaitCode" class="chess-code"></b><span class="hint">Waiting for your friend…</span></div></div>
-          <div class="cf-box"><h3>Join a friend</h3><p class="hint">Got a code? Type it here.</p><div class="cf-join"><input id="chessCode" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="chessJoin" class="big" type="button">Join</button></div></div>
+          <div class="cf-box"><h3>With a friend</h3><p class="hint">A room of the private game: invite friends or share its code. The host sets the clock; sides are drawn by lot.</p><button id="chessCreate" class="big" type="button">Open a room</button></div>
+          <div class="cf-box"><h3>Online</h3><p class="hint">Find a player in the online queue - ranked: your rating moves with the result.</p><button id="chessQueue" class="big alt" type="button">Find an opponent</button></div>
         </div>
-      </div>
-    </div>
-    <!-- 0.9.9.9.9.6 (round 4): a friend game's lobby, like the private rooms' — both players, Ready, the clock (the host's), a chat -->
-    <div id="chessLobby" class="chess-lobby" hidden>
-      <header class="chess-head"><span class="chess-seal" lang="ja" aria-hidden="true">将</span><div><h2>Kanji chess</h2><p id="chessLobbyHint" class="sub"></p></div>
-        <div class="clb-code"><span class="hint">Game code</span><b id="chessLobbyCode" class="chess-code"></b><button id="chessCopy" class="pill" type="button">Copy</button></div></header>
-      <div class="clb-main">
-        <div class="chess-panel clb-panel">
-          <div id="chessSeats" class="chess-seats"></div>
-          <div class="chess-row"><span class="chess-lbl">Clock</span><div id="chessLobbyTime" class="chess-seg"></div><span id="chessLobbyTimeNote" class="hint"></span></div>
-          <div class="clb-btns"><button id="chessReady" class="big" type="button">Ready</button><button id="chessLeaveLobby" class="pill" type="button">Leave</button></div>
-        </div>
-        <div class="chess-panel chess-chat"><h3>Chat</h3><ol id="chessLobbyChat" class="cc-list" aria-live="polite"></ol>
-          <form id="chessLobbyChatForm" class="cc-form"><input maxlength="200" placeholder="Say something…" autocomplete="off"><button class="pill" type="submit">Send</button></form></div>
       </div>
     </div>
     <div id="chessGame" class="chess-game" hidden>
@@ -1005,12 +957,6 @@
     <button id="modesBack" class="back">← Private game</button>
     <h2 class="center">Choose a game mode</h2>
     <div class="mode-cards">
-      <!-- 0.9.9.9.9.6 (round 4): Grammar Clash has rooms of its own (2–8 players) -->
-      <button id="modeClash" class="mode-card mode-clash" type="button">
-        <span class="mode-icon jp">闘</span>
-        <span class="mode-name">Grammar Clash</span>
-        <span class="mode-desc">A grammar quiz for 2 to 8 players - a room by code, the fastest right answers win.</span>
-      </button>
       <button class="mode-card" data-mode="reading">
         <span class="mode-icon jp">読</span>
         <span class="mode-name">1v1 Kanji Reading</span>
@@ -1030,6 +976,17 @@
         <span class="mode-icon jp">竜</span>
         <span class="mode-name">Boss Elimination</span>
         <span class="mode-desc">Up to 4 players vs the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.</span>
+      </button>
+      <!-- 0.9.9.9.9.6 (round 5): Kanji chess and Grammar Clash in the same lobby as every other mode -->
+      <button class="mode-card" data-mode="chess">
+        <span class="mode-icon jp">将</span>
+        <span class="mode-name">Kanji chess</span>
+        <span class="mode-desc">Chess with a friend, every piece its kanji. The host sets the clock; sides are drawn by lot.</span>
+      </button>
+      <button class="mode-card" data-mode="clash">
+        <span class="mode-icon jp">闘</span>
+        <span class="mode-name">Grammar Clash</span>
+        <span class="mode-desc">A grammar quiz for 2 to 8 players: the fastest right answers score most, combos, double questions, a leaderboard after each.</span>
       </button>
       <button class="mode-card deck" data-mode="deck">
         <span class="mode-icon jp">札</span>
@@ -1097,6 +1054,8 @@
         <div id="levelChips" class="chips"></div>
         <p id="levelsHint" class="hint"></p>
       </fieldset>
+      <!-- 0.9.9.9.9.6 (round 5): chess's clock, Grammar Clash's level and length (the host's) -->
+      <div id="roomSettings" class="room-settings" hidden></div>
       <div id="modeGuide" class="mode-guide"></div>
     </div>
   </section>

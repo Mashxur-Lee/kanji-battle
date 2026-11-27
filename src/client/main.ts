@@ -1,7 +1,7 @@
 import { knowPlayer, setMentionSelf } from './mentions';
 import { openGrammar } from './grammarui';
-import { challengeClash, clashReconnected, initClash, onClashError, onClashInvite, onClashQueue, onClashRoom, openClash, setClashUser } from './clash';
-import { challengeChess, chessReconnected, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
+import { clashReconnected, initClash, onClashError, onClashInvite, onClashQueue, onClashRoom, setClashUser } from './clash';
+import { chessReconnected, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
 import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
@@ -29,7 +29,7 @@ import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang, tr } from './i18n';
 import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
 import * as voice from './voice';
-import { setPlayAi, initQueue, onQueue, openQueue, resetQueue } from './queue';
+import { setPlayAi, initQueue, onQueue, openQueue, resetQueue, searchOnly } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK, isSwordId } from '../shared/progress';
@@ -619,7 +619,10 @@ function onMessage(msg: ServerMessage) {
       stopWriting();
       resetDeck();
       ui.lockLobbyMode(inTutorialBattle());
-      ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers, msg.open === true);
+      // (0.9.9.9.9.6 round 5: a chess or Grammar Clash game just ended — its result stays on screen; Back to lobby goes there)
+      if ((ui.currentScreen() === 'chess' || ui.currentScreen() === 'clash') && !roomLobbyNow) { pendingRoomLobby = msg; break; }
+      roomLobbyNow = false;
+      ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers, msg.open === true, msg.settings);
       // 0.9.9.9.4: the room's chat, once somebody else (a person) is here — or has already written
       if (msg.players.filter((p) => !p.bot).length > 1 || ui.$('lobbyChatLog').childElementCount) ui.$('lobbyChat').hidden = false;
       void renderLobbyInvites(true, msg.players.map((p) => p.id));
@@ -1099,8 +1102,7 @@ ui.$('privateBack').onclick = () => ui.show('games'); // (0.9.9.9.9.6: back to G
 // 0.9.9.9.9.6 (round 2): the Games page — the online queue, private games, and the games to come
 ui.$('gamesBtn').onclick = () => { ui.setError(''); ui.show('games'); };
 ui.$('gamesBack').onclick = () => ui.show('menu');
-for (const t of document.querySelectorAll<HTMLElement>('#games .game-tile[data-go]')) t.onclick = () => (t.dataset.go === 'chessOpen' ? openChess() : t.dataset.go === 'clashOpen' ? openClash() : document.getElementById(t.dataset.go!)?.click());
-ui.$('modeClash').onclick = () => openClash(); // 0.9.9.9.9.6 (round 4)
+for (const t of document.querySelectorAll<HTMLElement>('#games .game-tile[data-go]')) t.onclick = () => (t.dataset.go === 'chessOpen' ? openChess() : document.getElementById(t.dataset.go!)?.click());
 // 0.9.9.9.9.6: Kanji chess
 initChess((m) => socket.send(m));
 initClash((m) => socket.send(m)); // 0.9.9.9.9.6 (round 4): Grammar Clash
@@ -1467,6 +1469,21 @@ ui.$('resultLobby').onclick = () => {
   else socket.send({ type: 'back_to_lobby' });
 };
 ui.$('leave').onclick = () => socket.send({ type: 'leave' });
+// 0.9.9.9.9.6 (round 5): the host's settings for chess / Grammar Clash in the lobby
+ui.$('roomSettings').onclick = (e) => { const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-set]'); if (b && !b.disabled) socket.send({ type: 'room_settings', ...JSON.parse(b.dataset.set!) }); };
+addEventListener('kw:room-lobby', () => backToRoomLobby());
+// the chess page: a room of the private game for chess, or the online queue for it
+addEventListener('kw:room', (e) => { ui.show('modes'); document.querySelector<HTMLButtonElement>(`.mode-card[data-mode="${(e as CustomEvent<string>).detail}"]`)?.click(); });
+addEventListener('kw:queue', (e) => searchOnly((e as CustomEvent<GameMode>).detail));
+/** a chess / Grammar Clash game over: the room's lobby, held until the player presses Back to lobby */
+let pendingRoomLobby: Extract<ServerMessage, { type: 'lobby' }> | null = null;
+let roomLobbyNow = false;
+function backToRoomLobby() {
+  const m = pendingRoomLobby;
+  pendingRoomLobby = null;
+  roomLobbyNow = true;
+  try { if (m) onMessage(m); else { ui.show('lobby'); socket.send({ type: 'back_to_lobby' }); } } finally { if (m) roomLobbyNow = false; }
+}
 
 // ── match history ────────────────────────────────────────────────────────────
 async function openHistory() {
@@ -1686,8 +1703,6 @@ addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail =
         addFriend: async () => { const r = await api.addFriend(p.login ?? p.name); if (r.result === 'exists') throw new Error(tr('Already friends, or a request is waiting')); void refreshRail(); },
         accept: async () => { await api.acceptFriend(id); void refreshRail(); },
         challenge: (m) => challengeFriend(id, p.name, m),
-        chess: () => challengeChess(id), // 0.9.9.9.9.6 (round 4): a game of Kanji chess, from their profile
-        clash: () => challengeClash(id),
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
         remove: async () => { await api.removeFriend(id); void refreshRail(); },
         view: () => showPlayer(p),
@@ -1696,7 +1711,7 @@ addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail =
         message: link?.status === 'accepted' ? () => { ui.hideProfileCard(); void openInbox(id); } : undefined,
         // 0.9.9.9.5.5: their lobby is open (and has room): join it
         // 0.9.9.9.9: a friend in a game: watch it
-        watch: link?.status === 'accepted' && link.online && /^Playing /.test(link.activity ?? '') && !/Deck Duel/.test(link.activity ?? '') && !inRoom ? () => watchFriend(id) : undefined,
+        watch: link?.status === 'accepted' && link.online && /^Playing /.test(link.activity ?? '') && !/Deck Duel|Kanji chess|Grammar Clash/.test(link.activity ?? '') && !inRoom ? () => watchFriend(id) : undefined,
         join: link?.status === 'accepted' && link.party?.code && link.party.code !== (inRoom ? code : '') && !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? '')
           ? { label: `${link.party.size}/${link.party.max}`, mode: link.party.mode, go: () => joinRoom(link.party!.code!) } : undefined,
       });

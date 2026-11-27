@@ -15,7 +15,9 @@ export const ONO_TYPES: Record<OnoType, { ja: string; romaji: string; en: string
   jo: { ja: '擬情語', romaji: 'gijōgo', en: 'feeling' },
 };
 
-export const MODES = ['reading', 'writing', 'boss', 'rapid', 'deck'] as const;
+// (0.9.9.9.9.6 round 5: Kanji chess and Grammar Clash are modes of the private game and the online queue too — the
+// room gathers the players, ChessHub / GrammarHub run the game)
+export const MODES = ['reading', 'writing', 'boss', 'rapid', 'deck', 'chess', 'clash'] as const;
 export type GameMode = (typeof MODES)[number];
 export const MODE_LABEL: Record<GameMode, string> = {
   reading: '1v1 Kanji Reading',
@@ -23,6 +25,8 @@ export const MODE_LABEL: Record<GameMode, string> = {
   boss: 'Boss Elimination',
   rapid: '1v1 Rapid',
   deck: 'Deck Duel',
+  chess: 'Kanji chess',
+  clash: 'Grammar Clash',
 };
 
 /** How a word must be answered: kana reading (IME or romaji), romaji only (hiragana practice), or handwriting. */
@@ -181,6 +185,8 @@ export type ClientMessage =
   | { type: 'chess_time'; id: string; base: number; inc: number }
   | { type: 'chess_chat'; id: string; text: string }
   | { type: 'chess_again'; id: string }
+  // 0.9.9.9.9.6 (round 5): the host's settings for chess / Grammar Clash in the room's lobby
+  | { type: 'room_settings'; base?: number; inc?: number; level?: string; count?: number }
   // 0.9.9.9.9.6 (round 4): Grammar Clash — the grammar quiz for 2–8 players (GrammarHub)
   | { type: 'clash_new'; level?: string; count?: number; invite?: string }
   | { type: 'clash_join'; code: string }
@@ -305,7 +311,8 @@ export type ServerMessage =
   | { type: 'kicked'; message: string }
   | { type: 'joined'; code: string; you: PlayerId; mode: GameMode }
   | { type: 'left' }
-  | { type: 'lobby'; players: PlayerView[]; hostId: PlayerId; maxPlayers: number; minPlayers: number; mode: GameMode; /** 0.9.9.9.5.5 */ open?: boolean }
+  | { type: 'lobby'; players: PlayerView[]; hostId: PlayerId; maxPlayers: number; minPlayers: number; mode: GameMode; /** 0.9.9.9.5.5 */ open?: boolean;
+      /** 0.9.9.9.9.6 (round 5): chess's clock, Grammar Clash's level and length */ settings?: { base: number; inc: number; level: string; count: number } }
   /** 0.9.9.9.5.5: someone in the room is typing in the chat (or stopped) */
   | { type: 'chat_typing'; id: PlayerId; name: string; on: boolean }
   /** 0.9.9.9.6: a new message in the messenger (to you — or, for admins, to the team) */
@@ -391,6 +398,8 @@ export type Device = 'web' | 'pc' | 'phone';
 /** 0.9.9.9.9.6: a game of Kanji chess between two players, as each of them sees it */
 /** 0.9.9.9.9.6 (round 4): a Grammar Clash room, as one player sees it */
 export interface ClashView {
+  /** 0.9.9.9.9.6 (round 5): started by a room (its lobby is the private game's) */
+  bound?: boolean;
   id: string; code: string; host: string; status: 'lobby' | 'starting' | 'question' | 'reveal' | 'board' | 'over';
   quick: boolean; ranked: boolean; level: string; count: number;
   /** the server's clock, and when this part ends */
@@ -400,13 +409,17 @@ export interface ClashView {
   players: Array<{ id: string; name: string; avatar: string; staff: string; ready: boolean; score: number; streak: number; best: number; right: number; left: boolean; answered: boolean;
     /** the last question: what they picked (null: nothing), right or not, the points */ last?: { k: number | null; right: boolean; points: number } }>;
   /** the question (its answer and translation once it is revealed; `mine` what you picked) */
-  q?: { jp: string; options: string[]; double: boolean; answer?: number; filled?: string; en?: string; ru?: string; mine?: number };
+  q?: { jp: string; options: string[]; double: boolean; answer?: number; filled?: string; en?: string; ru?: string; mine?: number;
+    /** (round 5) why the answer fits: its grammar point, what it means, its first rule */
+    why?: { pattern: string; level: string; meaning: { en: string; ru: string }; rule?: { en: string; ru: string } } };
   /** the final order, best first */
   order?: string[];
   ratings?: Record<string, RatingChange>;
   chat: Array<{ from: string; name: string; text: string; at: number }>;
 }
 export interface ChessRoomView {
+  /** 0.9.9.9.9.6 (round 5): started by a room (its lobby is the private game's); ranked from the online queue */
+  bound?: boolean; ranked?: boolean; ratings?: Record<string, RatingChange>;
   id: string; code: string; you: 'w' | 'b' | null;
   white: { id: string; name: string } | null; black: { id: string; name: string } | null;
   /** the moves so far (UCI) */

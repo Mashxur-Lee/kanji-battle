@@ -1,8 +1,9 @@
-// 0.9.9.9.9.6 (round 4): Grammar Clash — the grammar quiz for 2–8 players (the server: GrammarHub). A room by code
-// with a lobby (everyone's own character, Ready, the host's settings, a chat), or Quick match / Ranked from the queue.
-// Each question: a sentence with a gap, four choices marked with the elements (火 水 木 金), a timer; faster right
-// answers score more, a streak adds a combo, some questions are worth double; then the answer and everyone's pick,
-// then the leaderboard; at the end the podium (and the rating change, ranked).
+// 0.9.9.9.9.6 (round 4): Grammar Clash — the grammar quiz for 2–8 players (the server: GrammarHub). Each question: a
+// sentence with a gap, four choices marked with the elements (火 水 木 金), a timer; faster right answers score more,
+// a streak adds a combo, some questions are worth double; then the answer, why it fits and everyone's pick, then the
+// leaderboard; at the end the podium (and the rating change, ranked).
+// Round 5: no lobby or menu of its own — it is a mode of the private game (the same lobby as every mode) and of the
+// online queue; this page is the game itself, and Back to lobby goes back to the room.
 import type { ClashView, ClientMessage } from '../shared/protocol';
 import * as audio from './audio';
 import { jpLine } from './grammarui';
@@ -28,82 +29,37 @@ let send: (m: ClientMessage) => void = () => {};
 let myId = '';
 let room: ClashView | null = null;
 let skew = 0, tick = 0, lastStatus = '', lastN = 0, lastBeep = 0;
-let pickLevel = 'N5', pickCount = 10;
 
 export function initClash(sender: (m: ClientMessage) => void) {
   send = sender;
-  $('clashBack').onclick = () => { if (room && room.status !== 'over' && room.status !== 'lobby') { void leaveGame(); return; } if (room) send({ type: 'clash_leave' }); room = null; showSetup(); ui.show('games'); };
-  $('clashQuick').onclick = () => send({ type: 'clash_queue', on: true, ranked: false });
-  $('clashRanked').onclick = () => send({ type: 'clash_queue', on: true, ranked: true });
-  $('clashQueueCancel').onclick = () => send({ type: 'clash_queue', on: false });
-  $('clashCreate').onclick = () => send({ type: 'clash_new', level: pickLevel, count: pickCount });
-  $('clashJoin').onclick = () => { const c = $<HTMLInputElement>('clashCode').value.trim().toUpperCase(); if (c.length === 4) send({ type: 'clash_join', code: c }); else ui.toast(tr('Type the 4-letter code')); };
-  $('clashReady').onclick = () => { if (!room) return; const me = room.players.find((p) => p.id === myId); send({ type: 'clash_ready', on: !me?.ready }); };
-  $('clashStart').onclick = () => send({ type: 'clash_start' });
-  $('clashLeave').onclick = () => { send({ type: 'clash_leave' }); room = null; showSetup(); };
-  $('clashCopy').onclick = () => { if (room) void navigator.clipboard?.writeText(room.code).then(() => ui.toast(tr('Copied!'))).catch(() => ui.toast(room?.code ?? '')); };
-  $('clashAgain').onclick = () => send({ type: 'clash_again' });
-  $('clashExit').onclick = () => { send({ type: 'clash_leave' }); room = null; showSetup(); };
-  for (const id of ['clashChatForm', 'clashOverChatForm']) {
-    const f = $<HTMLFormElement>(id);
-    f.onsubmit = (e) => { e.preventDefault(); const i = f.querySelector('input')!; const t = i.value.trim(); if (t) send({ type: 'clash_chat', text: t.slice(0, 200) }); i.value = ''; };
-  }
-  drawSetup();
+  $('clashBack').onclick = () => { if (room && room.status !== 'over') { void leaveGame(); return; } toLobby(); };
+  $('clashAgain').onclick = () => toLobby();
+  $('clashExit').onclick = () => { room = null; stopTick(); send({ type: 'leave' }); };
+  const f = $<HTMLFormElement>('clashOverChatForm');
+  f.onsubmit = (e) => { e.preventDefault(); const i = f.querySelector('input')!; const t = i.value.trim(); if (t) send({ type: 'clash_chat', text: t.slice(0, 200) }); i.value = ''; };
 }
+/** the game is over: back to the room's lobby (Ready there for another game) */
+function toLobby() { room = null; stopTick(); dispatchEvent(new Event('kw:room-lobby')); }
 export function setClashUser(id: string) { myId = id; }
-export function openClash() { ui.show('clash'); if (!room) showSetup(); }
-/** (from a friend's profile) a room for the two of you; they are asked to join */
-export function challengeClash(friendId: string) { ui.show('clash'); send({ type: 'clash_new', level: pickLevel, count: pickCount, invite: friendId }); }
-export async function onClashInvite(from: { id: string; name: string }, code: string) {
-  audio.sfx.yourTurn();
-  if (['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? '') || (room && room.status !== 'lobby' && room.status !== 'over')) { ui.toast(`${from.name}: ${tr('Grammar Clash')} - ${tr('Your code')} ${code}`, 6000); return; }
-  if (!(await ui.confirmBox('Grammar Clash', `${from.name} ${tr('asks you to a game of Grammar Clash.')}`, 'Join', 'Not now', false))) return;
-  ui.show('clash');
-  send({ type: 'clash_join', code });
-}
-export function onClashQueue(on: boolean, waiting: number, ranked: boolean) {
-  $('clashQueue').hidden = !on;
-  $('clashQuick').toggleAttribute('disabled', on); $('clashRanked').toggleAttribute('disabled', on);
-  if (on) $('clashQueueText').textContent = tr(`${ranked ? 'Ranked' : 'Quick match'}: ${waiting} of 8 players - the game starts with 2 or more`);
-}
+// (round 4's invites to a Clash room by code: rooms of the private game are invited the usual way now)
+export async function onClashInvite(_from: { id: string; name: string }, _code: string) { /* no longer sent */ }
+export function onClashQueue(_on: boolean, _waiting: number, _ranked: boolean) { /* the online queue's own screen says it */ }
 export function onClashError(e: string) { ui.toast(tr(e), 3500); }
 export function clashReconnected() { if (room && room.status !== 'over') send({ type: 'clash_sync' }); }
 
-function showSetup() {
-  for (const id of ['clashLobby', 'clashPlay', 'clashBoard', 'clashOver']) $(id).hidden = true;
-  $('clashSetup').hidden = false;
-  stopTick();
-  drawSetup();
-}
-function seg(box: string, items: Array<[string, string]>, on: string, set: ((v: string) => void) | null) {
-  $(box).replaceChildren(...items.map(([v, label]) => {
-    const b = h('button', `cs-opt${v === on ? ' on' : ''}`, tr(label), { type: 'button', 'aria-pressed': String(v === on) }) as HTMLButtonElement;
-    if (set) b.onclick = () => set(v); else b.disabled = v !== on;
-    return b;
-  }));
-}
-const LEVELS: Array<[string, string]> = [['N5', 'N5'], ['N4', 'N4'], ['mix', 'Mixed']];
-const COUNTS: Array<[string, string]> = [['5', '5'], ['10', '10'], ['15', '15'], ['20', '20']];
-function drawSetup() {
-  seg('clashLevel', LEVELS, pickLevel, (v) => { pickLevel = v; drawSetup(); });
-  seg('clashCount', COUNTS, String(pickCount), (v) => { pickCount = Number(v); drawSetup(); });
-}
-
 async function leaveGame() {
   if (!(await ui.confirmBox('Leave the game?', room?.ranked ? 'You finish last in this ranked game.' : 'Your score stays on the board, but you can\'t come back to this game.', 'Leave', 'Stay'))) return;
-  send({ type: 'clash_leave' }); room = null; showSetup(); ui.show('games');
+  room = null; stopTick(); send({ type: 'leave' });
 }
 
-// ── the room, as the server tells it ──
+// ── the game, as the server tells it ──
 export function onClashRoom(r: ClashView) {
-  const fresh = !room || room.id !== r.id;
   room = r; skew = r.now - Date.now();
-  if (fresh || ui.currentScreen() !== 'clash') ui.show('clash');
-  $('clashSetup').hidden = true;
+  if (ui.currentScreen() !== 'clash') ui.show('clash');
   const changed = r.status !== lastStatus || r.n !== lastN;
   lastStatus = r.status; lastN = r.n;
-  for (const id of ['clashLobby', 'clashPlay', 'clashBoard', 'clashOver']) $(id).hidden = true;
-  if (r.status === 'lobby') { stopTick(); return drawLobby(r); }
+  for (const id of ['clashPlay', 'clashBoard', 'clashOver']) $(id).hidden = true;
+  if (r.status === 'lobby') return;
   if (r.status === 'starting') { drawStarting(r); startTick(); if (changed) audio.sfx.chessStart(); return; }
   if (r.status === 'question' || r.status === 'reveal') { drawPlay(r, changed); startTick(); return; }
   if (r.status === 'board') { drawBoard(r); startTick(); return; }
@@ -133,26 +89,6 @@ function avatarBox(p: ClashView['players'][number], cls = 'gc-av') {
   const b = h('span', cls);
   b.innerHTML = pic(p.avatar, p.staff);
   return b;
-}
-function drawLobby(r: ClashView) {
-  $('clashLobby').hidden = false;
-  $('clashLobbyCode').textContent = r.code;
-  const host = r.host === myId;
-  $('clashSeats').replaceChildren(...r.players.map((p) => {
-    const s = h('div', `gc-seat${p.ready || p.id === r.host ? ' ready' : ''}`);
-    s.append(avatarBox(p), h('b', '', p.id === myId ? `${p.name} (${tr('You')})` : p.name), h('span', 'cl-state', tr(p.id === r.host ? 'Host' : p.ready ? 'Ready' : 'Not ready')));
-    return s;
-  }), ...Array.from({ length: Math.max(0, 2 - r.players.length) }, () => { const s = h('div', 'gc-seat empty'); s.append(h('span', 'gc-av'), h('b', '', tr('Waiting…'))); return s; }));
-  seg('clashLobbyLevel', LEVELS, r.level, host ? (v) => send({ type: 'clash_settings', level: v }) : null);
-  seg('clashLobbyCount', COUNTS, String(r.count), host ? (v) => send({ type: 'clash_settings', count: Number(v) }) : null);
-  const me = r.players.find((p) => p.id === myId);
-  $('clashReady').hidden = host; $('clashStart').hidden = !host;
-  $('clashReady').textContent = tr(me?.ready ? 'Not ready' : 'Ready');
-  $('clashReady').classList.toggle('on', !!me?.ready);
-  const allReady = r.players.length >= 2 && r.players.every((p) => p.id === r.host || p.ready);
-  ($('clashStart') as HTMLButtonElement).disabled = !allReady;
-  $('clashLobbyHint').textContent = tr(r.players.length < 2 ? 'Send your friends the code - 2 to 8 players.' : allReady ? (host ? 'Everyone is ready - start when you like.' : 'Everyone is ready - the host starts the game.') : 'The host starts when everyone is ready.');
-  chat($('clashChat'), r);
 }
 function chat(list: HTMLElement, r: ClashView) {
   list.replaceChildren(...r.chat.map((c) => {
@@ -218,6 +154,17 @@ function drawPlay(r: ClashView, changed: boolean) {
     if (last?.right) { fb.append(h('b', 'gc-good', `+${last.points}`)); if ((me?.streak ?? 0) >= 2) fb.append(h('span', 'gc-combo', tr(`Combo ×${me!.streak}`))); }
     else fb.append(h('b', 'gc-bad', tr(last?.k === null ? 'Too late' : 'Not this time')));
     fb.append(h('span', 'gc-tr', lang() === 'ru' ? (q.ru ?? '') : (q.en ?? '')));
+    // (round 5) the right answer, and why it is the one: its grammar point, what it means, how it is used
+    if (q.why) {
+      const why = h('div', 'gc-why');
+      const t = (x: { en: string; ru: string }) => (lang() === 'ru' ? x.ru : x.en);
+      const head = h('div', 'gc-why-head');
+      head.append(h('span', 'gc-why-lbl', tr('Why')), h('b', 'gc-why-ans', q.filled ?? ''), h('span', 'gc-why-pat', q.why.pattern), h('span', 'gc-why-lvl', q.why.level));
+      head.querySelector('.gc-why-ans')!.setAttribute('lang', 'ja'); head.querySelector('.gc-why-pat')!.setAttribute('lang', 'ja');
+      why.append(head, h('p', 'gc-why-mean', t(q.why.meaning)));
+      if (q.why.rule) why.append(h('p', 'gc-why-rule', t(q.why.rule)));
+      fb.append(why);
+    }
     if (changed) { if (last?.right) audio.sfx.correct(Math.min(5, me?.streak ?? 1)); else audio.sfx.wrong(); }
   }
 }
@@ -256,7 +203,7 @@ function drawOver(r: ClashView, changed: boolean) {
     if (ch) { const d = ch.after - ch.before; row.append(h('span', `gc-rate ${d >= 0 ? 'up' : 'down'}`, `${d >= 0 ? '+' : ''}${d}`)); }
     return row;
   }));
-  $('clashAgain').hidden = r.quick || r.host !== myId;
+  $('clashAgain').hidden = false; // (round 5: Back to lobby — the room's)
   if (changed) { if (mine === 0) audio.sfx.win(); else audio.sfx.lose(); }
   chat($('clashOverChat'), r);
 }

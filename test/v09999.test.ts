@@ -82,7 +82,7 @@ test('0.9.9.9.9 a ranked room\'s first game is ranked (a forfeit is a loss); its
 });
 
 test('0.9.9.9.9 the queue makes ranked rooms for 1v1, not for Boss', () => {
-  assert.match(src('src/server/Matchmaker.ts'), /room\.ranked = mode === 'rapid' \|\| mode === 'deck';/);
+  assert.match(src('src/server/Matchmaker.ts'), /room\.ranked = mode === 'rapid' \|\| mode === 'deck' \|\| mode === 'chess' \|\| mode === 'clash';/); // (0.9.9.9.9.6 round 5: chess and Grammar Clash too)
 });
 
 test('0.9.9.9.9 settle: both ratings move once; the ladder lists players after their placement games', async () => {

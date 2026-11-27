@@ -31,6 +31,8 @@ await build({
   plugins: [browserServer], define: { 'process.env.RENDER': 'undefined', 'process.env.ADMIN_PASSWORD': 'undefined', __KW_BUILD__: JSON.stringify(BUILD_ID) }, logLevel: 'warning',
 });
 await build({ entryPoints: [r('src/client/arena3d.ts')], bundle: true, minify: true, outfile: r('public/arena3d.js'), target: 'es2020', logLevel: 'warning' });
+// 0.9.9.9.9.6 (round 5): the chess bots think in a worker of their own (the Dragon searches for seconds)
+await build({ entryPoints: [r('src/client/chessworker.ts')], bundle: true, minify: true, outfile: r('public/chessworker.js'), target: 'es2020', logLevel: 'warning' });
 copyFileSync(r('data/vocab.json'), r('public/vocab.json'));
 // 0.9.9.9.8: the page and the stylesheet as they are sent — without the notes written for whoever works on the code
 // (every block's version and why), the stylesheet minified: dist/public. The server sends these when they are newer
@@ -77,11 +79,13 @@ writeFileSync(r('public/examples.json'), JSON.stringify(examples));
 // downloaded again only when the words change). Before, every build made every player download all of it again,
 // the 8 MB dictionary too; the dictionary isn't in here at all now (it comes when you open it, and is kept on the
 // device then — dictui.ts).
-const SHELL = ['/', '/index.html', '/privacy.html', '/terms.html', '/legal.css', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/favicon.ico', '/icons/favicon-32.png', '/icons/favicon-64.png', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png',
+const SHELL = ['/', '/index.html', '/privacy.html', '/terms.html', '/legal.css', '/app.js', '/arena3d.js', '/chessworker.js', '/style.css', '/favicon.svg', '/favicon.ico', '/icons/favicon-32.png', '/icons/favicon-64.png', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png',
   // 0.9.9.9.9.3: the game's fonts (Latin, Cyrillic and the logo's kana and kanji) — offline too
   ...readdirSync(r('public/fonts')).filter((f) => f.endsWith('.woff2')).map((f) => `/fonts/${f}`),
   // 0.9.9.9.9.4: the arenas' surface detail (High)
-  '/textures/kw-detail.webp', '/textures/kw-detail2.webp'];
+  '/textures/kw-detail.webp', '/textures/kw-detail2.webp',
+  // 0.9.9.9.9.6 (round 5): the chess pieces (the owner's design) — chess against a wizard works offline
+  ...readdirSync(r('public/chess')).filter((f) => f.endsWith('.webp')).map((f) => `/chess/${f}`)];
 const DATA = ['/vocab.json', '/examples.json', '/kanji.json', '/meanings-ru.json'];
 const hashOf = (files) => { const h = createHash('sha256'); for (const f of files) if (f !== '/') { try { h.update(readFileSync(r('public', f))); } catch { /* not built yet */ } } return h.digest('hex').slice(0, 12); };
 const sw = readFileSync(r('src/client/sw.js'), 'utf8')

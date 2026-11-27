@@ -9,7 +9,9 @@ import { tr } from './i18n';
 
 // The online queue screen: pick modes + levels (or Deck Duel on its own) and search for a player.
 
-const QUEUE_MODES: GameMode[] = ['reading', 'writing', 'rapid', 'boss'];
+// (0.9.9.9.9.6 round 5: Kanji chess and Grammar Clash too — ranked, and with no word levels)
+const QUEUE_MODES: GameMode[] = ['reading', 'writing', 'rapid', 'boss', 'chess', 'clash'];
+const NO_LEVELS = new Set<GameMode>(['chess', 'clash']);
 const KEY = 'kb:queue';
 type Saved = { modes: GameMode[]; levels: Level[]; pick?: 'battle' | 'deck' };
 const load = (): Saved => { try { return { modes: ['reading', 'rapid'], levels: ['N5'], ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return { modes: ['reading', 'rapid'], levels: ['N5'] }; } };
@@ -89,10 +91,17 @@ export function initQueue(sender: typeof send, myId: () => string) {
     if (pick === 'deck') return send({ type: 'queue', modes: ['deck'] });
     const modes = picked('qModes').filter((m) => m !== 'deck'), levels = picked('qLevels');
     if (!modes.length) return ui.toast('Tick at least one mode');
-    if (!levels.length) return ui.toast('Tick at least one level');
+    if (!levels.length && modes.some((m) => !NO_LEVELS.has(m as GameMode))) return ui.toast('Tick at least one level');
     send({ type: 'queue', modes, levels });
   };
   ui.$('qCancel').onclick = () => send({ type: 'queue_cancel' });
+}
+
+/** 0.9.9.9.9.6 (round 5): straight into the queue for one mode (the chess page's Find an opponent) */
+export function searchOnly(mode: GameMode) {
+  openQueue();
+  askNotifyPermission();
+  send({ type: 'queue', modes: [mode], levels: [] });
 }
 
 export function openQueue() {
@@ -131,9 +140,10 @@ function aiLevel(levels: Level[]): string {
 }
 function showAiOffer(on: boolean) {
   let box = document.getElementById('qAi');
-  if (!on) { if (box) box.hidden = true; return; }
+  const battles = aiModes.filter((m) => !NO_LEVELS.has(m)); // (round 5: no AI for chess / Grammar Clash here)
+  if (!on || !battles.length) { if (box) box.hidden = true; return; }
   const levels = load().levels;
-  const mode = aiModes.find((m) => m !== 'boss') ?? aiModes[0] ?? 'reading';
+  const mode = battles.find((m) => m !== 'boss') ?? battles[0] ?? 'reading';
   const lv = aiLevel(mode === 'deck' ? ['N3'] : levels);
   if (!box) {
     box = document.createElement('div');

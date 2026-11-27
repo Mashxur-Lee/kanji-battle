@@ -68,6 +68,22 @@ export const LINES: Record<BotId, Partial<Record<Moment, Line[]>>> = {
     botLoses: [{ jp: '{見事|みごと}じゃ！{弟子|でし}が{師|し}を{超|こ}えたな。', en: 'Splendid! The student surpassed the teacher.', ru: 'Великолепно! Ученик превзошёл учителя.' }],
     draw: [{ jp: '{引|ひ}き{分|わ}けじゃ。{良|よ}い{勝負|しょうぶ}じゃった。', en: 'A draw. It was a good match.', ru: 'Ничья. Это была хорошая партия.' }],
   },
+  // (round 5) the Dragon (2400): ancient, proud, few words — 〜ぞ, 〜か
+  dragon: {
+    hello: [{ jp: '{小|ちい}さき{者|もの}よ。{我|われ}に{挑|いど}むか。', en: 'Little one. You dare challenge me?', ru: 'Малыш. Ты смеешь бросить мне вызов?' }],
+    best: [{ jp: 'ほう……{悪|わる}くない。', en: 'Hm... not bad.', ru: 'Хм... неплохо.' }, { jp: '{見事|みごと}な{一手|いって}だ。{認|みと}めよう。', en: 'A fine move. I admit it.', ru: 'Отличный ход. Признаю.' }],
+    good: [{ jp: 'まだ{戦|たたか}えるようだな。', en: 'You can still fight, it seems.', ru: 'Похоже, ты ещё можешь сражаться.' }],
+    inaccuracy: [{ jp: '{甘|あま}いぞ。', en: 'Too soft.', ru: 'Слабовато.' }],
+    mistake: [{ jp: 'その{隙|すき}、{見逃|みのが}さぬぞ。', en: 'I will not miss that opening.', ru: 'Эту брешь я не упущу.' }],
+    blunder: [{ jp: '{愚|おろ}かな。{炎|ほのお}に{焼|や}かれるがいい。', en: 'Foolish. Burn in my fire.', ru: 'Глупо. Сгори в моём пламени.' }, { jp: '{千年|せんねん}{早|はや}いわ。', en: 'A thousand years too early.', ru: 'Тебе до этого ещё тысячу лет.' }],
+    check: [{ jp: '{王手|おうて}。{逃|に}げられるか？', en: 'Check. Can you escape?', ru: 'Шах. Сможешь уйти?' }],
+    take: [{ jp: 'その{駒|こま}、{喰|く}らってやろう。', en: 'I shall devour that piece.', ru: 'Я пожру эту фигуру.' }],
+    castle: [{ jp: '{城|しろ}に{隠|かく}れても{無駄|むだ}だ。', en: 'Hiding in the castle is useless.', ru: 'Прятаться в замке бесполезно.' }],
+    promote: [{ jp: '{兵|へい}が{后|きさき}に……{面白|おもしろ}い。', en: 'A pawn into a queen... interesting.', ru: 'Пешка в ферзя... интересно.' }],
+    botWins: [{ jp: '{我|われ}は{竜|りゅう}。{敗|やぶ}れることはない。', en: 'I am the dragon. I do not lose.', ru: 'Я — дракон. Я не проигрываю.' }],
+    botLoses: [{ jp: 'まさか……{人|ひと}の{子|こ}に{敗|やぶ}れるとは。', en: 'Impossible... beaten by a human child.', ru: 'Невозможно... побеждён человеческим дитя.' }],
+    draw: [{ jp: '{引|ひ}き{分|わ}けか。{次|つぎ}は{無|な}いぞ。', en: 'A draw? There will be no next time.', ru: 'Ничья? В следующий раз так не будет.' }],
+  },
 };
 
 /** a line for a moment (another one each time, when there are several) */

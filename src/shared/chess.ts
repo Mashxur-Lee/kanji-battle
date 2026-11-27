@@ -275,13 +275,15 @@ export function scoreMoves(p: Position, depth: number, maxNodes = 200_000, maxMs
 export const isMateScore = (s: number) => Math.abs(s) > MATE - 1000;
 
 // ── the bot wizards ───────────────────────────────────────────────────────────────────────────────────────────────
-export type BotId = 'goblin' | 'knight' | 'witch' | 'wizard';
+export type BotId = 'goblin' | 'knight' | 'witch' | 'wizard' | 'dragon';
 export interface BotDef { id: BotId; elo: number; name: string; jp: string; reading: string }
 export const BOTS: BotDef[] = [
   { id: 'goblin', elo: 200, name: 'Goblin', jp: '小鬼', reading: 'こおに' },
   { id: 'knight', elo: 400, name: 'Knight', jp: '騎士', reading: 'きし' },
   { id: 'witch', elo: 800, name: 'Witch', jp: '魔女', reading: 'まじょ' },
   { id: 'wizard', elo: 1600, name: 'Wizard', jp: '魔法使い', reading: 'まほうつかい' },
+  // (round 5) the strongest: a deep search on a clock, no slips
+  { id: 'dragon', elo: 2400, name: 'Dragon', jp: '竜', reading: 'りゅう' },
 ];
 /**
  * A bot's move. How strong: how far it looks ahead, how much it misjudges, how often it just blunders.
@@ -292,6 +294,7 @@ export function botMove(p: Position, bot: BotId, rnd: () => number = Math.random
   const moves = legalMoves(p);
   if (!moves.length) return null;
   const pick = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)];
+  if (bot === 'dragon') return dragonMove(p);
   if (bot === 'goblin') {
     // takes a mate in one if it sees it now and then, grabs captures half the time, otherwise any move
     if (rnd() < 0.3) { const mate = moves.find((m) => { const a = makeMove(p, m); return inCheck(a) && !legalMoves(a).length; }); if (mate) return mate; }
@@ -304,6 +307,109 @@ export function botMove(p: Position, bot: BotId, rnd: () => number = Math.random
   const scored = scoreMoves(p, cfg.depth, bot === 'wizard' ? 250_000 : 100_000, bot === 'wizard' ? 900 : 500).map((x) => ({ ...x, score: x.score + (isMateScore(x.score) ? 0 : (rnd() * 2 - 1) * cfg.noise) }));
   scored.sort((a, b) => b.score - a.score);
   return scored[0].move;
+}
+
+// ── (round 5) the Dragon, about 2400: a real search — iterative deepening on a clock, a table of positions already
+// searched, the best move of the last pass first, killer moves, null-move pruning, checks searched a move deeper ──
+interface TTEntry { depth: number; score: number; flag: 0 | 1 | 2; best?: string }
+class DeepSearch {
+  private tt = new Map<string, TTEntry>();
+  private killers: string[][] = [];
+  private nodes = 0;
+  private stop = false;
+  constructor(private readonly until: number) {}
+  private timeUp() { if ((++this.nodes & 511) === 0 && Date.now() > this.until) this.stop = true; return this.stop; }
+  private order(p: Position, moves: Move[], ply: number, hint?: string): Move[] {
+    const k = this.killers[ply] ?? [];
+    const val = (m: Move) => {
+      const u = moveUci(m);
+      if (u === hint) return 1e7;
+      if (m.captured) return 1e6 + 10 * VALUE[kindOf(m.captured)] - VALUE[kindOf(m.piece)];
+      if (m.promo) return 9e5 + VALUE[m.promo];
+      if (k.includes(u)) return 8e5;
+      return 0;
+    };
+    return moves.map((m) => [val(m), m] as const).sort((a, b) => b[0] - a[0]).map(([, m]) => m);
+  }
+  private quiesce(p: Position, alpha: number, beta: number, q: number): number {
+    if (this.timeUp()) return alpha;
+    const stand = evaluate(p);
+    if (stand >= beta) return beta;
+    if (alpha < stand) alpha = stand;
+    if (q <= 0) return alpha;
+    for (const m of this.order(p, legalMoves(p).filter((x) => x.captured || x.promo), 0)) {
+      const s = -this.quiesce(makeMove(p, m), -beta, -alpha, q - 1);
+      if (s >= beta) return beta;
+      if (s > alpha) alpha = s;
+    }
+    return alpha;
+  }
+  private search(p: Position, depth: number, alpha: number, beta: number, ply: number, nullOk: boolean): number {
+    if (this.timeUp()) return alpha;
+    const check = inCheck(p);
+    if (check) depth++;
+    const moves = legalMoves(p);
+    if (!moves.length) return check ? -MATE + ply : 0;
+    if (p.half >= 100) return 0;
+    if (depth <= 0) return this.quiesce(p, alpha, beta, 6);
+    const key = posKey(p);
+    const e = this.tt.get(key);
+    if (e && e.depth >= depth && ply > 0) {
+      if (e.flag === 0) return e.score;
+      if (e.flag === 1 && e.score >= beta) return e.score;
+      if (e.flag === 2 && e.score <= alpha) return e.score;
+    }
+    // null move: give the turn away; still winning by a margin → this position is good enough without searching it
+    if (nullOk && !check && depth >= 3 && p.board.some((x) => x && colorOf(x) === p.turn && !['k', 'p'].includes(kindOf(x)))) {
+      const passed: Position = { ...p, turn: p.turn === 'w' ? 'b' : 'w', ep: -1 } as Position;
+      const s = -this.search(passed, depth - 3, -beta, -beta + 1, ply + 1, false);
+      if (s >= beta && !this.stop) return beta;
+    }
+    const a0 = alpha;
+    let best: string | undefined, bestScore = -MATE * 2;
+    let first = true;
+    for (const m of this.order(p, moves, ply, e?.best)) {
+      const next = makeMove(p, m);
+      let s: number;
+      if (first) s = -this.search(next, depth - 1, -beta, -alpha, ply + 1, true);
+      else {
+        s = -this.search(next, depth - 1, -alpha - 1, -alpha, ply + 1, true); // a narrow look first
+        if (s > alpha && s < beta) s = -this.search(next, depth - 1, -beta, -alpha, ply + 1, true);
+      }
+      first = false;
+      if (this.stop) return alpha;
+      if (s > bestScore) { bestScore = s; best = moveUci(m); }
+      if (s > alpha) alpha = s;
+      if (alpha >= beta) {
+        if (!m.captured) { const k = (this.killers[ply] ??= []); if (!k.includes(moveUci(m))) { k.unshift(moveUci(m)); k.length = Math.min(k.length, 2); } }
+        break;
+      }
+    }
+    this.tt.set(key, { depth, score: bestScore, flag: bestScore <= a0 ? 2 : bestScore >= beta ? 1 : 0, best });
+    return bestScore;
+  }
+  /** the best move it found before the clock ran out (always a legal move) */
+  run(p: Position, maxDepth = 32): Move {
+    const moves = legalMoves(p);
+    let best = this.order(p, moves, 0)[0];
+    for (let d = 1; d <= maxDepth; d++) {
+      let alpha = -MATE * 2, iterBest: Move | null = null;
+      for (const m of this.order(p, moves, 0, moveUci(best))) {
+        const s = -this.search(makeMove(p, m), d - 1, -MATE * 2, -alpha, 1, true);
+        if (this.stop) break;
+        if (s > alpha) { alpha = s; iterBest = m; }
+      }
+      if (this.stop) { if (iterBest && d > 1) best = iterBest; break; }
+      if (iterBest) best = iterBest;
+      if (isMateScore(alpha)) break;
+    }
+    return best;
+  }
+}
+/** the Dragon's move: a deep search for `ms` (no blunders, no noise) */
+export function dragonMove(p: Position, ms = 2500): Move | null {
+  if (!legalMoves(p).length) return null;
+  return new DeepSearch(Date.now() + ms).run(p);
 }
 
 /** how good a move was, from the side that played it: the best it could have got, minus what it got */
