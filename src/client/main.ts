@@ -53,7 +53,7 @@ import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite
 import { alertsOn, pushSignedOut, registerPush, setAlerts } from './push';
 import { initWatch, LEAVING, liveEnded, liveStarted, mayWhileWatching, playReplay, stopWatching, watching, type ReplayState } from './watch';
 import { renderRankBox } from './ladder';
-import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialChallenge, tutorialScreen, tutorialTouring } from './tutorial';
+import { canPlay, resetPageTours, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialChallenge, tutorialScreen, tutorialTouring } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
 import * as offline from './offline';
@@ -63,6 +63,19 @@ import { initMenuCarousel } from './menucarousel';
 import { initQuizzes, quizzesProfile } from './quizzesui';
 import { initApp, checkBuild } from './appshell';
 import './dictui'; // (the dictionary page; opened from the side panel)
+
+// 0.9.9.9.9.6 (round 6): a notification's link (?inbox=… / ?join=…) is read once, as the page starts, and taken out of
+// the address at once. It stayed in until you were signed in: the back button's extra history entry, added before
+// that, kept it — back to that entry, and the next reconnect opened the notification's chat again (the team's, in the
+// middle of another conversation)
+const startLink = (() => {
+  try {
+    const q = new URLSearchParams(location.search);
+    const link = { inbox: q.get('inbox') ?? '', join: q.get('join') ?? '' };
+    if (link.inbox || link.join) { q.delete('inbox'); q.delete('join'); const rest = q.toString(); history.replaceState(history.state, '', location.pathname + (rest ? `?${rest}` : '') + location.hash); }
+    return link;
+  } catch { return { inbox: '', join: '' }; }
+})();
 
 applyUiZoom(); // before anything is laid out
 centerScreens();
@@ -1157,20 +1170,22 @@ ui.$('progressBtn').onclick = () => void openProgress(profile?.unlocks ?? [], pr
  * 0.9.9.9.5: "Join" on an invite notification opens the app at …/?join=CODE: once signed in, straight into that room
  * (the link is cleared first, so a reload doesn't join again).
  */
+/** 0.9.9.9.9.6 (round 6): a notification's link is used once a page load — every reconnect read it again (and from a
+ * chat you had opened, back to the conversation the notification was about: the team's) */
+let linkDone = false;
 function joinFromLink() {
+  if (linkDone) return;
+  linkDone = true;
   let c = '';
   // 0.9.9.9.6: a message notification tapped → that conversation
-  let ib = '';
-  try { ib = new URLSearchParams(location.search).get('inbox') ?? ''; } catch { /* no URL */ }
+  const ib = startLink.inbox;
   if (ib) {
-    try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
     if (!inRoom) void openInbox(/^(g:)?[\w-]{1,64}$/.test(ib) && ib !== '1' ? ib : undefined); // (0.9.9.9.6.4: or a group)
     return;
   }
   if (replayFromLink()) return; // 0.9.9.9.9
-  try { c = new URLSearchParams(location.search).get('join') ?? ''; } catch { /* no URL */ }
+  c = startLink.join;
   if (!c) return;
-  try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
   if (!/^[A-Za-z0-9]{4}$/.test(c)) return;
   joinRoom(c.toUpperCase());
 }
@@ -1233,6 +1248,7 @@ const join = () => {
 ui.$('join').onclick = join;
 ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
+ui.$('toursAgain').onclick = () => { resetPageTours(); ui.$<HTMLDialogElement>('howDialog').close(); ui.toast(tr('Master Fumi will show you round each page again as you open it.'), 4000); }; // 0.9.9.9.9.6 (round 6)
 ui.$('studyBtn').onclick = () => {
   // 0.9.9.9.5.1: kanji words only — a かな beginner learns kana first
   if (ui.kanaBeginner()) {

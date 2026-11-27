@@ -37,6 +37,15 @@ self.addEventListener('install', (e) => {
     const missing = [];
     for (const u of DATA) if (!(await d.match(u))) missing.push(u);
     await Promise.all([...SHELL.map((u) => get(c, u)), ...missing.map((u) => get(d, u))]);
+    // 0.9.9.9.9.6 (round 6): a phone short of room — the new copy didn't fit next to the old one (removed only once the
+    // new one takes over), so the update failed on every start. Room is made (pictures kept on the side, then the
+    // older builds) and the files that failed are fetched again
+    if (CORE.some((u) => bad.includes(u))) {
+      await caches.delete(RUNTIME);
+      for (const k of await caches.keys()) if (k.startsWith('kw-shell-') && k !== CACHE) await caches.delete(k);
+      const again = bad.splice(0);
+      await Promise.all(again.map((u) => get(SHELL.includes(u) ? c : d, u)));
+    }
     if (CORE.some((u) => bad.includes(u))) { await caches.delete(CACHE); throw new Error('the server is waking up — not installing yet'); }
     await self.skipWaiting();
   })());

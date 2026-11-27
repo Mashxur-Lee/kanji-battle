@@ -220,6 +220,7 @@
     <li>Handwriting recognition: <a href="https://github.com/asdfjkl/kanjicanvas" target="_blank" rel="noopener">KanjiCanvas</a> by Dominik Klein (MIT); its reference strokes come from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> by Ulrich Apel (CC BY-SA 3.0).</li>
     <li>Kanji meanings and readings (tap a kanji): <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noopener">KANJIDIC2</a> by the Electronic Dictionary Research and Development Group (<a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">CC BY-SA 4.0</a>), via <a href="https://github.com/davidluzgouveia/kanji-data" target="_blank" rel="noopener">kanji-data</a> by David Gouveia (MIT); the parts of each kanji from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> (CC BY-SA 3.0). The memory stories and Russian meanings were written for this game.</li>
     <li>Software: <a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a> (MIT) for the 3D arena; <a href="https://github.com/websockets/ws" target="_blank" rel="noopener">ws</a> (MIT) and <a href="https://github.com/porsager/postgres" target="_blank" rel="noopener">Postgres.js</a> (Unlicense) on the server; <a href="https://www.electronjs.org/" target="_blank" rel="noopener">Electron</a> (MIT) for the Windows app; Firebase Cloud Messaging (Apache 2.0) for the Android app's notifications.</li>
+    <li>Voices of the chess wizards: <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX</a> · <span lang="ja" data-no-i18n>VOICEVOX:ちび式じい, VOICEVOX:†聖騎士 紅桜†, VOICEVOX:四国めたん, VOICEVOX:麒ヶ島宗麟, VOICEVOX:剣崎雌雄</span></li>
     <li>Art: the painted backgrounds, league frames and streak flames were generated with AI tools for this game by its author; the 3D characters, the dragon, staffs and arenas were modelled for it, and the 2D characters, icons and sounds are drawn and synthesised in code.</li>
     <li>Russian word meanings: translated for this game from the English meanings.</li>
   </ul>
@@ -323,7 +324,9 @@
   <section id="queue" class="screen" hidden>
     <button id="queueBack" class="back">← Menu</button>
     <div class="page-head"><h2>Battles</h2></div>
-    <p class="sub">Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away. Boss Elimination waits for a full party of 4.</p>
+    <!-- 0.9.9.9.9.6 (round 6): two sides — Unranked (every mode, friendly) and Ranked (the ranked modes, each with its own rating) -->
+    <div id="qSide" class="seg q-side" role="tablist" aria-label="Ranked or not"><button type="button" role="tab" data-side="unranked">Unranked</button><button type="button" role="tab" data-side="ranked">Ranked</button></div>
+    <p id="qSideSub" class="sub">Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away. Boss Elimination waits for a full party of 4.</p>
     <div id="rankBox" class="rank-box" hidden></div>
     <div id="queuePick" class="queue-pick q2-pick">
       <!-- 0.9.9.9.9.5: tiles for every mode (Deck Duel is queued on its own: picking it clears the others), one row of
@@ -1267,7 +1270,8 @@
       <li><b>XP</b> - win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
       <li><b>Daily streak</b> - a day counts when you do all three daily tasks: study 10 spells, a JLPT quiz (7/10) or a reading passage (4/8), and the daily challenge. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
     </ol>
-    <button value="close" class="big">Got it</button>
+    <!-- 0.9.9.9.9.6 (round 6): Master Fumi's page tours, once more -->
+    <div class="how-acts"><button id="toursAgain" type="button" class="pill">Show the page tours again</button><button value="close" class="big">Got it</button></div>
   </form>
 </dialog>
 <!-- 0.9.9.7.3: the loading screen — part of the page, so it covers everything from the very first moment -->

@@ -104,3 +104,23 @@ export function parseLine(jp: string): Array<{ text: string; reading?: string }>
   if (last < jp.length) out.push({ text: jp.slice(last) });
   return out;
 }
+
+// 0.9.9.9.9.6 (round 6): every line is also a recording — each wizard has a voice of their own, made with VOICEVOX
+// (scripts/voices.mts makes them; the voices are credited in CREDITS.md). The file is named by the line's words, so a
+// line changed without a new recording falls back to the device's voice instead of saying the old words.
+export const BOT_VOICE: Record<BotId, { name: string; style: number; pitch: number; speed: number; echo?: boolean }> = {
+  goblin: { name: 'ちび式じい', style: 42, pitch: 0.06, speed: 1.12 },
+  knight: { name: '†聖騎士 紅桜†', style: 51, pitch: 0, speed: 0.98 },
+  witch: { name: '四国めたん', style: 2, pitch: 0, speed: 1.02 },
+  wizard: { name: '麒ヶ島宗麟', style: 53, pitch: 0, speed: 0.92 },
+  dragon: { name: '剣崎雌雄', style: 21, pitch: -0.1, speed: 0.86, echo: true },
+};
+/** a short hash of the words (FNV-1a), the recording's file name */
+export function lineHash(jp: string): string {
+  let x = 0x811c9dc5;
+  for (const c of jp) { x ^= c.codePointAt(0)!; x = Math.imul(x, 0x01000193) >>> 0; }
+  return x.toString(36);
+}
+export const voiceClip = (bot: BotId, jp: string) => `voices/${bot}/${lineHash(jp)}.mp3`;
+/** what is said aloud: the readings (the voice can't misread a kanji) */
+export const spokenOf = (jp: string) => jp.replace(/\{([^|}]*)\|([^}]*)\}/g, '$2');

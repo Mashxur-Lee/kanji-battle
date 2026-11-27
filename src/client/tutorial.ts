@@ -9,6 +9,7 @@ import { lang, tr, useRussianNow } from './i18n';
 import * as audio from './audio';
 import * as ui from './ui';
 import { viewH, viewW, zrect } from './zoom';
+import { PAGE_TOURS } from './pagetours';
 import { GUIDE_JP, GUIDE_NAME, GUIDE_READING, guideEl, guideMood, typeText } from './tutorguide';
 
 const $ = ui.$;
@@ -166,7 +167,7 @@ function show(i: number) {
 }
 
 // ── 0.9.9.9.6: the spotlight — one part of the screen lit, the rest dimmed, a bubble saying what it is ──────────
-interface Step { sel: string; title: string; text: string }
+import type { Step } from './pagetours';
 const MENU_TOUR: Step[] = [
   { sel: '#whoBtn', title: 'You', text: 'Your name and level. Tap it for your stats, your picture and today’s streak tasks.' },
   { sel: '#tasksBtn:not([hidden])', title: 'Daily streak', text: 'Three small tasks a day keep your streak alight - the flame grows the longer it lasts.' },
@@ -182,6 +183,26 @@ const BATTLE_TOUR: Step[] = [
   { sel: '#meCard', title: 'You', text: 'Your health. The bot’s spells take it down.' },
   { sel: '#oppCard', title: 'Your opponent', text: 'Its health - bring it to zero to win. Right and fast in a row (a combo) hits harder.' },
 ];
+const PAGE_KEY = 'kw:pageTours';
+function toured(): string[] { try { return JSON.parse(localStorage.getItem(PAGE_KEY) ?? '[]') as string[]; } catch { return []; } }
+function markToured(...pages: string[]) { try { localStorage.setItem(PAGE_KEY, JSON.stringify([...new Set([...toured(), ...pages])])); } catch { /* private mode */ } }
+let pageTourTimer = 0, pageTouring = false;
+/** a page opened: its tour, the first time (not during the tutorial, a game, or another tour) */
+function pageTour(screen: string) {
+  clearTimeout(pageTourTimer);
+  const steps = PAGE_TOURS[screen];
+  if (!steps || stage !== 'off' || tourAbort || toured().includes(screen)) return;
+  pageTourTimer = window.setTimeout(() => {
+    if (stage !== 'off' || tourAbort || ui.currentScreen() !== screen || document.querySelector('dialog[open]')) return;
+    if (!steps.some((s) => pick(s.sel))) return;
+    markToured(screen);
+    pageTouring = true;
+    // (Skip: no more page tours at all; Settings → "Show the page tours again" brings them back)
+    void spotlight(steps, { finalLabel: 'Got it', onSkip: () => markToured(...Object.keys(PAGE_TOURS)) }).finally(() => { pageTouring = false; });
+  }, 900);
+}
+/** settings: the page tours again */
+export function resetPageTours() { try { localStorage.removeItem(PAGE_KEY); } catch { /* fine */ } }
 let tourAbort: (() => void) | null = null;
 /** the first of the selector's choices that is really on screen (a hidden rail is still in the page, off to the side) */
 function pick(sel: string): HTMLElement | null {
@@ -305,6 +326,8 @@ export function tutorialChallenge() {
 
 /** Tips on each screen during the first battle. */
 export function tutorialScreen(screen: string) {
+  if (pageTouring) tourAbort?.(); // (a page's tour ends when you leave the page)
+  pageTour(screen);
   if (stage !== 'battle') return;
   if (screen === 'prep') coach('These are the words of the battle - a quick look (no need to learn them now: the answers will be shown). Press Ready when you like.');
   else if (screen === 'battle') coach(null);

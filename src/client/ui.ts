@@ -1697,7 +1697,7 @@ export function showHistory(list: MatchSummary[] | null, onOpen: (id: string) =>
     });
     row.append(
       characterEl(m.character, m.mode),
-      append(h('span', 'hist-mode'), modeBadge(m.mode), append(h('span', 'hist-mode-text'), h('span', 'hist-mode-name', MODE_LABEL[m.mode]), m.opponents.length ? append(h('span', 'hist-vs-line'), 'vs ', vs) : h('span', 'hist-vs-line', 'solo'))),
+      append(h('span', 'hist-mode'), modeBadge(m.mode), append(h('span', 'hist-mode-text'), append(h('span', 'hist-mode-name', MODE_LABEL[m.mode]), h('span', `hist-ranked${m.ranked ? ' on' : ''}`, m.ranked ? 'Ranked' : 'Unranked')), m.opponents.length ? append(h('span', 'hist-vs-line'), 'vs ', vs) : h('span', 'hist-vs-line', 'solo'))),
       h('span', 'hist-result', m.outcome === 'win' ? 'VICTORY' : m.outcome === 'loss' ? 'DEFEAT' : 'DRAW'),
       h('span', 'hist-date', dateTime(m.at)),
     );

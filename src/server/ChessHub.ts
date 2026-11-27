@@ -17,7 +17,7 @@ interface Room {
   bound?: { onEnd: () => void; ranked: boolean; ratings?: Record<string, { before: number; after: number; games: number }> };
 }
 /** a finished game, for each player's match history */
-export interface ChessRecord { at: number; vs: string; vsBot?: string; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
+export interface ChessRecord { at: number; vs: string; vsBot?: string; ranked?: boolean; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 /** the clocks a game may have: none, or 1–60 minutes with 0–30 s added a move */
 export function cleanTime(base: unknown, inc: unknown): { base: number; inc: number } {
@@ -208,7 +208,7 @@ export class ChessHub {
     // kept in both players' match history
     if (this.hooks.record && r.white && r.black) {
       for (const [p, c, o] of [[r.white, 'w', r.black], [r.black, 'b', r.white]] as const) {
-        this.hooks.record(p.id, { at: this.now(), vs: o.name, color: c, result: winner === null ? 'draw' : winner === c ? 'win' : 'loss', reason, moves: [...r.moves], times: [...r.times], base: r.base, inc: r.inc });
+        this.hooks.record(p.id, { at: this.now(), ...(r.bound?.ranked ? { ranked: true } : {}), vs: o.name, color: c, result: winner === null ? 'draw' : winner === c ? 'win' : 'loss', reason, moves: [...r.moves], times: [...r.times], base: r.base, inc: r.inc });
       }
     }
     this.push(r);

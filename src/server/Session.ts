@@ -317,7 +317,7 @@ export class Session implements Client {
       const wanted = (Array.isArray(msg.modes) ? msg.modes : []).filter((m): m is GameMode => MODES.includes(m as GameMode));
       const lock = await this.modeLock(wanted);
       if (lock) return this.send({ type: 'error', message: lock });
-      const err = this.matchmaker.enqueue(user.id, this, msg.modes, await this.allowedLevels(parseLevels(msg.levels)));
+      const err = this.matchmaker.enqueue(user.id, this, msg.modes, await this.allowedLevels(parseLevels(msg.levels)), msg.ranked);
       if (err) this.send({ type: 'error', message: err });
       return;
     }

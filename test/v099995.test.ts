@@ -207,7 +207,7 @@ test('0.9.9.9.9.5 Battles and Results: a rank card with every rank, mode tiles, 
   assert.ok(html.includes('<div id="qModes" class="q-tiles" role="group" aria-label="What to queue for"></div>'));
   assert.ok(html.includes('<span>Find match</span>'));
   const lad = src('src/client/ladder.ts');
-  assert.ok(lad.includes("card.onclick = () => openLadder('ranks');"));
+  assert.ok(lad.includes("card.onclick = () => void openLadder('top', mode ?? 'rapid');")); // (0.9.9.9.9.6 round 6: a card per ranked mode)
   assert.ok(lad.includes("['ranks', 'All ranks']"));
   const res = html.slice(html.indexOf('<section id="results"'), html.indexOf('</section>', html.indexOf('<section id="results"')));
   assert.ok(res.indexOf('class="result-bar"') < res.indexOf('id="statCompare"'));

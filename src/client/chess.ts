@@ -7,7 +7,7 @@
 // Chess and can be watched again; the pieces taken and who is ahead; how long each move took; pieces shaped like
 // chess pieces; their own sounds; the wizards speak their lines in their own voices, with a face to go with them.
 import { toFen, BOTS, botMove, colorOf, inCheck, judgeMove, kindOf, legalMoves, makeMove, moveSan, moveUci, outcome, parseFen, PIECE_KANJI, PIECE_NAME, PIECE_READING, posKey, replay, sqName, START_FEN, type BotId, type Color, type Kind, type Move, type Position } from '../shared/chess';
-import { lineFor, parseLine, type Moment } from '../shared/chesslines';
+import { lineFor, parseLine, voiceClip, type Moment } from '../shared/chesslines';
 import type { ChessRoomView, ClientMessage } from '../shared/protocol';
 import { api, type ChessGame } from './api';
 import * as audio from './audio';
@@ -15,7 +15,7 @@ import { miniPiece, pieceSvg } from './chesspieces';
 import { lang, tr } from './i18n';
 import { showKanji } from './kanjihelp';
 import * as ui from './ui';
-import { speakAs } from './voice';
+import { playClip, speakAs } from './voice';
 import { dragonSvg, heroSvg } from './wizard';
 import { preloadPieces } from './chesspieces';
 /** a bot's portrait (round 5: the Dragon is the boss's own) */
@@ -515,7 +515,8 @@ function say(moment: Moment) {
   const [mood, mark] = MOOD[moment] ?? ['calm', ''];
   setMood(mood, mark);
   // said aloud — the readings, so the voice can't misread a kanji
-  if (voiceOn) { const [rate, pitch] = VOICES[mode.bot]; speakAs(parts.map((x) => x.reading ?? x.text).join(''), rate, pitch); }
+  // (0.9.9.9.9.6 round 6: in their own recorded voice; the device's voice if the recording can't play)
+  if (voiceOn) { const bot = mode.bot; const [rate, pitch] = VOICES[bot]; playClip(voiceClip(bot, line.jp), () => speakAs(parts.map((x) => x.reading ?? x.text).join(''), rate, pitch)); }
 }
 
 // ── a game with a friend (the server's room) ──
@@ -586,7 +587,7 @@ export function showChessHistory(el: HTMLElement, games: ChessGame[] | null) {
     const pic = h('span', 'ch-pic'); pic.innerHTML = botPic(bot?.id ?? 'wizard');
     const mid = h('span', 'ch-mid');
     mid.append(h('b', '', bot ? `${tr(bot.name)} ${bot.elo}` : g.vs), h('span', 'hint', `${tr(g.color === 'w' ? 'White' : 'Black')} · ${tr(REASON[g.reason] ?? g.reason)} · ${Math.ceil(g.moves.length / 2)} ${tr('moves')} · ${new Date(g.at).toLocaleDateString(lang() === 'ru' ? 'ru-RU' : undefined)}`));
-    b.append(pic, mid, h('span', `ch-res ${g.result}`, tr(g.result === 'win' ? 'Win' : g.result === 'loss' ? 'Loss' : 'Draw')));
+    b.append(pic, mid, h('span', `hist-ranked${g.ranked ? ' on' : ''}`, tr(g.ranked ? 'Ranked' : 'Unranked')), h('span', `ch-res ${g.result}`, tr(g.result === 'win' ? 'Win' : g.result === 'loss' ? 'Loss' : 'Draw'))); // (round 6: ranked or not)
     b.onclick = () => openChessReplay(g);
     return b;
   }));

@@ -1,5 +1,6 @@
 import { LEVELS, type GameMode, type Level, type PlayerId, type ServerMessage } from '../shared/protocol';
 import type { Room } from './Room';
+import { isRankedMode } from '../shared/ranked';
 import type { RoomManager } from './RoomManager';
 
 /** Modes you can tick together in the online queue. Deck Duel has its own queue (it never mixes). */
@@ -18,9 +19,10 @@ export interface QueueClient {
   inRoom(): boolean;
 }
 
-interface Ticket { id: PlayerId; client: QueueClient; modes: GameMode[]; levels: Level[]; since: number }
+/** (round 6) ranked: the Ranked side of the queue (only ranked modes; meets only others on that side) */
+interface Ticket { id: PlayerId; client: QueueClient; modes: GameMode[]; levels: Level[]; since: number; ranked: boolean }
 /** Players found for each other: all must press Accept within ACCEPT_MS. */
-interface Pending { matchId: number; tickets: Ticket[]; mode: GameMode; accepted: Set<PlayerId>; timer: ReturnType<typeof setTimeout> }
+interface Pending { matchId: number; tickets: Ticket[]; mode: GameMode; ranked: boolean; accepted: Set<PlayerId>; timer: ReturnType<typeof setTimeout> }
 export const ACCEPT_MS = 5_000;
 /** How many players a queued match needs: Boss is always a full party of 4 against the dragon. */
 export const QUEUE_SIZE: Partial<Record<GameMode, number>> = { boss: 4, clash: 8 };
@@ -42,16 +44,19 @@ export class Matchmaker {
   constructor(private readonly rooms: RoomManager, private readonly rng: () => number = Math.random, private readonly now: () => number = Date.now) {}
 
   /** Start (or update) searching. Returns an error message if the request is invalid. */
-  enqueue(id: PlayerId, client: QueueClient, rawModes: unknown, rawLevels: unknown): string | null {
+  enqueue(id: PlayerId, client: QueueClient, rawModes: unknown, rawLevels: unknown, rawRanked?: unknown): string | null {
     if (client.inRoom()) return 'Leave your room first';
     const want = Array.isArray(rawModes) ? rawModes : [];
+    // (round 6: an app from before the two sides sends no flag — its ranked modes stay ranked, as they were)
+    const ranked = rawRanked !== false;
     const deck = want.includes('deck');
-    const modes: GameMode[] = deck ? ['deck'] : QUEUE_MODES.filter((m) => want.includes(m));
+    let modes: GameMode[] = deck ? ['deck'] : QUEUE_MODES.filter((m) => want.includes(m));
+    if (rawRanked === true) modes = modes.filter((m) => isRankedMode(m));
     if (modes.length === 0) return 'Pick at least one mode';
     const levels = Array.isArray(rawLevels) ? LEVELS.filter((l) => rawLevels.includes(l)) : [];
     if (!deck && levels.length === 0 && modes.some((m) => !NO_LEVELS.has(m))) return 'Pick at least one level';
     this.cancel(id, false);
-    this.tickets.push({ id, client, modes, levels: deck ? [] : levels, since: this.now() });
+    this.tickets.push({ id, client, modes, levels: deck ? [] : levels, since: this.now(), ranked });
     void this.match();
     this.broadcast();
     return null;
@@ -77,10 +82,10 @@ export class Matchmaker {
     if (!p || !p.tickets.some((t) => t.id === id) || p.accepted.has(id)) return;
     p.accepted.add(id);
     for (const t of p.tickets) t.client.send({ type: 'queue', state: 'found', mode: p.mode, matchId: p.matchId, acceptMs: 0, accepted: [...p.accepted], players: p.tickets.length });
-    if (p.accepted.size < p.tickets.length) return;
+    if (p.accepted.size < p.tickets.length || !this.pending.has(p.matchId)) return; // (round 6: seated once, even if an accept came in meanwhile)
     clearTimeout(p.timer);
     this.pending.delete(p.matchId);
-    void this.seat(p.tickets, p.mode);
+    void this.seat(p.tickets, p.mode, p.ranked);
   }
 
   /**
@@ -116,7 +121,7 @@ export class Matchmaker {
       const [tickets, mode] = group;
       this.tickets = this.tickets.filter((t) => !tickets.includes(t));
       const matchId = this.nextMatch++;
-      const p: Pending = { matchId, tickets, mode, accepted: new Set(), timer: setTimeout(() => this.endPending(p, null), ACCEPT_MS) };
+      const p: Pending = { matchId, tickets, mode, ranked: tickets[0].ranked && isRankedMode(mode), accepted: new Set(), timer: setTimeout(() => this.endPending(p, null), ACCEPT_MS) };
       this.pending.set(matchId, p);
       for (const t of tickets) t.client.send({ type: 'queue', state: 'found', mode, matchId, acceptMs: ACCEPT_MS, accepted: [], players: tickets.length });
     }
@@ -124,7 +129,7 @@ export class Matchmaker {
   }
 
   /** Everyone accepted: make the room, seat them and start. */
-  private async seat(group: Ticket[], mode: GameMode) {
+  private async seat(group: Ticket[], mode: GameMode, ranked: boolean) {
     while (this.busy) await new Promise((r) => setTimeout(r, 5));
     this.busy = true;
     try {
@@ -132,7 +137,8 @@ export class Matchmaker {
       const room = this.rooms.create(mode);
       // 0.9.9.9.9: a 1v1 from the queue is ranked (its first game); 0.9.9.9.9.6: only Rapid and Deck Duel (the owner:
       // "ranked for Deck Duel and 1v1 Rapid only") — Reading and Writing from the queue are friendly games
-      room.ranked = mode === 'rapid' || mode === 'deck' || mode === 'chess' || mode === 'clash'; // (0.9.9.9.9.6 round 5: chess and Grammar Clash too)
+      // (0.9.9.9.9.6 round 5: chess and Grammar Clash too; round 6: only from the queue's Ranked side)
+      room.ranked = ranked;
       const seated: Ticket[] = [];
       // Rapid: both race on the same words — the levels everyone picked, or (no level in common) all of them
       const common = group[0].levels.filter((l) => group.every((t) => t.levels.includes(l)));
@@ -167,7 +173,8 @@ export class Matchmaker {
       for (const m of a.modes) {
         const waited = (t: Ticket) => this.now() - t.since >= RAPID_ANY_AFTER_MS;
         const fits = (b: Ticket) => m !== 'rapid' || a.levels.some((l) => b.levels.includes(l)) || (waited(a) && waited(b));
-        const others = this.tickets.slice(i + 1).filter((b) => b.modes.includes(m) && fits(b));
+        // (round 6: a ranked mode — only players on the same side of the queue)
+        const others = this.tickets.slice(i + 1).filter((b) => b.modes.includes(m) && fits(b) && (!isRankedMode(m) || b.ranked === a.ranked));
         if (others.length >= sizeOf(m) - 1) options.push([[a, ...others.slice(0, sizeOf(m) - 1)], m]);
         // (round 5) Grammar Clash: fewer than 8 will do once the first has waited a while
         else if (m === 'clash' && others.length >= 1 && this.now() - a.since >= CLASH_GATHER_MS) options.push([[a, ...others.slice(0, sizeOf(m) - 1)], m]);

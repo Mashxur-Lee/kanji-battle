@@ -9,14 +9,14 @@ export interface GroupPerms { invite: 'all' | 'admins'; info: 'all' | 'admins'; 
 export interface GroupMemberView { id: string; name: string; login: string; pic: string | null; role: GroupRole; online: boolean; status?: PlayerStatus; friend: boolean }
 export interface GroupInfo { id: string; name: string; pic: string | null; perms: GroupPerms; createdAt: number; role: GroupRole; members: GroupMemberView[]; notify: NotifyMode }
 import type { KanaProgress } from '../shared/kanachart';
-import type { RankView } from '../shared/ranked';
+import type { RankedMode, RankView } from '../shared/ranked';
 import type { PlayerId, ServerMessage } from '../shared/protocol';
 /** 0.9.9.9.9: the ranked ladder */
 export interface LadderRow extends RankView { id: string; name: string; login: string; pic: string | null; place: number }
-export interface LadderView { top: LadderRow[]; me: RankView & { id: string }; friends: LadderRow[] }
+export interface LadderView { top: LadderRow[]; me: RankView & { id: string }; friends: LadderRow[]; /** (round 6) whose ladder, and your rank in every ranked mode */ mode?: RankedMode; modes?: Record<RankedMode, RankView> }
 /** 0.9.9.9.9.5: a replay saved to your account */
 /** 0.9.9.9.9.6 (round 4): a game of Kanji chess, as kept in Match history → Chess */
-export interface ChessGame { at: number; vs: string; vsBot?: string; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
+export interface ChessGame { at: number; vs: string; vsBot?: string; /** (round 6) from the queue's Ranked side */ ranked?: boolean; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
 export interface SavedReplay { id: string; savedAt: number; at: number; mode: string; label: string }
 /** 0.9.9.9.9.6: a GIF to send */
 export interface GifItem { id: string; url: string; w: number; h: number; preview: string }
@@ -199,7 +199,7 @@ export const api = {
   setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),
   matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),
-  ladder: () => call<LadderView>('GET', '/api/ladder'), // 0.9.9.9.9
+  ladder: (mode: RankedMode = 'rapid') => call<LadderView>('GET', `/api/ladder?mode=${mode}`), // 0.9.9.9.9 (round 6: one mode's)
   replay: (id: string) => call<{ replay: ReplayView }>('GET', `/api/replays/${encodeURIComponent(id)}`),
   // 0.9.9.9.9.5: replays saved to your account (kept for good; a few at most) — the rest are kept a week
   savedReplays: () => call<{ saved: SavedReplay[]; max: number }>('GET', '/api/me/replays'),

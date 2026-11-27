@@ -117,7 +117,10 @@ public class MainActivity extends Activity {
             }
         });
 
-        Uri link = linkOf(getIntent());
+        // 0.9.9.9.9.6 (round 6): opened again from Recents (or brought back by Android after it closed the app), the
+        // intent is the one the app first started with: its notification's link would open that chat once more
+        boolean replay = state != null || (getIntent() != null && (getIntent().getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0);
+        Uri link = replay ? null : linkOf(getIntent());
         web.loadUrl(link != null && isGame(link) ? link.toString() : SERVER);
     }
 
@@ -161,6 +164,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent); // (0.9.9.9.9.6 round 6: the latest one, its link used up below)
+        if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return;
         Uri link = linkOf(intent);
         if (link != null && isGame(link)) web.loadUrl(link.toString()); // an invite link while the app is open
     }
@@ -191,8 +196,15 @@ public class MainActivity extends Activity {
     }
 
     private void goBack() {
-        if (web.canGoBack()) web.goBack();
-        else moveTaskToBack(true);
+        // 0.9.9.9.9.6 (round 6): the page is asked first (a chat → the list → the menu). Its extra history entries were
+        // skipped by the WebView when they were added without a tap (Chrome's rule against back-button traps), so
+        // back in a chat left the app. Only at the menu (the page says "not mine") does the app go to the background.
+        web.evaluateJavascript("(function(){try{return window.kwBackNative?kwBackNative():null}catch(e){return null}})()", (r) -> {
+            if ("true".equals(r)) return;
+            if ("false".equals(r)) { moveTaskToBack(true); return; }
+            if (web.canGoBack()) web.goBack(); // (a page from before this patch)
+            else moveTaskToBack(true);
+        });
     }
 
     /** 0.9.9.9.5.1: the app is on screen (a friend's invite then shows in the game, not as a notification) */

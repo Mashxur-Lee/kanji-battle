@@ -55,7 +55,7 @@ async function sentCopy(url: string, file: string): Promise<Buffer | null> {
   } catch { return null; }
 }
 try { setServerBuild(readFileSync(path.join(PUBLIC_DIR, 'build.txt'), 'utf8')); } catch { /* not built (tests, dev) */ }
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8',
+const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.mp3': 'audio/mpeg', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8',
   /* 0.9.9.9.9.3: the game's fonts; robots.txt, llms.txt, the sitemap */ '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' };
 
 // ── accounts ──────────────────────────────────────────────────────────────────
@@ -75,11 +75,11 @@ hub.chess = new ChessHub((id, m) => { hub.sendTo(id, m); }, Date.now, Math.rando
   mayInvite: async (fromId, toId) => (await social.list(fromId)).some((f) => f.id === toId && f.status === 'accepted'),
   record: (userId, game) => { void study.addChessGame(userId, game).catch(() => { /* not important */ }); },
   // (round 5) a ranked game from the online queue moves both ratings (the ladder's 1v1 rule)
-  rate: (w, b, winner) => ranked.settle([{ id: w, outcome: winner === null ? 'draw' : winner === 'w' ? 'win' : 'loss', ranked: true }, { id: b, outcome: winner === null ? 'draw' : winner === 'b' ? 'win' : 'loss', ranked: true }] as never),
+  rate: (w, b, winner) => ranked.settle([{ id: w, outcome: winner === null ? 'draw' : winner === 'w' ? 'win' : 'loss', ranked: true }, { id: b, outcome: winner === null ? 'draw' : winner === 'b' ? 'win' : 'loss', ranked: true }] as never, 'chess'),
 });
 // 0.9.9.9.9.6 (round 4): Grammar Clash, the grammar quiz for 2–8 (ranked through the ladder; the ranked service is made below)
 const grammarHub = new GrammarHub((id, m) => { hub.sendTo(id, m); }, Date.now, Math.random, undefined, {
-  settle: (order) => ranked.settleField(order),
+  settle: (order) => ranked.settleField(order, 'clash'),
   invite: (friendId, from, code) => hub.sendTo(friendId, { type: 'clash_invite', from, code }),
 });
 hub.grammar = grammarHub;
@@ -225,7 +225,7 @@ const rooms = new RoomManager({
     for (const r of results) void insights.event(r.id, `game_end:${mode}`);
     const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[]; missed: MissedWord[]; rating?: RatingChange }> = {};
     // 0.9.9.9.9: a ranked 1v1 moves both ratings
-    const ratings = await ranked.settle(results).catch((e) => { reportServerError('ranked', e); return {} as Record<string, RatingChange>; });
+    const ratings = await ranked.settle(results, mode).catch((e) => { reportServerError('ranked', e); return {} as Record<string, RatingChange>; });
     // 0.9.9.3.4: "Kingslayer" — winning against an admin who played it out (no forfeit)
     const admins = new Set<string>();
     for (const r of results) if ((await store.findById(r.id))?.role === 'admin') admins.add(r.id);

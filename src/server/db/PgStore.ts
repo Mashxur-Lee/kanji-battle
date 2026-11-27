@@ -1,4 +1,5 @@
 import type { KanaProgress } from '../../shared/kanachart';
+import type { RankedMode } from '../../shared/ranked';
 import type { QuizStats } from '../../shared/quizstats';
 import postgres from 'postgres';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
@@ -17,7 +18,7 @@ interface UserRow {
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null; streak_day: string | null; border: string | null;
   daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null; last_seen?: string | number | null; email?: string | null; email_key?: string | null; kana?: KanaProgress | null; push_tokens?: string[] | null; quiz_stats?: QuizStats | null;
-  rating?: number | null; rated?: number | null;
+  rating?: number | null; rated?: number | null; ratings?: UserRecord['ratings'] | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -33,6 +34,7 @@ const toUser = (r: UserRow): UserRecord => ({
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0, streakDay: r.streak_day ?? null, border: r.border ?? 'none',
   dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null, lastSeen: r.last_seen != null ? Number(r.last_seen) : null, email: r.email ?? null, emailKey: r.email_key ?? null, kana: r.kana ?? {}, pushTokens: r.push_tokens ?? [], quizStats: r.quiz_stats ?? {},
   rating: r.rating ?? 1000, rated: r.rated ?? 0, // 0.9.9.9.9
+  ratings: r.ratings ?? {}, // 0.9.9.9.9.6 (round 6)
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -49,6 +51,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   wins: 'wins', losses: 'losses', // (0.9.9.9.6.3: the admin's own test tools can reset them)
   username: 'username', // (0.9.9.9.6.9: a guest saving their account picks a login)
   rating: 'rating', rated: 'rated', // 0.9.9.9.9: the ranked ladder
+  ratings: 'ratings', // 0.9.9.9.9.6 (round 6): each ranked mode's own rating
 };
 
 /**
@@ -173,6 +176,7 @@ export class PgStore implements Store {
     // 0.9.9.9.9: the ranked ladder, and match replays (kept two weeks)
     await this.sql`alter table kw_users add column if not exists rating integer not null default 1000`;
     await this.sql`alter table kw_users add column if not exists rated integer not null default 0`;
+    await this.sql`alter table kw_users add column if not exists ratings jsonb not null default '{}'::jsonb`; // (0.9.9.9.9.6 round 6)
     await this.sql`create index if not exists kw_users_ladder on kw_users (rating desc) where rated > 0`;
     await this.sql`create table if not exists kw_replays (id text primary key, at bigint not null, data bytea not null)`;
     await this.sql`create index if not exists kw_replays_at on kw_replays (at)`;
@@ -379,7 +383,7 @@ export class PgStore implements Store {
   }
   async update(id: string, patch: UserPatch) {
     const set: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = (k === 'dailyPlan' || k === 'kana' || k === 'pushTokens' || k === 'quizStats') && v !== null ? this.sql.json(v as never) : v;
+    for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = (k === 'dailyPlan' || k === 'kana' || k === 'pushTokens' || k === 'quizStats' || k === 'ratings') && v !== null ? this.sql.json(v as never) : v;
     if (Object.keys(set).length === 0) return this.findById(id);
     try {
       const [r] = await this.sql<UserRow[]>`update kw_users set ${this.sql(set)} where id = ${id} returning *`;
@@ -696,6 +700,15 @@ export class PgStore implements Store {
   // 0.9.9.9.9: the ladder and replays
   async ladder(limit: number, minGames: number) {
     return (await this.sql<UserRow[]>`select * from kw_users where not banned and rated >= ${minGames} order by rating desc, username asc limit ${limit}`).map(toUser);
+  }
+  // 0.9.9.9.9.6 (round 6): one ranked mode's ladder (mode is one of RANKED_MODES: checked before it gets here)
+  async ladderIn(mode: RankedMode, limit: number, minGames: number) {
+    return (await this.sql<UserRow[]>`select * from kw_users where not banned and coalesce((ratings -> ${mode} ->> 'g')::int, 0) >= ${minGames}
+      order by coalesce((ratings -> ${mode} ->> 'r')::int, 1000) desc, username asc limit ${limit}`).map(toUser);
+  }
+  async ratedAboveIn(mode: RankedMode, rating: number, minGames: number) {
+    const [r] = await this.sql<Array<{ n: string }>>`select count(*) as n from kw_users where not banned and coalesce((ratings -> ${mode} ->> 'g')::int, 0) >= ${minGames} and coalesce((ratings -> ${mode} ->> 'r')::int, 1000) > ${rating}`;
+    return Number(r?.n ?? 0);
   }
   async ratedAbove(rating: number, minGames: number) {
     const [r] = await this.sql<Array<{ n: string }>>`select count(*) as n from kw_users where not banned and rated >= ${minGames} and rating > ${rating}`;
