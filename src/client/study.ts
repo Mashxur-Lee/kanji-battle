@@ -302,6 +302,26 @@ function rate(r: Rating) {
   if (r === 'again') queue.splice(Math.min(3, queue.length), 0, { ...card, state: 'learning', intervals: { again: '1m', hard: '6m', good: '10m', easy: '4d' } });
   else if (r === 'hard' && card.state !== 'review') queue.splice(Math.min(6, queue.length), 0, card);
   next();
+  breakCheck();
+}
+/**
+ * 0.9.9.9.9.7: 500 cards in a day — time for a break (the owner: "tell him to chill out and try playing chess or Grammar
+ * Clash"). Once a day; "Okay" goes to the Games page, "Keep studying" carries on.
+ */
+const BREAK_AT = 500;
+function breakCheck() {
+  const day = new Date().toISOString().slice(0, 10);
+  let n = 0, asked = '';
+  try { const [d, c, a] = (localStorage.getItem('kw:cardsToday') ?? '').split('|'); n = d === day ? Number(c) || 0 : 0; asked = d === day ? a ?? '' : ''; } catch { /* private mode */ }
+  n++;
+  const ask = n >= BREAK_AT && asked !== '1';
+  try { localStorage.setItem('kw:cardsToday', `${day}|${n}|${ask || asked === '1' ? '1' : ''}`); } catch { /* private mode */ }
+  if (!ask) return;
+  void ui.confirmBox('Time for a break!', `${n} cards today - impressive! Give your brain a rest: how about a game of Kanji chess or Grammar Clash?`, 'Okay, let\'s play', 'Keep studying', false).then((go) => {
+    if (!go) return;
+    ui.show('menu');
+    document.getElementById('gamesBtn')?.click();
+  });
 }
 /** Back to the decks once every rating has been saved (so the counts are right). */
 async function leaveSession() {

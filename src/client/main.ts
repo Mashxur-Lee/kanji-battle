@@ -1036,6 +1036,9 @@ function changeEmail() { emailDialog({ required: false, current: user?.email ?? 
 function askEmail() {
   emailLabel();
   if (!user || user.guest || emailAsked || offline.isOffline()) return; // (0.9.9.9.6.9: a guest saves the account instead)
+  // (0.9.9.9.9.7: not over the tutorial or a page tour — a new player got the email window on top of Master Fumi's
+  // first card; it waits until they are done)
+  if (!document.getElementById('tutorial')?.hidden || document.querySelector('.tut-spot') || ['prep', 'battle', 'deck', 'chess', 'clash'].includes(ui.currentScreen() ?? '')) { setTimeout(askEmail, 4000); return; }
   // an email from before 0.9.9.9.7, never confirmed: ask (once a session) — the code goes out only if they want it
   if (user.email && !user.emailVerified) { emailAsked = true; codeDialog({ to: user.email, ask: true, onDone: emailSaved, onChange: changeEmail }); return; }
   if (user.email) return;

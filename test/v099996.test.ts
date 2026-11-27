@@ -21,7 +21,7 @@ import { VERSION } from '../src/shared/version';
 const src = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 
 test('0.9.9.9.9.6 version and patch notes', () => {
-  assert.equal(VERSION, '0.9.9.9.9.6');
+  assert.ok(['0.9.9.9.9.6', '0.9.9.9.9.7'].includes(VERSION)); // (0.9.9.9.9.7: the next one is checked in v099997.test.ts)
   const wn = src('src/client/whatsnew.ts');
   assert.ok(wn.indexOf("v: '0.9.9.9.9.6'") < wn.indexOf("v: '0.9.9.9.9.5'"), 'the newest first');
 });

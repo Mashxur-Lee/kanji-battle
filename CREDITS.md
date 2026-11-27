@@ -62,6 +62,10 @@ The chess wizards' spoken lines and the Grammar page's (Master Fumi, the example
 
 (The game also credits them in About.) Each character's own terms of use apply; read them before changing a voice.
 
+## Sounds
+
+The chess pieces' knocks (`public/sounds/chess/`) are from [Kenney](https://www.kenney.nl)'s "Impact Sounds" (CC0: free for any use; credited with thanks).
+
 ## Fonts
 
 - **Dela Gothic One** (titles) by artakana, and **M PLUS Rounded 1c** (everything else) by the M+ Fonts Project — both under the

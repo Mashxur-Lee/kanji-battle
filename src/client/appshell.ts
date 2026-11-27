@@ -138,6 +138,12 @@ function renderAppDialog() {
 function goBack(): boolean {
   const open = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].pop();
   if (open) { open.close(); return true; }
+  // (0.9.9.9.9.7: a page tour's bubble: Back skips the tour; the tutorial's cards: Back stays — it sent the app to the
+  // background, as the menu is behind them; found on the Android emulator)
+  const tourSkip = [...document.querySelectorAll<HTMLButtonElement>('.tut-spot .tb-acts .pill:not(.primary)')].pop();
+  if (tourSkip) { tourSkip.click(); return true; }
+  const tut = document.getElementById('tutorial');
+  if (tut && !tut.hidden) return true;
   const scr = ui.currentScreen();
   if (!scr || scr === 'menu' || scr === 'auth') return false;
   // (0.9.9.9.9.6 round 2: in an open chat, back to the list of chats — it went to the menu)

@@ -85,7 +85,9 @@ const SHELL = ['/', '/index.html', '/privacy.html', '/terms.html', '/legal.css',
   // 0.9.9.9.9.4: the arenas' surface detail (High)
   '/textures/kw-detail.webp', '/textures/kw-detail2.webp',
   // 0.9.9.9.9.6 (round 5): the chess pieces (the owner's design) — chess against a wizard works offline
-  ...readdirSync(r('public/chess')).filter((f) => f.endsWith('.webp')).map((f) => `/chess/${f}`)];
+  ...readdirSync(r('public/chess')).filter((f) => f.endsWith('.webp')).map((f) => `/chess/${f}`),
+  // 0.9.9.9.9.7: its wooden sounds (60 KB)
+  ...readdirSync(r('public/sounds/chess')).filter((f) => f.endsWith('.mp3')).map((f) => `/sounds/chess/${f}`)];
 const DATA = ['/vocab.json', '/examples.json', '/kanji.json', '/meanings-ru.json'];
 const hashOf = (files) => { const h = createHash('sha256'); for (const f of files) if (f !== '/') { try { h.update(readFileSync(r('public', f))); } catch { /* not built yet */ } } return h.digest('hex').slice(0, 12); };
 const sw = readFileSync(r('src/client/sw.js'), 'utf8')

@@ -1,6 +1,7 @@
 // Study decks you can open and edit (All / Struggling / Custom), adding your own words, the JLPT-style
 // quiz, the reading passage, and — on the results screen — choosing where the words you missed go.
 import { taskPassed } from '../shared/progress';
+import { dictionaryQueries, EXTRA_WORDS, findInVocab, numberWord, pickDictWord, PREFIXED, splitCompound } from '../shared/wordlookup';
 import { furigana, loadExamples } from './examples';
 import { buildOnoQuiz } from '../shared/quiz';
 import { kanjiTappable, wordHooks } from './kanjihelp';
@@ -550,15 +551,22 @@ wordHooks.addTo = (w, id) => addToDeck(w, id);
 
 /** a word of a sentence: looked up in the dictionary by its written form and reading (verbs: 回って → 回る / 回す) */
 async function lookup(base: string, reading: string, after: string): Promise<PWord | null> {
+  // 0.9.9.9.9.7 (shared/wordlookup.ts): the words the game's own lines use that the dictionary lacks, a number with its
+  // counter, then the game's words in their dictionary form (勝った → 勝つ), then the full dictionary
+  const ru = lang() === 'ru';
+  const extra = EXTRA_WORDS[`${base}|${reading}`];
+  if (extra) return { kanji: extra.kanji, reading: extra.reading, meaning: ru ? extra.ru : extra.en };
+  const num = numberWord(base);
+  if (num) return { kanji: base, reading, meaning: ru ? num.ru : num.en };
   const { VOCAB, loadVocab } = await import('./offline/vocab');
   try { await loadVocab(); } catch { return null; }
-  const exact = VOCAB.find((v) => v.kanji === base && v.reading === reading);
-  if (exact) return { kanji: exact.kanji, reading: exact.reading, meaning: exact.meaning, id: exact.id };
-  // the dictionary form: the same kanji + okurigana, its reading starting with the furigana
-  const near = VOCAB.filter((v) => v.kanji.startsWith(base) && v.reading.startsWith(reading) && v.kanji.length <= base.length + 3 && !/[一-鿿]/.test(v.kanji.slice(base.length)));
-  const best = near.find((v) => after.startsWith(v.kanji.slice(base.length))) ?? near.find((v) => v.kanji.length > base.length) ?? near[0];
-  if (best) return { kanji: best.kanji, reading: best.reading, meaning: best.meaning, id: best.id };
-  return fromDictionary(base, reading, after);
+  // (ご飯, お客様: the prefix is outside the furigana)
+  const pre = PREFIXED[`${base}|${reading}`];
+  const w = pre ? VOCAB.find((x) => x.kanji === pre) : null;
+  if (w) return { kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.id };
+  const v = findInVocab(VOCAB, base, reading, after);
+  if (v) return { kanji: v.kanji, reading: v.reading, meaning: v.meaning, id: v.id };
+  return (await fromDictionary(pre ?? base, reading, after)) ?? (await asCompound(base, reading, VOCAB));
 }
 /**
  * 0.9.9.9: not one of the game's words — the full dictionary (JMdict, the one on the dictionary page) instead; most
@@ -568,18 +576,27 @@ async function fromDictionary(base: string, reading: string, after: string): Pro
   try {
     const { dictionary, ruOf } = await import('./dictui');
     const d = await dictionary();
-    const kana = after.replace(/[^\u3040-\u309f]/g, '');
-    const fits = (w: { kanji: string[]; kana: string[] }) => w.kanji.some((k) => k.startsWith(base)) && (!reading || w.kana.some((r) => r.startsWith(reading)));
     let hit = null;
-    // the word as written with its ending first (回って → 回る), then shorter
-    for (const q of [base + kana.slice(0, 4), base + kana.slice(0, 3), base + kana.slice(0, 2), base + kana.slice(0, 1), base]) {
-      const hits = d.search(q, 10);
-      hit = hits.find((w) => w.kanji[0] === base && fits(w)) ?? hits.find(fits) ?? null;
-      if (hit) break;
-    }
+    for (const q of dictionaryQueries(base, after)) { hit = pickDictWord(d.search(q, 12), q, base, reading); if (hit) break; }
     if (!hit) return null;
     const meaning = (ruOf(hit) ?? hit.senses.map((x) => x[1])).slice(0, 3).join('; ');
     return { kanji: hit.kanji[0] ?? base, reading: hit.kana[0] ?? reading, meaning };
+  } catch { return null; }
+}
+/** 0.9.9.9.9.7: a compound the dictionary doesn't list as one word (参加費 = 参加 + 費): its two halves' meanings */
+async function asCompound(base: string, reading: string, vocab: ReadonlyArray<{ kanji: string; meaning: string }>): Promise<PWord | null> {
+  try {
+    const { dictionary, ruOf } = await import('./dictui');
+    const d = await dictionary();
+    const ru = lang() === 'ru';
+    const split = splitCompound(base, (part) => {
+      const v = vocab.find((x) => x.kanji === part);
+      if (v && !ru) return v.meaning.split(/[;,]/)[0];
+      const hit = d.search(part, 8).find((w) => w.kanji.includes(part));
+      return hit ? ((ru ? ruOf(hit)?.[0] : null) ?? hit.senses[0]?.[1] ?? '').split(/[;,]/)[0] || null : v ? v.meaning.split(/[;,]/)[0] : null;
+    });
+    if (!split) return null;
+    return { kanji: base, reading, meaning: split.parts.map((p, i) => `${p} (${split.meanings[i]})`).join(' + ') };
   } catch { return null; }
 }
 function showGloss(at: HTMLElement | null, ...kids: Node[]) {

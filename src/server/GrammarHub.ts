@@ -12,7 +12,7 @@ import { REAL_TIMERS, type TimerHandle, type Timers } from './clock';
 import { GRAMMAR, grammarOf, shuffled, type GrammarLevel, type GrammarPoint, type GrammarQuestion } from '../shared/grammar';
 import type { ClashView, ClientMessage, ServerMessage } from '../shared/protocol';
 
-export interface ClashPlayer { id: string; name: string; avatar: string; staff: string; guest?: boolean }
+export interface ClashPlayer { id: string; name: string; avatar: string; staff: string; /** (0.9.9.9.9.7) Customize → Omnipotence: the colour of their flames */ flame?: string; guest?: boolean }
 export interface ClashHooks {
   /** ranked: the final order (best first) → each player's rating change */
   settle?: (order: string[]) => Promise<Record<string, { before: number; after: number; games: number }>>;
@@ -321,8 +321,8 @@ export class GrammarHub {
     return {
       id: r.id, code: r.code, host: r.host, status: r.status, quick: r.quick, ranked: r.ranked, level: r.level, count: r.count,
       now: this.now(), endsAt: r.endsAt, limitMs: CLASH.questionMs, n: Math.max(0, r.i) + 1, total: r.qs.length || r.count,
-      players: [...r.seats.values()].map((s) => ({ id: s.id, name: s.name, avatar: s.avatar, staff: s.staff, ready: s.ready, score: s.score, streak: s.streak, best: s.best, right: s.right, left: s.left, answered: r.status === 'question' && r.picks.has(s.id), ...(reveal && s.last ? { last: s.last } : {}) })),
-      ...(showQ ? { q: { jp: q.q.jp, options: q.options, double: q.double, ...(r.status !== 'question' ? { answer: q.answer, filled: q.q.options[0], en: q.q.en, ru: q.q.ru, why: { pattern: q.g.pattern, level: q.g.level, meaning: q.g.meaning, rule: q.g.rules[0] } } : {}), ...(r.picks.has(me) ? { mine: r.picks.get(me)!.k } : {}) } } : {}),
+      players: [...r.seats.values()].map((s) => ({ id: s.id, name: s.name, avatar: s.avatar, staff: s.staff, flame: s.flame ?? 'blue', ready: s.ready, score: s.score, streak: s.streak, best: s.best, right: s.right, left: s.left, answered: r.status === 'question' && r.picks.has(s.id), ...(reveal && s.last ? { last: s.last } : {}) })),
+      ...(showQ ? { q: { jp: q.q.jp, options: q.options, double: q.double, en: q.q.en, ru: q.q.ru /* (0.9.9.9.9.7: the translation while you answer too) */, ...(r.status !== 'question' ? { answer: q.answer, filled: q.q.options[0], why: { pattern: q.g.pattern, level: q.g.level, meaning: q.g.meaning, rule: q.g.rules[0] } } : {}), ...(r.picks.has(me) ? { mine: r.picks.get(me)!.k } : {}) } } : {}),
       ...(r.status === 'over' ? { order: this.order(r) } : {}),
       ...(r.ratings ? { ratings: r.ratings } : {}),
       ...(r.bound ? { bound: true } : {}),

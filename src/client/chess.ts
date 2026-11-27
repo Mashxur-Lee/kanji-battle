@@ -108,6 +108,7 @@ export function initChess(sender: (m: ClientMessage) => void) {
   drawSetup();
   drawVoice();
   preloadPieces(); // (round 5: the pieces are pictures now)
+  audio.preloadChessSounds(); // (0.9.9.9.9.7: the wooden recordings)
 }
 
 let myId = '';
@@ -591,13 +592,18 @@ export function chessReconnected() { if (mode.kind === 'friend' && !over) send({
 export function showChessHistory(el: HTMLElement, games: ChessGame[] | null) {
   if (!games) { el.replaceChildren(h('p', 'hint', tr('Loading…'))); return; }
   if (!games.length) { el.replaceChildren(h('p', 'hint', tr('No chess games yet - play a wizard or a friend on the Games page.'))); return; }
+  // (0.9.9.9.9.7: drawn like a match in Matches — the figure, the mode and who, the result, the date; it was a light card
+  // of its own, hard to read)
   el.replaceChildren(...games.map((g) => {
-    const b = h('button', `history-item chess-hist ${g.result}`, undefined, { type: 'button' });
+    const b = h('button', `hist-row ${g.result}`, undefined, { type: 'button' });
     const bot = g.vsBot ? BOTS.find((x) => x.id === g.vsBot) : undefined;
-    const pic = h('span', 'ch-pic'); pic.innerHTML = botPic(bot?.id ?? 'wizard');
-    const mid = h('span', 'ch-mid');
-    mid.append(h('b', '', bot ? `${tr(bot.name)} ${bot.elo}` : g.vs), h('span', 'hint', `${tr(g.color === 'w' ? 'White' : 'Black')} · ${tr(REASON[g.reason] ?? g.reason)} · ${Math.ceil(g.moves.length / 2)} ${tr('moves')} · ${new Date(g.at).toLocaleDateString(lang() === 'ru' ? 'ru-RU' : undefined)}`));
-    b.append(pic, mid, h('span', `hist-ranked${g.ranked ? ' on' : ''}`, tr(g.ranked ? 'Ranked' : 'Unranked')), h('span', `ch-res ${g.result}`, tr(g.result === 'win' ? 'Win' : g.result === 'loss' ? 'Loss' : 'Draw'))); // (round 6: ranked or not)
+    const pic = h('span', 'char-sprite ch-pic'); pic.innerHTML = botPic(bot?.id ?? 'wizard');
+    const text = h('span', 'hist-mode-text');
+    const name = h('span', 'hist-mode-name', tr('Kanji chess'));
+    name.append(h('span', `hist-ranked${g.ranked ? ' on' : ''}`, tr(g.ranked ? 'Ranked' : 'Unranked')));
+    text.append(name, h('span', 'hist-vs-line', `vs ${bot ? `${tr(bot.name)} ${bot.elo}` : g.vs} · ${tr(g.color === 'w' ? 'White' : 'Black')} · ${tr(REASON[g.reason] ?? g.reason)} · ${Math.ceil(g.moves.length / 2)} ${tr('moves')}`));
+    const mode = h('span', 'hist-mode'); mode.append(ui.modeBadge('chess'), text);
+    b.append(pic, mode, h('span', 'hist-result', tr(g.result === 'win' ? 'VICTORY' : g.result === 'loss' ? 'DEFEAT' : 'DRAW')), h('span', 'hist-date', ui.dateTime(g.at)));
     b.onclick = () => openChessReplay(g);
     return b;
   }));

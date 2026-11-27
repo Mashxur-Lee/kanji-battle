@@ -8,6 +8,11 @@ import { N4 } from './grammar-n4';
 import { N3 } from './grammar-n3';
 import { N2 } from './grammar-n2';
 import { N1 } from './grammar-n1';
+import { N5B } from './grammar-n5b';
+import { N4B } from './grammar-n4b';
+import { N3B } from './grammar-n3b';
+import { N2B } from './grammar-n2b';
+import { N1B } from './grammar-n1b';
 
 export type GrammarLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export const GRAMMAR_LEVELS: GrammarLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
@@ -26,7 +31,8 @@ export interface GrammarPoint {
   questions: GrammarQuestion[];
 }
 
-export const GRAMMAR: GrammarPoint[] = [...N5, ...N4, ...N3, ...N2, ...N1]; // (round 5: N3, N2 and N1 too)
+// (0.9.9.9.9.7: and each level's part two — the rest of its core points)
+export const GRAMMAR: GrammarPoint[] = [...N5, ...N5B, ...N4, ...N4B, ...N3, ...N3B, ...N2, ...N2B, ...N1, ...N1B]; // (round 5: N3, N2 and N1 too)
 export const grammarOf = (level: GrammarLevel) => GRAMMAR.filter((g) => g.level === level);
 export const grammarById = (id: string) => GRAMMAR.find((g) => g.id === id) ?? null;
 /** a lesson is passed with this many of its questions right (all but one) */
