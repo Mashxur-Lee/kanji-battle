@@ -178,6 +178,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const b = await r.json();
         return res(200, await messages.mute(u, b.who, b.on === true));
+      } else if (messages && r.method === 'POST' && url === '/api/messages/broadcast') {
+        // 0.9.9.9.9.6 (round 5): an admin writes to every player as the team
+        const u = await auth.requireAdmin(r.token);
+        return res(200, await messages.broadcast(u, (await r.json()).text));
       } else if (messages && r.method === 'GET' && url === '/api/messages/unread') {
         return res(200, await messages.unread(await auth.authenticate(r.token)));
       } else if (messages && r.method === 'PUT' && url === '/api/messages/notify') {

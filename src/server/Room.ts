@@ -57,6 +57,8 @@ export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<R
  * reading), over at least this many words: a script, most likely. A ranked match like that doesn't move anyone's
  * rating, and the team hears of it (a person answers in 1.5–4 s; a quick one, now and then, under 1 s).
  */
+/** 0.9.9.9.9.6 (round 5): Grammar Clash is for 2 to 8 */
+export const CLASH_ROOM_MAX = 8;
 export const TOO_FAST = { ms: 700, words: 8 } as const;
 export interface Suspect { id: PlayerId; name: string; avgMs: number; correct: number }
 export function tooFast(stats: PlayerStats | undefined): boolean {
@@ -86,7 +88,18 @@ export interface RoomDeps {
   saveReplay?: (data: ReplayData) => Promise<string | null>;
   /** 0.9.9.9.9.2: a ranked match not counted — someone answered faster than a person can (the team is told) */
   onSuspect?: (who: Suspect[], mode: GameMode) => void;
+  /**
+   * 0.9.9.9.9.6 (round 5): Kanji chess and Grammar Clash are played outside the room (ChessHub, GrammarHub): the room
+   * gathers the players (its lobby, the online queue), hands them over, and is back in its lobby when the game ends
+   */
+  external?: (mode: 'chess' | 'clash', players: ExternalPlayer[], opts: { ranked: boolean; settings: RoomSettings }, onEnd: () => void) => void;
+  /** a player left the room during such a game */
+  externalLeave?: (mode: 'chess' | 'clash', id: PlayerId) => void;
 }
+export interface ExternalPlayer { id: PlayerId; name: string; avatar: string; staff: string }
+/** 0.9.9.9.9.6 (round 5): the host's settings for chess (the clock) and Grammar Clash (the level, how many questions) */
+export interface RoomSettings { base: number; inc: number; level: string; count: number }
+export const isExternal = (m: GameMode): m is 'chess' | 'clash' => m === 'chess' || m === 'clash';
 
 type Phase = 'lobby' | 'game' | 'results';
 interface Member {
@@ -139,6 +152,8 @@ export class Room {
   /** 0.9.9.9.9: a room made by the online queue for a 1v1 — its first game is ranked (a rematch isn't) */
   ranked = false;
   private gamesPlayed = 0;
+  /** 0.9.9.9.9.6 (round 5): chess's clock, Grammar Clash's level and length (the host's) */
+  private settings: RoomSettings = { base: 300_000, inc: 0, level: 'N5', count: 10 };
   /** 0.9.9.9.9: the match being recorded (replays); its start (ms) */
   private tape: TapeEntry[] | null = null;
   private tapeAt = 0;
@@ -189,7 +204,9 @@ export class Room {
     if (by !== this.hostId) return 'Only the host can change the mode';
     if (this.phase !== 'lobby') return 'Change the mode in the lobby';
     if (this.opts.tutorial || mode === this.roomMode) return null;
-    const max = mode === 'boss' ? BOSS_PARTY_SIZE : this.opts.maxPlayers;
+    const max = mode === 'boss' ? BOSS_PARTY_SIZE : mode === 'clash' ? CLASH_ROOM_MAX : mode === 'chess' ? 2 : this.opts.maxPlayers;
+    // (round 5) no AI players in chess or Grammar Clash
+    if (isExternal(mode)) for (const b of this.roster.filter((p) => p.bot)) { b.bot!.dispose(); this.roster = this.roster.filter((p) => p !== b); }
     if (this.humans.length > max) return `Too many players for ${MODE_LABEL[mode]} - it is for ${max}`;
     while (this.roster.length > max) {
       const b = [...this.roster].reverse().find((p) => p.bot);
@@ -211,8 +228,8 @@ export class Room {
   }
 
   /** Boss mode is a party of up to 4 against the dragon; the duels are 1v1. */
-  get maxPlayers() { return this.mode === 'boss' ? BOSS_PARTY_SIZE : this.opts.maxPlayers; }
-  get minPlayers() { return this.mode === 'boss' ? 1 : this.opts.maxPlayers; }
+  get maxPlayers() { return this.mode === 'boss' ? BOSS_PARTY_SIZE : this.mode === 'clash' ? CLASH_ROOM_MAX : this.mode === 'chess' ? 2 : this.opts.maxPlayers; }
+  get minPlayers() { return this.mode === 'boss' ? 1 : this.mode === 'clash' || this.mode === 'chess' ? 2 : this.opts.maxPlayers; }
   has(id: PlayerId) { return this.roster.some((m) => m.id === id); }
 
   join(id: PlayerId, name: string, client: Client, levels?: Level[], profile: MemberProfile = { crit: 0, xp: 0 }): { ok: true } | { ok: false; error: string } {
@@ -289,6 +306,21 @@ export class Room {
     if (this.phase === 'lobby') this.broadcastLobby();
   }
 
+  /** 0.9.9.9.9.6 (round 5): the host sets chess's clock or Grammar Clash's level and length; everyone confirms again */
+  setSettings(by: PlayerId, raw: Record<string, unknown>) {
+    if (by !== this.hostId || this.phase !== 'lobby') return;
+    const s = { ...this.settings };
+    if (typeof raw.base === 'number' && typeof raw.inc === 'number') {
+      const base = Math.round(raw.base), inc = Math.round(raw.inc);
+      if ((base === 0 && inc === 0) || (base >= 60_000 && base <= 3_600_000 && inc >= 0 && inc <= 60_000)) { s.base = base; s.inc = inc; }
+    }
+    if (typeof raw.level === 'string' && ['N5', 'N4', 'N3', 'N2', 'N1', 'mix'].includes(raw.level)) s.level = raw.level;
+    if ([5, 10, 15, 20].includes(Number(raw.count))) s.count = Number(raw.count);
+    this.settings = s;
+    for (const p of this.roster) if (!p.bot && p.id !== by) p.ready = false;
+    this.broadcastLobby();
+  }
+
   start(by: PlayerId) {
     if (by !== this.hostId || this.phase !== 'lobby' || this.mode === 'deck') return; // Deck Duel starts on Ready
     if (this.roster.length < this.minPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Waiting for an opponent' });
@@ -302,6 +334,7 @@ export class Room {
   /** Host adds an AI player (knowledge N5–N1) to the lobby: an opponent in duels, a teammate vs the dragon. */
   addBot(by: PlayerId, level: unknown) {
     if (by !== this.hostId || this.phase !== 'lobby' || !isBotLevel(level)) return;
+    if (isExternal(this.mode)) return this.clients.get(by)?.send({ type: 'error', message: this.mode === 'chess' ? 'Play the wizards on the Kanji chess page' : 'Grammar Clash is for people - invite your friends' });
     if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Room is full' });
     const id = `ai-${this.code}-${++this.nextBot}`;
     const bot = new Bot(id, level, this.botHost());
@@ -498,7 +531,7 @@ export class Room {
     this.clients.delete(id);
     // Forfeit while the leaver is still on the roster, so the results screen can name them.
     const wasInGame = this.phase === 'game';
-    if (wasInGame) this.game?.forfeit(id);
+    if (wasInGame) { if (isExternal(this.mode)) this.deps.externalLeave?.(this.mode, id); else this.game?.forfeit(id); }
     this.roster = this.roster.filter((p) => p.id !== id);
     this.rematchVotes.delete(id);
     if (!m.bot && this.humans.length && !wasInGame) this.sysChat(m.id, m.name, 'leave'); // 0.9.9.9.5.5: the others see they left
@@ -514,9 +547,29 @@ export class Room {
       this.watchers.clear();
       return this.deps.onEmpty();
     }
+    if (wasInGame && isExternal(this.mode)) { if (this.humans.length < 2) { this.phase = 'lobby'; this.broadcastLobby(); } return; }
     if (wasInGame && this.phase !== 'lobby') return;
     if (this.phase === 'lobby') this.broadcastLobby();
     else this.broadcast({ type: 'rematch_status', votes: [...this.rematchVotes] });
+  }
+
+  /** 0.9.9.9.9.6 (round 5): chess / Grammar Clash — the players go to the game's hub; back to the lobby when it ends */
+  private startExternal(mode: 'chess' | 'clash') {
+    if (!this.deps.external) { for (const c of this.clients.values()) c.send({ type: 'error', message: 'This game needs the internet' }); return; }
+    const players = this.humans.map((p) => ({ id: p.id, name: p.name, avatar: p.profile.character ?? 'wizard', staff: p.profile.staff ?? 'verdant' }));
+    this.phase = 'game';
+    this.gamesPlayed++;
+    for (const p of this.roster) p.ready = false;
+    this.deps.onGameStart?.(mode, players.map((p) => p.id));
+    const ranked = this.ranked && this.gamesPlayed === 1;
+    let ended = false;
+    this.deps.external(mode, players, { ranked, settings: { ...this.settings } }, () => {
+      if (ended) return;
+      ended = true;
+      if (this.phase !== 'game') return;
+      this.phase = 'lobby';
+      this.broadcastLobby();
+    });
   }
 
   // ── internals ─────────────────────────────────────────────────────────────
@@ -553,6 +606,7 @@ export class Room {
     this.startGameNow();
   }
   private startGameNow() {
+    if (isExternal(this.mode)) return this.startExternal(this.mode);
     this.game?.dispose();
     this.rematchVotes.clear();
     this.lastGameOver = undefined;
@@ -813,7 +867,7 @@ export class Room {
 
   private broadcastLobby() {
     if (!this.hostId) return;
-    this.broadcast({ type: 'lobby', players: this.view(), hostId: this.hostId, maxPlayers: this.maxPlayers, minPlayers: this.minPlayers, mode: this.mode, open: this.isOpen });
+    this.broadcast({ type: 'lobby', players: this.view(), hostId: this.hostId, maxPlayers: this.maxPlayers, minPlayers: this.minPlayers, mode: this.mode, open: this.isOpen, ...(isExternal(this.mode) ? { settings: this.settings } : {}) });
   }
 
   private broadcast(msg: ServerMessage) {

@@ -449,7 +449,8 @@ function nextQuestion() {
   $('quizDone').hidden = false;
   $('quizResult').textContent = `${score} / ${quiz.length} correct${score === quiz.length ? ' - perfect!' : ''}`;
   recordQuiz(mode === 'ono' ? 'ono' : 'jlpt', score, quiz.length, Date.now() - quizStartedAt); // (the Quizzes screen's best / last / times)
-  if (mode === 'jlpt') {
+  // (0.9.9.9.9.6 round 5: the onomatopoeia quiz counts for the daily task too — "7/10 in any quiz")
+  {
     void api.task('quiz', score, quiz.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (7/10 or better)
     if (!taskPassed('quiz', score, quiz.length)) ui.toast('For the daily task, get 7 out of 10 or better - try another quiz!', 5000);
   }

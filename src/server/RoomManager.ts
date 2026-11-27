@@ -1,11 +1,11 @@
 import type { GameMode, PlayerId, VocabEntry } from '../shared/protocol';
 import type { WritingJudge } from './Game';
-import { DEFAULT_ROOM_OPTIONS, Room, type MatchEndHook, type ReplayData, type RoomOptions, type Suspect } from './Room';
+import { DEFAULT_ROOM_OPTIONS, Room, type MatchEndHook, type ReplayData, type RoomOptions, type Suspect, type RoomDeps } from './Room';
 import { Strikes } from './strikes';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-export interface ManagerDeps { judgeWriting?: WritingJudge; judgeDeck?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; spellIds?: (id: string) => Promise<ReadonlySet<string>>; onMatchEnd?: MatchEndHook; onGameStart?: (mode: GameMode, playerIds: PlayerId[]) => void; /** 0.9.9.9.9 */ saveReplay?: (data: ReplayData) => Promise<string | null>; /** 0.9.9.9.9.2 */ onSuspect?: (who: Suspect[], mode: GameMode) => void }
+export interface ManagerDeps { judgeWriting?: WritingJudge; judgeDeck?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; spellIds?: (id: string) => Promise<ReadonlySet<string>>; onMatchEnd?: MatchEndHook; onGameStart?: (mode: GameMode, playerIds: PlayerId[]) => void; /** 0.9.9.9.9 */ saveReplay?: (data: ReplayData) => Promise<string | null>; /** 0.9.9.9.9.2 */ onSuspect?: (who: Suspect[], mode: GameMode) => void; /** 0.9.9.9.9.6 (round 5) */ external?: RoomDeps['external']; externalLeave?: RoomDeps['externalLeave'] }
 
 /** Owns all rooms and remembers which room each account is sitting in (for reconnects). */
 export class RoomManager {
@@ -27,6 +27,7 @@ export class RoomManager {
       judgeDeck: this.deps.judgeDeck,
       writableFilter: this.deps.writableFilter,
       spellIds: this.deps.spellIds,
+      external: this.deps.external, externalLeave: this.deps.externalLeave, // (0.9.9.9.9.6 round 5: chess, Grammar Clash)
       onMatchEnd: this.deps.onMatchEnd,
       onGameStart: this.deps.onGameStart,
       saveReplay: this.deps.saveReplay,

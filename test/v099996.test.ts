@@ -217,7 +217,7 @@ test('0.9.9.9.9.6 the daily streak: two tasks (a quiz, the daily challenge) — 
 });
 
 test('0.9.9.9.9.6 ranked: Rapid and Deck Duel only; the queue\'s mode rules open from the (!) only', () => {
-  assert.ok(src('src/server/Matchmaker.ts').includes("room.ranked = mode === 'rapid' || mode === 'deck';"));
+  assert.ok(src('src/server/Matchmaker.ts').includes("room.ranked = mode === 'rapid' || mode === 'deck' || mode === 'chess' || mode === 'clash';"), 'round 5: chess and Grammar Clash too');
   const q = src('src/client/queue.ts');
   assert.ok(q.includes("info.addEventListener('click', toggle);"));
   assert.ok(!q.includes("el.addEventListener('focusin', open);"), 'picking a mode no longer opens it');
@@ -328,7 +328,7 @@ test('0.9.9.9.9.6 chess rules: the standard move counts (castling, en passant, p
 });
 
 test('0.9.9.9.9.6 chess bots: four of them (200 to 1600), always a legal move; a blunder is called one', () => {
-  assert.deepEqual(BOTS.map((b) => [b.id, b.elo]), [['goblin', 200], ['knight', 400], ['witch', 800], ['wizard', 1600]]);
+  assert.deepEqual(BOTS.map((b) => [b.id, b.elo]), [['goblin', 200], ['knight', 400], ['witch', 800], ['wizard', 1600], ['dragon', 2400]]);
   const p = parseFen(START_FEN);
   for (const b of BOTS) { const m = botMove(p, b.id)!; assert.ok(legalMoves(p).some((x) => x.from === m.from && x.to === m.to), b.id); }
   // a mate in one: the Wizard takes it
@@ -468,18 +468,20 @@ test('0.9.9.9.9.6 round 4 chess: games kept (the last 40), a bot game checked fr
   const router = src('src/server/router.ts');
   assert.ok(router.includes("url === '/api/chess/games'") && router.includes('const g = replay(moves);'), 'a bot game is replayed, its result read from the board');
   const client = src('src/client/chess.ts');
-  for (const s of ["send({ type: 'chess_ready'", "send({ type: 'chess_chat'", "send({ type: 'chess_again'", 'export function challengeChess', 'export function openChessReplay', 'export function material', 'speakAs(', 'setMood(']) assert.ok(client.includes(s), s);
+  // (round 5: the lobby is the private game's; a friend is challenged to a room of it)
+  for (const s of ["send({ type: 'chess_chat'", "send({ type: 'chess_again'", 'export function openChessReplay', 'export function material', 'speakAs(', 'setMood(']) assert.ok(client.includes(s), s);
   const html = src('public/index.html');
-  for (const id of ['chessLobby', 'chessReady', 'chessLobbyChat', 'chessChat', 'chessReplay', 'chessOppMat', 'chessMood', 'chessHistList', 'pcGold']) assert.ok(html.includes(`id="${id}"`), id);
+  for (const id of ['chessChat', 'chessReplay', 'chessOppMat', 'chessMood', 'chessHistList', 'pcGold']) assert.ok(html.includes(`id="${id}"`), id);
   assert.ok(src('src/client/audio.ts').includes('chessCapture()') && src('src/client/audio.ts').includes('chessMate()'));
   assert.ok(src('src/client/main.ts').includes("case 'chess_invite':"));
 });
 
-test('0.9.9.9.9.6 round 4 chess pieces: each piece its own shape, its kanji on it; who is ahead in points', async () => {
+test('0.9.9.9.9.6 chess pieces (round 5: the owner\'s design): a picture for each of the twelve, its kanji as text, kept offline', async () => {
   const { pieceSvg } = await import('../src/client/chesspieces');
-  const shapes = new Set((['k', 'q', 'r', 'b', 'n', 'p'] as const).map((k) => pieceSvg('w', k).replace(/<text[\s\S]*$/, '')));
-  assert.equal(shapes.size, 6, 'six different silhouettes');
-  assert.ok(pieceSvg('b', 'n').includes('>馬</text>') && pieceSvg('b', 'n').includes('pc-b'));
+  const { existsSync } = await import('node:fs');
+  for (const c of ['w', 'b'] as const) for (const k of ['k', 'q', 'r', 'b', 'n', 'p'] as const) assert.ok(existsSync(`public/chess/${c}${k}.webp`), `${c}${k}`);
+  assert.ok(pieceSvg('b', 'n').includes('src="chess/bn.webp"') && pieceSvg('b', 'n').includes('>馬</span>'));
+  assert.ok(src('scripts/build-client.mjs').includes("readdirSync(r('public/chess'))"), 'in the offline cache');
 });
 
 // ── round 4: importing words the Quizlet way ──
@@ -661,4 +663,110 @@ test('0.9.9.9.9.6 round 4 Grammar Clash: the queue starts a game by itself with 
   const ch = await new RankedService(store).settleField(ids);
   assert.ok(ch[ids[0]].after > 1000 && ch[ids[2]].after < 1000, 'first up, last down');
   assert.equal(ch[ids[1]].after, 1000, 'the middle of three equals: no change');
+});
+
+// ── round 5: chess and Grammar Clash as modes of the private game and the online queue; the Dragon ──
+test('0.9.9.9.9.6 round 5: a chess room hands its two players to the game and is back in its lobby at the end; Grammar Clash takes 2–8, no AI', async () => {
+  const { Room } = await import('../src/server/Room');
+  const sent: Record<string, Array<{ type: string; settings?: { base: number } }>> = {};
+  const client = (id: string) => ({ send: (m: never) => { (sent[id] ??= []).push(m); } });
+  const started: Array<{ mode: string; players: string[]; ranked: boolean; base: number }> = [];
+  let end: () => void = () => {};
+  const room = new Room('ABCD', 'chess', { onEmpty: () => {}, external: (mode, players, o, onEnd) => { started.push({ mode, players: players.map((p) => p.id), ranked: o.ranked, base: o.settings.base }); end = onEnd; } });
+  room.join('a', 'Ann', client('a') as never);
+  room.join('b', 'Bob', client('b') as never);
+  assert.equal(room.maxPlayers, 2);
+  room.addBot('a', 'N5');
+  assert.equal(room.memberIds.length, 2, 'no AI in chess');
+  room.setSettings('a', { base: 180_000, inc: 2000 });
+  room.setSettings('b', { base: 600_000, inc: 0 });
+  const lobby = sent.b.filter((m) => m.type === 'lobby').at(-1)!;
+  assert.equal(lobby.settings!.base, 180_000, 'only the host sets the clock');
+  room.setLobbyReady('a', true); room.setLobbyReady('b', true);
+  assert.deepEqual(started, [{ mode: 'chess', players: ['a', 'b'], ranked: false, base: 180_000 }]);
+  assert.equal(room.stage, 'game');
+  end();
+  assert.equal(room.stage, 'lobby', 'back in its lobby');
+  const clash = new Room('EFGH', 'clash', { onEmpty: () => {} });
+  assert.deepEqual([clash.maxPlayers, clash.minPlayers], [8, 2]);
+  const html = src('public/index.html');
+  assert.ok(html.includes('<button class="mode-card" data-mode="chess">') && html.includes('<button class="mode-card" data-mode="clash">'), 'in the private game\'s modes');
+  assert.ok(!html.includes('gt-clash') && !html.includes('id="clashSetup"') && !html.includes('id="chessLobby"'), 'no menus or lobbies of their own');
+  assert.ok(src('src/client/queue.ts').includes("const QUEUE_MODES: GameMode[] = ['reading', 'writing', 'rapid', 'boss', 'chess', 'clash'];"), 'in the online queue');
+});
+
+test('0.9.9.9.9.6 round 5: the queue gathers Grammar Clash (8 at once, or fewer after a wait); chess needs no levels; both ranked', async () => {
+  const { Matchmaker, CLASH_GATHER_MS } = await import('../src/server/Matchmaker');
+  let t = 0;
+  const made: string[] = [];
+  const rooms = { create: (mode: string) => { made.push(mode); return { ranked: false, setSettings() {}, start() {}, setLobbyReady() {}, leave() {} }; } };
+  const mm = new Matchmaker(rooms as never, () => 0, () => t);
+  const found: Record<string, string[]> = {};
+  const c = (id: string) => ({ inRoom: () => false, joinMatched: async () => true, send: (m: { type: string; state?: string; mode?: string; matchId?: number }) => { if (m.state === 'found') { (found[id] ??= []).push(m.mode!); void mm.accept?.(id, m.matchId!); } } });
+  assert.equal(mm.enqueue('x', c('x') as never, ['chess'], []), null, 'chess: no levels needed');
+  assert.equal(mm.enqueue('y', c('y') as never, ['clash'], []), null);
+  assert.equal(mm.enqueue('z', c('z') as never, ['clash'], []), null);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(found.y, undefined, 'two for Grammar Clash: it waits for more first');
+  t += CLASH_GATHER_MS;
+  mm.tick();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok(found.y?.includes('clash') && found.z?.includes('clash'), 'after the wait, the two play');
+  assert.equal(mm.enqueue('w', c('w') as never, ['reading'], []), 'Pick at least one level', 'the word modes still need levels');
+});
+
+test('0.9.9.9.9.6 round 5: the Dragon (2400) — a deep search on a clock, always a legal move, beats the Wizard; the bots think in a worker', async () => {
+  const { BOTS, dragonMove, legalMoves, parseFen, START_FEN, makeMove, outcome } = await import('../src/shared/chess');
+  assert.deepEqual(BOTS.at(-1), { id: 'dragon', elo: 2400, name: 'Dragon', jp: '竜', reading: 'りゅう' });
+  const p = parseFen(START_FEN);
+  const m = dragonMove(p, 300)!;
+  assert.ok(legalMoves(p).some((x) => x.from === m.from && x.to === m.to));
+  // the back rank: it finds the mate
+  const q = parseFen('6k1/5ppp/8/8/8/8/1Q6/1R4K1 w - - 0 1');
+  const pos = makeMove(q, dragonMove(q, 1500)!);
+  assert.deepEqual(outcome(pos), { over: true, winner: 'w', reason: 'checkmate' });
+  assert.ok(src('scripts/build-client.mjs').includes("src/client/chessworker.ts"), 'built on its own');
+  assert.ok(src('src/client/chess.ts').includes("new Worker('chessworker.js')"));
+  assert.ok(src('src/client/chess.ts').includes("if (d.parentElement !== document.body) document.body.append(d);"), 'the replay window opens from the page itself (it froze the app)');
+});
+
+test('0.9.9.9.9.6 round 5: grammar N5 to N1 all there; Master Fumi\'s 2.5D portrait with a face that moves', async () => {
+  const { grammarOf } = await import('../src/shared/grammar');
+  for (const l of ['N3', 'N2', 'N1'] as const) assert.ok(grammarOf(l).length >= 15, `${l} lessons`);
+  const { fumiBust } = await import('../src/client/fumibust');
+  const svg = fumiBust();
+  for (const part of ['fu-back', 'fu-mid', 'fu-front', 'fu-hat', 'fu-eyes-open', 'fu-eyes-happy', 'fu-m-talk', 'fu-m-grin', 'fu-m-o', 'fu-m-flat', 'fu-brow-l']) assert.ok(svg.includes(part), part);
+  assert.ok(src('src/client/tutorguide.ts').includes('body.innerHTML = fumiBust();'), 'the guide is the portrait, not the arena sprite');
+  const css = src('public/style.css');
+  assert.ok(css.includes('.tg[data-mood="cheer"] .fumi .fu-eyes-happy { display: inline; }') && css.includes('@keyframes fuBlink'));
+});
+
+test('0.9.9.9.9.6 round 5: the small fixes — any quiz counts, errors in a window, the draw search, the example word, the deck window, the streak\'s glow', () => {
+  assert.ok(src('src/shared/progress.ts').includes("{ id: 'practice', label: '7/10 in any quiz', target: 1 }"));
+  const decks = src('src/client/decks.ts');
+  assert.ok(!decks.includes("if (mode === 'jlpt') {\n    void api.task('quiz'"), 'the onomatopoeia quiz counts too');
+  const ui = src('src/client/ui.ts');
+  assert.ok(ui.includes("void alertBox('Something needs your attention', text)") && ui.includes('export function alertBox('));
+  const css = src('public/style.css');
+  assert.ok(css.includes('.dd-cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));') && css.includes('.dd-row { flex-wrap: nowrap; }'));
+  assert.ok(css.includes('.dict-word .fc-ex-ja mark, .dict-panel .fc-ex-ja mark, .dict-rail .fc-ex-ja mark { background: rgba(255, 212, 121, .18); color: #ffd479;'));
+  assert.ok(css.includes('.ud-dialog { border-radius: 20px;'));
+  assert.ok(css.includes('.ach-pop.streak-moment .ach-rays {') && css.includes('@keyframes skGlow'), 'no sun rays behind the streak');
+  assert.ok(src('src/client/userdecks.ts').includes("left.append(step('1', tr('Paste your words')), intro, area, step('2', tr('How are they split?')), seps);"), 'the import window: our own layout');
+});
+
+test('0.9.9.9.9.6 round 5: the team writes to every player (admins only; not guests; once a minute)', async () => {
+  const { MessageService } = await import('../src/server/study/MessageService');
+  const store = new MemoryStore();
+  const delivered: string[] = [];
+  const svc = new MessageService(store, { deliver: (to: unknown) => { if (Array.isArray(to)) for (const x of to) delivered.push(x.id); } } as never);
+  const admin = await store.create({ username: 'boss', passwordHash: 'x', email: 'b@e.x' } as never);
+  await store.update(admin.id, { role: 'admin' });
+  const p1 = await store.create({ username: 'one', passwordHash: 'x', email: 'o@e.x' } as never);
+  const guest = await store.create({ username: 'guest1', passwordHash: 'x', email: null } as never);
+  await store.update(guest.id, { unlocks: ['guest'] });
+  await assert.rejects(svc.broadcast(p1, 'hi'), /Only the team/);
+  const r = await svc.broadcast((await store.findById(admin.id))!, 'Hello everyone');
+  assert.ok(r.sent >= 2 && delivered.includes(p1.id));
+  await assert.rejects(svc.broadcast((await store.findById(admin.id))!, 'again'), /a minute/);
 });

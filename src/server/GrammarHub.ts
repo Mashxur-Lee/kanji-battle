@@ -9,7 +9,7 @@
 //   · The server keeps the clock and the score (an answer says only which choice; its time is the server's).
 //   · Ranked: the final order moves everyone's rating — each pair of players counts as one game between them.
 import { REAL_TIMERS, type TimerHandle, type Timers } from './clock';
-import { GRAMMAR, grammarOf, shuffled, type GrammarLevel, type GrammarQuestion } from '../shared/grammar';
+import { GRAMMAR, grammarOf, shuffled, type GrammarLevel, type GrammarPoint, type GrammarQuestion } from '../shared/grammar';
 import type { ClashView, ClientMessage, ServerMessage } from '../shared/protocol';
 
 export interface ClashPlayer { id: string; name: string; avatar: string; staff: string; guest?: boolean }
@@ -34,13 +34,16 @@ export function clashPoints(ms: number, limitMs: number, streak: number, double:
 export const isDouble = (i: number, total: number) => (i + 1) % 5 === 0 || i === total - 1;
 
 interface Seat extends ClashPlayer { ready: boolean; score: number; streak: number; best: number; right: number; left: boolean; last?: { k: number | null; right: boolean; points: number } }
-interface Q { q: GrammarQuestion; options: string[]; answer: number; double: boolean }
+/** (round 5) `g`: the grammar point the question is from — the reveal says why the answer fits */
+interface Q { q: GrammarQuestion; g: GrammarPoint; options: string[]; answer: number; double: boolean }
 interface Room {
   id: string; code: string; host: string; seats: Map<string, Seat>; quick: boolean; ranked: boolean;
   status: 'lobby' | 'starting' | 'question' | 'reveal' | 'board' | 'over';
   level: ClashLevel; count: number; qs: Q[]; i: number; startedAt: number; endsAt: number; picks: Map<string, { k: number; ms: number }>;
   chat: Array<{ from: string; name: string; text: string; at: number }>; lastChat: Map<string, number>; timer?: TimerHandle;
   ratings?: Record<string, { before: number; after: number; games: number }>; createdAt: number;
+  /** (round 5) a game started by a room (the private lobby, the online queue): it gets the end */
+  bound?: () => void;
 }
 
 export class GrammarHub {
@@ -129,7 +132,7 @@ export class GrammarHub {
         return this.push(room);
       }
       case 'clash_again': {
-        if (!room || room.status !== 'over' || room.quick) return;
+        if (!room || room.status !== 'over' || room.quick || room.bound) return;
         if (room.host !== user.id) return;
         for (const [id, s] of room.seats) if (s.left) { room.seats.delete(id); this.byUser.delete(id); }
         room.status = 'lobby'; room.qs = []; room.i = 0; room.ratings = undefined;
@@ -143,6 +146,23 @@ export class GrammarHub {
   disconnect(userId: string) {
     for (const k of ['quick', 'ranked'] as const) this.queues[k] = this.queues[k].filter((p) => p.id !== userId);
   }
+
+  /**
+   * 0.9.9.9.9.6 (round 5): a game for the players a room brought together (the private game's lobby, or the online
+   * queue): the host's level and length; ranked from the queue. The room hears when it ends.
+   */
+  startMatch(players: ClashPlayer[], level: string, count: number, ranked: boolean, onEnd: () => void): string {
+    for (const p of players) this.leaveAll(p.id);
+    const r = this.make(players[0], false, ranked, cleanLevel(level), cleanCount(count));
+    for (const p of players.slice(1)) this.seat(r, p);
+    this.byCode.delete(r.code);
+    r.bound = onEnd;
+    this.begin(r);
+    return r.id;
+  }
+  /** (round 5) someone left the room during a game it started */
+  leaveUser(userId: string) { const r = this.rooms.get(this.byUser.get(userId) ?? ''); if (r?.bound && r.status !== 'over') this.leave(userId); }
+  playing(userId: string) { const r = this.rooms.get(this.byUser.get(userId) ?? ''); return !!r && r.status !== 'lobby' && r.status !== 'over'; }
 
   // ── rooms ──
   private make(host: ClashPlayer, quick: boolean, ranked: boolean, level: ClashLevel, count: number): Room {
@@ -209,11 +229,11 @@ export class GrammarHub {
 
   // ── the game ──
   private pickQuestions(level: ClashLevel, count: number): Q[] {
-    const pool = (level === 'mix' ? GRAMMAR : grammarOf(level)).flatMap((g) => g.questions);
+    const pool = (level === 'mix' ? GRAMMAR : grammarOf(level)).flatMap((g) => g.questions.map((q) => ({ q, g })));
     const bag = [...pool];
     for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(this.rnd() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
     const n = Math.min(count, bag.length);
-    return bag.slice(0, n).map((q, i) => ({ q, ...shuffled(q, this.rnd), double: isDouble(i, n) }));
+    return bag.slice(0, n).map(({ q, g }, i) => ({ q, g, ...shuffled(q, this.rnd), double: isDouble(i, n) }));
   }
   private begin(r: Room) {
     r.qs = this.pickQuestions(r.level, r.count);
@@ -267,7 +287,8 @@ export class GrammarHub {
       void this.hooks.settle(this.order(r)).then((ch) => { r.ratings = ch; this.push(r); }).catch(() => { /* not rated */ });
     }
     // a quick match's room is done when it ends; a room by code stays for Play again
-    if (r.quick) this.timers.setTimeout(() => this.close(r), 10 * 60_000);
+    if (r.quick || r.bound) this.timers.setTimeout(() => this.close(r), 10 * 60_000);
+    r.bound?.();
   }
 
   view(r: Room, me: string): ClashView {
@@ -278,9 +299,10 @@ export class GrammarHub {
       id: r.id, code: r.code, host: r.host, status: r.status, quick: r.quick, ranked: r.ranked, level: r.level, count: r.count,
       now: this.now(), endsAt: r.endsAt, limitMs: CLASH.questionMs, n: Math.max(0, r.i) + 1, total: r.qs.length || r.count,
       players: [...r.seats.values()].map((s) => ({ id: s.id, name: s.name, avatar: s.avatar, staff: s.staff, ready: s.ready, score: s.score, streak: s.streak, best: s.best, right: s.right, left: s.left, answered: r.status === 'question' && r.picks.has(s.id), ...(reveal && s.last ? { last: s.last } : {}) })),
-      ...(showQ ? { q: { jp: q.q.jp, options: q.options, double: q.double, ...(r.status !== 'question' ? { answer: q.answer, filled: q.q.options[0], en: q.q.en, ru: q.q.ru } : {}), ...(r.picks.has(me) ? { mine: r.picks.get(me)!.k } : {}) } } : {}),
+      ...(showQ ? { q: { jp: q.q.jp, options: q.options, double: q.double, ...(r.status !== 'question' ? { answer: q.answer, filled: q.q.options[0], en: q.q.en, ru: q.q.ru, why: { pattern: q.g.pattern, level: q.g.level, meaning: q.g.meaning, rule: q.g.rules[0] } } : {}), ...(r.picks.has(me) ? { mine: r.picks.get(me)!.k } : {}) } } : {}),
       ...(r.status === 'over' ? { order: this.order(r) } : {}),
       ...(r.ratings ? { ratings: r.ratings } : {}),
+      ...(r.bound ? { bound: true } : {}),
       chat: r.chat,
     };
   }

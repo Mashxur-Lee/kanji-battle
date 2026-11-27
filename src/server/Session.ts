@@ -157,6 +157,8 @@ export const SCREEN_ACTIVITY: Record<string, string> = {
   inbox: 'Chatting', // 0.9.9.9.6 (0.9.9.9.6.1: "Chatting")
   // 0.9.9.9.9.5: watching — friends see it (the owner: "if someone from your friend list is watching a replay, it should say so")
   replay: 'Watching a replay', watching: 'Watching a game',
+  // 0.9.9.9.9.6 (round 5): chess against a wizard, the grammar lessons (games in a room say their mode by themselves)
+  chess: 'Playing Kanji chess', grammar: 'Learning grammar',
 };
 export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; declinedAt?: number; now: number }): string | null {
   if (o.inRoom) return 'Your friend is already in this room';
@@ -421,6 +423,7 @@ export class Session implements Client {
         if (err) this.send({ type: 'error', message: err });
         return;
       }
+      case 'room_settings': return room.setSettings(user.id, msg as unknown as Record<string, unknown>); // (0.9.9.9.9.6 round 5)
       case 'add_bot': return room.addBot(user.id, msg.level);
       case 'remove_bot': return room.removeBot(user.id, msg.id);
       case 'typing': return room.typing(user.id, msg.on === true);

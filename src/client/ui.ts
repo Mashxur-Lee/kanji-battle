@@ -67,11 +67,14 @@ export const show = (screen: Screen) => {
 };
 
 // 0.9.9.4.3: a menu error goes away by itself (it used to stay for days)
-let errorTimer = 0;
+// 0.9.9.9.9.6 (round 5): an error is a window now (signed in on another device, a room that's gone…) — red text under
+// the menu's cards went unseen (the owner: "it should appear as a window")
+let lastError = '';
 export const setError = (text: string) => {
-  $('error').textContent = text;
-  clearTimeout(errorTimer);
-  if (text) errorTimer = window.setTimeout(() => { $('error').textContent = ''; }, 10_000);
+  $('error').textContent = '';
+  if (!text || text === lastError) return;
+  lastError = text;
+  void alertBox('Something needs your attention', text).then(() => { lastError = ''; });
 };
 
 const secs = (ms: number) => (ms / 1000).toFixed(1) + 's';
@@ -535,6 +538,28 @@ const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTML
       'Same HP for both. Last wizard standing wins.',
     ],
   },
+  // 0.9.9.9.9.6 (round 5): the two newer games in the same lobby
+  chess: {
+    title: 'How Kanji chess works',
+    pic: () => append(h('div', 'g-pic'), tile('馬'), h('span', 'g-arrow', '='), h('span', 'g-tile ok', 'knight')),
+    steps: [
+      'Ordinary chess, every piece its kanji: 王 king, 后 queen, 城 rook, 僧 bishop, 馬 knight, 兵 pawn.',
+      'Sides are drawn by lot. The host sets the clock.',
+      'Checkmate, or your opponent runs out of time, and you win. You can offer a draw or resign.',
+      'From the online queue it is ranked.',
+    ],
+  },
+  clash: {
+    title: 'How Grammar Clash works',
+    pic: () => append(h('div', 'g-pic'), tile('食べ＿＿'), h('span', 'g-arrow', '→'), h('span', 'g-tile ok', 'たい')),
+    steps: [
+      '2 to 8 players. A sentence with a gap and four choices - pick the one that fits.',
+      'Right: 500 to 1000 points, the faster the more. Right answers in a row add a combo bonus.',
+      'Every fifth question and the last are worth double.',
+      'After each question: the answer, why it fits, and the leaderboard. Most points wins.',
+      'The host picks the grammar level and the number of questions. From the online queue it is ranked.',
+    ],
+  },
 };
 /** The mini instructions of a battle mode (lobby, and the online queue on hover). */
 export function modeGuideNodes(mode: Exclude<GameMode, 'deck'>): HTMLElement[] {
@@ -560,7 +585,7 @@ function openModeMenu(anchor: HTMLElement, current: GameMode, humans: number) {
   const pop = h('div', 'lm-menu');
   pop.setAttribute('role', 'menu');
   for (const m of MODES) {
-    const max = m === 'boss' ? 4 : 2;
+    const max = m === 'boss' ? 4 : m === 'clash' ? 8 : 2;
     const b = h('button', `lm-opt ${m}${m === current ? ' on' : ''}`) as HTMLButtonElement;
     b.type = 'button'; b.setAttribute('role', 'menuitemradio'); b.setAttribute('aria-checked', String(m === current));
     b.append(modeBadge(m), h('span', 'lm-opt-n', MODE_LABEL[m]));
@@ -576,7 +601,8 @@ function openModeMenu(anchor: HTMLElement, current: GameMode, humans: number) {
   const shut = (e: Event) => { if (!pop.contains(e.target as Node)) { pop.remove(); removeEventListener('pointerdown', shut, true); } };
   setTimeout(() => addEventListener('pointerdown', shut, true));
 }
-export function showLobby(code: string, mode: GameMode, players: PlayerView[], you: PlayerId, hostId: PlayerId, maxPlayers: number, minPlayers: number, open = false) {
+export function showLobby(code: string, mode: GameMode, players: PlayerView[], you: PlayerId, hostId: PlayerId, maxPlayers: number, minPlayers: number, open = false, settings?: { base: number; inc: number; level: string; count: number }) {
+  const ext = mode === 'chess' || mode === 'clash'; // (0.9.9.9.9.6 round 5: no word levels, no AI, the host's settings)
   $('code').textContent = code;
   // 0.9.9.9.5.5: the mode as a banner at the top centre, with its kanji
   const lm = $('lobbyMode');
@@ -624,11 +650,11 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       const ready = !!p.bot || !!p.ready;
       li.classList.toggle('is-ready', ready && !p.bot);
       if (!p.bot) li.append(h('span', 'tag ' + (ready ? 'ready' : 'notready'), ready ? '✓ Ready' : 'Not ready'));
-      if (mode !== 'deck') li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `${p.maxHp} HP`)));
+      if (mode !== 'deck' && !ext) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `${p.maxHp} HP`)));
       return li;
     }),
     ...Array.from({ length: Math.max(0, maxPlayers - players.length) }, () =>
-      h('li', 'empty', mode === 'boss' ? 'Waiting for a teammate (optional)…' : 'Waiting for opponent…')),
+      h('li', 'empty', mode === 'boss' ? 'Waiting for a teammate (optional)…' : mode === 'clash' && players.length >= 2 ? 'Room for more (up to 8)' : 'Waiting for opponent…')),
   );
 
   const mine = players.find((p) => p.id === you)?.levels ?? [];
@@ -653,9 +679,10 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       : 'Each player picks their own. ひらがな and カタカナ = the two kana alphabets, answered in romaji. Harder levels hit harder - so your opponent gets more HP.';
   const isHost = you === hostId;
   const canStart = players.length >= minPlayers;
-  $('addBot').hidden = !isHost || players.length >= maxPlayers;
+  $('addBot').hidden = !isHost || players.length >= maxPlayers || ext;
   const deck = mode === 'deck';
-  $('levels').hidden = deck; // Deck Duel deals cards from every level — nothing to pick
+  $('levels').hidden = deck || ext; // Deck Duel deals cards from every level — nothing to pick
+  renderRoomSettings(mode, settings, isHost);
   $('deckGuide').hidden = !deck;
   $('modeGuide').hidden = deck;
   if (!deck) renderModeGuide(mode);
@@ -667,10 +694,35 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   $('start').hidden = true;
   const solo = mode === 'boss' && players.length === 1;
   $('lobbyStatus').textContent = !canStart
-    ? (deck ? 'Share the code, or add a bot - then press Ready. The duel starts when both are ready.' : 'Share the code with a friend, or add a bot - then press Ready.')
+    ? (deck ? 'Share the code, or add a bot - then press Ready. The duel starts when both are ready.' : ext ? 'Share the code with your friends - then press Ready.' : 'Share the code with a friend, or add a bot - then press Ready.')
     : meReady ? (solo ? 'Starting…' : 'Waiting for the others to be ready…')
     : solo ? 'Press Ready to start your solo run (or wait for a teammate).' : 'Press Ready - the battle starts when every player is ready.';
   if (!isLobbyAside()) show('lobby');
+}
+
+/** 0.9.9.9.9.6 (round 5): the room's settings for chess (the clock) and Grammar Clash (grammar level, questions) */
+const CHESS_CLOCKS: Array<[string, number, number]> = [['No clock', 0, 0], ['3 + 2', 180_000, 2000], ['5 + 0', 300_000, 0], ['10 + 0', 600_000, 0], ['15 + 10', 900_000, 10_000]];
+function renderRoomSettings(mode: GameMode, s: { base: number; inc: number; level: string; count: number } | undefined, host: boolean) {
+  const box = $('roomSettings');
+  box.hidden = !s || (mode !== 'chess' && mode !== 'clash');
+  if (box.hidden || !s) return;
+  const row = (label: string, opts: Array<[string, Record<string, unknown>, boolean]>) => {
+    const r = h('div', 'rs-row');
+    const seg = h('div', 'rs-seg');
+    for (const [text, set, on] of opts) {
+      const b = h('button', `rs-opt${on ? ' on' : ''}`, tr(text), { type: 'button', 'aria-pressed': String(on) }) as HTMLButtonElement;
+      b.dataset.set = JSON.stringify(set);
+      if (!host) b.disabled = !on;
+      seg.append(b);
+    }
+    r.append(h('span', 'rs-lbl', tr(label)), seg);
+    return r;
+  };
+  const rows = mode === 'chess'
+    ? [row('Clock', CHESS_CLOCKS.map(([t, base, inc]) => [t, { base, inc }, s.base === base && s.inc === inc]))]
+    : [row('Grammar', [['N5', 'N5'], ['N4', 'N4'], ['N3', 'N3'], ['N2', 'N2'], ['N1', 'N1'], ['Mixed', 'mix']].map(([t, v]) => [t, { level: v }, s.level === v] as [string, Record<string, unknown>, boolean])),
+      row('Questions', [5, 10, 15, 20].map((n) => [String(n), { count: n }, s.count === n] as [string, Record<string, unknown>, boolean]))];
+  box.replaceChildren(h('b', 'rs-title', tr(host ? 'Game settings' : 'Game settings (the host’s)')), ...rows);
 }
 
 export const selectedLevels = (): Level[] =>
@@ -1452,7 +1504,7 @@ export function setRematchStatus(votes: PlayerId[], you: PlayerId, playerCount: 
 }
 
 // ── modes, characters, other players' profiles, match history ────────────────
-export const MODE_ICON: Record<GameMode, string> = { reading: '読', rapid: '速', writing: '書', boss: '竜', deck: '札' };
+export const MODE_ICON: Record<GameMode, string> = { reading: '読', rapid: '速', writing: '書', boss: '竜', deck: '札', chess: '将', clash: '闘' };
 
 /** The mode's logo (the same kanji as on the mode cards). */
 export function modeBadge(mode: GameMode): HTMLElement {
@@ -1577,25 +1629,11 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     const c = actBtn('pill challenge-btn', 'challenge', 'Challenge');
     const modes = h('div', 'pp-modes');
     modes.hidden = true;
-    for (const m of ['reading', 'writing', 'rapid', 'boss', 'deck'] as GameMode[]) {
+    for (const m of ['reading', 'writing', 'rapid', 'boss', 'deck', 'chess', 'clash'] as GameMode[]) { // (0.9.9.9.9.6 round 5: chess and Grammar Clash in the same room)
       const mb = h('button', 'pill pp-mode', MODE_LABEL[m]) as HTMLButtonElement;
       mb.prepend(modeBadge(m));
       mb.onclick = () => { a.challenge(m); hideProfileCard(); };
       modes.append(mb);
-    }
-    if (a.chess) { // 0.9.9.9.9.6 (round 4): Kanji chess, from a friend's profile
-      const cb = h('button', 'pill pp-mode pp-chess', tr('Kanji chess')) as HTMLButtonElement;
-      const seal = h('span', 'pp-chess-seal', '将'); seal.setAttribute('lang', 'ja'); seal.setAttribute('aria-hidden', 'true');
-      cb.prepend(seal);
-      cb.onclick = () => { a.chess?.(); hideProfileCard(); };
-      modes.append(cb);
-    }
-    if (a.clash) { // 0.9.9.9.9.6 (round 4): Grammar Clash
-      const gb = h('button', 'pill pp-mode pp-chess', tr('Grammar Clash')) as HTMLButtonElement;
-      const seal = h('span', 'pp-chess-seal', '闘'); seal.setAttribute('lang', 'ja'); seal.setAttribute('aria-hidden', 'true');
-      gb.prepend(seal);
-      gb.onclick = () => { a.clash?.(); hideProfileCard(); };
-      modes.append(gb);
     }
     c.disabled = !a.canChallenge;
     if (!a.canChallenge) c.title = 'Finish your game first';
@@ -1637,6 +1675,12 @@ export function confirmBox(title: string, text: string, yes = 'Leave', no = 'Sta
     if (!d.open) d.showModal();
     $('confirmNo').focus();
   });
+}
+
+/** 0.9.9.9.9.6 (round 5): a message in a window, one button (the confirm window, without its No) */
+export function alertBox(title: string, text: string, ok = 'OK'): Promise<void> {
+  $('confirmNo').hidden = true;
+  return confirmBox(title, text, ok, '', false).then(() => { $('confirmNo').hidden = false; });
 }
 
 /** Match history: one row per game, newest first. */

@@ -6,7 +6,7 @@
 // that goes on into the game); a friend can be challenged from their profile; every game is kept in Match history →
 // Chess and can be watched again; the pieces taken and who is ahead; how long each move took; pieces shaped like
 // chess pieces; their own sounds; the wizards speak their lines in their own voices, with a face to go with them.
-import { BOTS, botMove, colorOf, inCheck, judgeMove, kindOf, legalMoves, makeMove, moveSan, moveUci, outcome, parseFen, PIECE_KANJI, PIECE_NAME, PIECE_READING, posKey, replay, sqName, START_FEN, type BotId, type Color, type Kind, type Move, type Position } from '../shared/chess';
+import { toFen, BOTS, botMove, colorOf, inCheck, judgeMove, kindOf, legalMoves, makeMove, moveSan, moveUci, outcome, parseFen, PIECE_KANJI, PIECE_NAME, PIECE_READING, posKey, replay, sqName, START_FEN, type BotId, type Color, type Kind, type Move, type Position } from '../shared/chess';
 import { lineFor, parseLine, type Moment } from '../shared/chesslines';
 import type { ChessRoomView, ClientMessage } from '../shared/protocol';
 import { api, type ChessGame } from './api';
@@ -16,7 +16,10 @@ import { lang, tr } from './i18n';
 import { showKanji } from './kanjihelp';
 import * as ui from './ui';
 import { speakAs } from './voice';
-import { heroSvg } from './wizard';
+import { dragonSvg, heroSvg } from './wizard';
+import { preloadPieces } from './chesspieces';
+/** a bot's portrait (round 5: the Dragon is the boss's own) */
+const botPic = (id: BotId) => (id === 'dragon' ? dragonSvg() : heroSvg(id, 'opp'));
 
 const $ = ui.$;
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string, attrs: Record<string, string> = {}) => {
@@ -57,25 +60,33 @@ export function initChess(sender: (m: ClientMessage) => void) {
   send = sender;
   $('chessBack').onclick = () => {
     if (!$('chessGame').hidden && !over && moves.length) { void leaveGame(); return; }
-    if (!$('chessLobby').hidden) { leaveLobby(); return; }
     ui.show('games');
   };
   $('chessStart').onclick = () => startBot();
-  $('chessCreate').onclick = () => { const [, b, i] = TIMES[pickTime]; send({ type: 'chess_new', base: b, inc: i }); };
-  $('chessJoin').onclick = () => { const c = $<HTMLInputElement>('chessCode').value.trim().toUpperCase(); if (c.length === 4) send({ type: 'chess_join', code: c }); else ui.toast(tr('Type the 4-letter code')); };
+  // (round 5) a friend game: a room of the private game, or the online queue (main.ts does both)
+  $('chessCreate').onclick = () => dispatchEvent(new CustomEvent('kw:room', { detail: 'chess' }));
+  $('chessQueue').onclick = () => dispatchEvent(new CustomEvent('kw:queue', { detail: 'chess' }));
   $('chessFlip').onclick = () => { flipped = !flipped; draw(); };
   $('chessResign').onclick = () => void resign();
   $('chessDraw').onclick = () => { if (mode.kind === 'friend') send({ type: 'chess_draw', id: mode.room.id, offer: true }); };
   $('chessUndo').onclick = () => takeBack();
   $('chessVoice').onclick = () => { voiceOn = !voiceOn; try { localStorage.setItem(VOICE_KEY, voiceOn ? 'on' : 'off'); } catch { /* private mode */ } drawVoice(); };
-  $('chessAgain').onclick = () => { $('chessOver').hidden = true; if (mode.kind === 'bot') startBot(); else send({ type: 'chess_again', id: mode.room.id }); };
-  $('chessToSetup').onclick = () => { $('chessOver').hidden = true; if (mode.kind === 'friend') { send({ type: 'chess_leave', id: mode.room.id }); mode = { kind: 'bot', bot: pickBot }; showSetup('friend'); } else showSetup('bot'); };
+  $('chessAgain').onclick = () => {
+    $('chessOver').hidden = true;
+    if (mode.kind === 'bot') { $('chessAgain').textContent = tr('Play again'); return startBot(); }
+    // (round 5) a room's game: back to its lobby (Ready there for another)
+    if (mode.room.bound) { mode = { kind: 'bot', bot: pickBot }; dispatchEvent(new Event('kw:room-lobby')); return; }
+    send({ type: 'chess_again', id: mode.room.id });
+  };
+  $('chessToSetup').onclick = () => {
+    $('chessOver').hidden = true;
+    if (mode.kind === 'friend' && mode.room.bound) { mode = { kind: 'bot', bot: pickBot }; send({ type: 'leave' }); showSetup('friend'); return; }
+    if (mode.kind === 'friend') { send({ type: 'chess_leave', id: mode.room.id }); mode = { kind: 'bot', bot: pickBot }; showSetup('friend'); } else showSetup('bot');
+  };
   for (const b of document.querySelectorAll<HTMLElement>('#chessTabs [data-tab]')) b.onclick = () => showSetup(b.dataset.tab as 'bot' | 'friend');
   // the lobby
-  $('chessReady').onclick = () => { if (mode.kind === 'friend') send({ type: 'chess_ready', id: mode.room.id, on: !mode.room.ready.includes(meId()) }); };
-  $('chessLeaveLobby').onclick = () => leaveLobby();
-  $('chessCopy').onclick = () => { if (mode.kind !== 'friend') return; void navigator.clipboard?.writeText(mode.room.code).then(() => ui.toast(tr('Copied!'))).catch(() => ui.toast(mode.kind === 'friend' ? mode.room.code : '')); };
-  for (const id of ['chessLobbyChatForm', 'chessChatForm']) {
+  // (round 5: the lobby is the private game's; the chat beside the board stays)
+  for (const id of ['chessChatForm']) {
     const f = $<HTMLFormElement>(id);
     f.onsubmit = (e) => {
       e.preventDefault();
@@ -97,6 +108,7 @@ export function initChess(sender: (m: ClientMessage) => void) {
   }));
   drawSetup();
   drawVoice();
+  preloadPieces(); // (round 5: the pieces are pictures now)
 }
 
 let myId = '';
@@ -106,13 +118,7 @@ const meId = () => myId;
 
 export function openChess() {
   ui.show('chess');
-  if ($('chessGame').hidden && $('chessLobby').hidden) showSetup('bot');
-}
-/** (round 4) from a friend's profile: a game for the two of you — the lobby opens, and they're asked to join */
-export function challengeChess(friendId: string) {
-  ui.show('chess');
-  const [, b, i] = TIMES[pickTime];
-  send({ type: 'chess_new', base: b, inc: i, invite: friendId });
+  if ($('chessGame').hidden) showSetup('bot');
 }
 /** (round 4) a friend asks you to a game */
 export async function onChessInvite(from: { id: string; name: string }, code: string) {
@@ -125,7 +131,7 @@ export async function onChessInvite(from: { id: string; name: string }, code: st
   send({ type: 'chess_join', code });
 }
 function showSetup(tab: 'bot' | 'friend') {
-  $('chessSetup').hidden = false; $('chessGame').hidden = true; $('chessLobby').hidden = true;
+  $('chessSetup').hidden = false; $('chessGame').hidden = true;
   for (const b of document.querySelectorAll<HTMLElement>('#chessTabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
   $('chessBotSetup').hidden = tab !== 'bot'; $('chessFriendSetup').hidden = tab !== 'friend';
   drawSetup();
@@ -140,7 +146,7 @@ function seg(box: string, items: Array<[string, string]>, on: string, set: ((v: 
 function drawSetup() {
   $('chessBots').replaceChildren(...BOTS.map((b) => {
     const card = h('button', `cb-bot cb-${b.id}${b.id === pickBot ? ' on' : ''}`, undefined, { type: 'button', 'aria-pressed': String(b.id === pickBot) });
-    const pic = h('span', 'cb-pic'); pic.innerHTML = heroSvg(b.id, 'opp');
+    const pic = h('span', 'cb-pic'); pic.innerHTML = botPic(b.id);
     const name = h('span', 'cb-name');
     const r = h('ruby', '', undefined, { lang: 'ja' }); r.append(b.jp, h('rt', '', b.reading));
     name.append(h('b', '', tr(b.name)), r);
@@ -150,7 +156,6 @@ function drawSetup() {
   }));
   seg('chessColor', [['w', 'White'], ['r', 'Random'], ['b', 'Black']], pickColor, (v) => { pickColor = v as 'w' | 'b' | 'r'; drawSetup(); });
   seg('chessTime', TIMES.map(([l], i) => [String(i), l] as [string, string]), String(pickTime), (v) => { pickTime = Number(v); drawSetup(); });
-  seg('chessFriendTime', TIMES.map(([l], i) => [String(i), l] as [string, string]), String(pickTime), (v) => { pickTime = Number(v); drawSetup(); });
 }
 function drawVoice() {
   const b = $('chessVoice');
@@ -172,7 +177,7 @@ function begin(b: number, i: number) {
   pos = parseFen(START_FEN); moves = []; sans = []; times = []; history = []; selected = -1; over = null; thinking = false; pendingPromo = null; saved = false;
   base = b; inc = i; clocks = { w: b, b: b }; turnSince = Date.now(); moveSince = Date.now(); clockSkew = 0;
   flipped = mine === 'b';
-  $('chessSetup').hidden = true; $('chessLobby').hidden = true; $('chessGame').hidden = false; $('chessOver').hidden = true; $('chessPromo').hidden = true;
+  $('chessSetup').hidden = true; $('chessGame').hidden = false; $('chessOver').hidden = true; $('chessPromo').hidden = true;
   const friend = mode.kind === 'friend';
   $('chessUndo').hidden = friend; $('chessDraw').hidden = !friend; $('chessVoice').hidden = friend;
   $('chessChatBox').hidden = !friend;
@@ -187,7 +192,7 @@ function drawPlayers() {
   const opp = $('chessOpp'), me = $('chessMe');
   if (mode.kind === 'bot') {
     const b = BOTS.find((x) => x.id === (mode as { bot: BotId }).bot)!;
-    opp.querySelector('.cp-pic')!.innerHTML = heroSvg(b.id, 'opp');
+    opp.querySelector('.cp-pic')!.innerHTML = botPic(b.id);
     const name = opp.querySelector('.cp-name')!;
     const r = h('ruby', '', undefined, { lang: 'ja' }); r.append(b.jp, h('rt', '', b.reading));
     name.replaceChildren(h('b', '', tr(b.name)), r, h('span', 'cp-elo', String(b.elo)));
@@ -204,10 +209,12 @@ function botTurn() {
   $('chessGame').classList.add('thinking');
   const bot = mode.bot;
   // (a moment to see your move land, and the bot "thinks" a little — longer for the stronger ones)
-  const wait = { goblin: 500, knight: 650, witch: 800, wizard: 900 }[bot] + Math.random() * 500;
-  window.setTimeout(() => {
+  const wait = { goblin: 500, knight: 650, witch: 800, wizard: 900, dragon: 300 }[bot] + Math.random() * 500;
+  const at = pos;
+  window.setTimeout(async () => {
     if (over || mode.kind !== 'bot' || pos.turn === mine) { thinking = false; return; }
-    const m = botMove(pos, bot);
+    const m = await thinkOff(at, bot);
+    if (over || mode.kind !== 'bot' || pos !== at) { thinking = false; return; } // (taken back, or left, meanwhile)
     thinking = false;
     $('chessGame').classList.remove('thinking');
     if (!m) return;
@@ -218,6 +225,23 @@ function botTurn() {
       else if (took && ['q', 'r', 'b', 'n'].includes(kindOf(took)) && Math.random() < 0.6) say('take');
     }
   }, wait);
+}
+
+/** (round 5) the bot's move, worked out in the worker (the page keeps running); on the page itself if there is none */
+let worker: Worker | null | undefined;
+let asked = 0;
+const answers = new Map<number, (uci: string | null) => void>();
+function thinkOff(p: Position, bot: BotId): Promise<Move | null> {
+  if (worker === undefined) {
+    try { worker = new Worker('chessworker.js'); worker.onmessage = (e) => { answers.get(e.data.id)?.(e.data.uci); answers.delete(e.data.id); }; worker.onerror = () => { worker = null; for (const f of answers.values()) f(null); answers.clear(); }; }
+    catch { worker = null; }
+  }
+  if (!worker) return Promise.resolve(botMove(p, bot));
+  const id = ++asked;
+  return new Promise((done) => {
+    answers.set(id, (uci) => { const m = uci ? legalMoves(p).find((x) => moveUci(x) === uci) ?? null : null; done(m ?? botMove(p, bot === 'dragon' ? 'wizard' : bot)); });
+    worker!.postMessage({ id, fen: toFen(p), bot });
+  });
 }
 
 // ── moves ──
@@ -316,11 +340,6 @@ async function leaveGame() {
   mode = { kind: 'bot', bot: pickBot };
   showSetup(tab);
   ui.show('games');
-}
-function leaveLobby() {
-  if (mode.kind === 'friend') send({ type: 'chess_leave', id: mode.room.id });
-  mode = { kind: 'bot', bot: pickBot };
-  showSetup('friend');
 }
 const REASON: Record<string, string> = { checkmate: 'by checkmate', stalemate: 'stalemate', fifty: 'by the 50-move rule', repetition: 'by repetition', material: 'too little to mate', time: 'on time', resigned: 'by resignation', agreed: 'by agreement', left: 'they left' };
 function finish(winner: Color | null, reason: string) {
@@ -455,7 +474,7 @@ function stopClock() { clearInterval(clockTimer); clockTimer = 0; }
 
 // ── what the bot says, how it says it, and its face ──
 /** each wizard's voice: [rate, pitch] — the Goblin quick and squeaky, the Knight slow and deep, the Witch sly, the Wizard old and grave */
-const VOICES: Record<BotId, [number, number]> = { goblin: [1.25, 1.8], knight: [0.88, 0.7], witch: [1.02, 1.35], wizard: [0.82, 0.5] };
+const VOICES: Record<BotId, [number, number]> = { goblin: [1.25, 1.8], knight: [0.88, 0.7], witch: [1.02, 1.35], wizard: [0.82, 0.5], dragon: [0.72, 0.2] };
 /** the face that goes with a moment, and its kanji (a seal by the portrait) */
 const MOOD: Record<string, [string, string]> = {
   hello: ['happy', '喜'], best: ['amazed', '驚'], good: ['happy', '良'], inaccuracy: ['smug', '笑'], mistake: ['smug', '笑'], blunder: ['laugh', '笑'],
@@ -512,30 +531,6 @@ function chatList(list: HTMLElement, room: ChessRoomView) {
   list.dataset.n = String(room.chat.length);
 }
 let chatSeen = 0;
-function drawLobby(room: ChessRoomView) {
-  $('chessSetup').hidden = true; $('chessGame').hidden = true; $('chessLobby').hidden = false;
-  $('chessLobbyCode').textContent = room.code;
-  const host = room.host.id === meId();
-  const seat = (p: { id: string; name: string } | null, isHost: boolean) => {
-    const box = h('div', `cl-seat${p ? '' : ' empty'}${p && room.ready.includes(p.id) ? ' ready' : ''}`);
-    const pic = h('span', 'cl-pic'); pic.innerHTML = heroSvg(isHost ? 'wizard' : 'witch', 'opp');
-    box.append(pic, h('b', '', p ? (p.id === meId() ? `${p.name} (${tr('You')})` : p.name) : tr('Waiting for your friend…')));
-    if (p) box.append(h('span', 'cl-state', tr(room.ready.includes(p.id) ? 'Ready' : 'Not ready')));
-    if (isHost) box.append(h('span', 'cl-host', tr('Host')));
-    return box;
-  };
-  $('chessSeats').replaceChildren(seat(room.host, true), h('span', 'cl-vs', 'VS'), seat(room.guest, false));
-  const at = TIMES.findIndex(([, b, i]) => b === room.base && i === room.inc);
-  seg('chessLobbyTime', TIMES.map(([l], i) => [String(i), l] as [string, string]), String(at < 0 ? 0 : at), host ? (v) => { const [, b, i] = TIMES[Number(v)]; send({ type: 'chess_time', id: room.id, base: b, inc: i }); } : null);
-  $('chessLobbyTimeNote').textContent = tr(host ? 'You set the clock.' : 'The host sets the clock.');
-  const ready = room.ready.includes(meId());
-  const rb = $<HTMLButtonElement>('chessReady');
-  rb.textContent = tr(ready ? 'Not ready' : 'Ready');
-  rb.classList.toggle('on', ready);
-  rb.disabled = !room.guest;
-  $('chessLobbyHint').textContent = tr(!room.guest ? 'Send your friend the code - the game starts when you are both ready.' : 'The game starts when you are both ready. Sides are drawn by lot.');
-  chatList($('chessLobbyChat'), room);
-}
 export function onChessRoom(room: ChessRoomView) {
   const fresh = mode.kind !== 'friend' || mode.room.id !== room.id;
   const prev = mode.kind === 'friend' ? mode.room : null;
@@ -543,12 +538,8 @@ export function onChessRoom(room: ChessRoomView) {
   // a new chat line from them: a soft tick
   if (!fresh && room.chat.length > chatSeen && room.chat[room.chat.length - 1].from && room.chat[room.chat.length - 1].from !== meId()) audio.sfx.tick();
   chatSeen = room.chat.length;
-  if (room.status === 'waiting' || room.status === 'lobby') {
-    if (fresh || prev?.status !== room.status || $('chessLobby').hidden) ui.show('chess');
-    if (prev?.status === 'waiting' && room.status === 'lobby') audio.sfx.yourTurn();
-    drawLobby(room);
-    return;
-  }
+  if (room.status === 'waiting' || room.status === 'lobby') return; // (round 5: games come from the private game's rooms)
+  void prev;
   mine = room.you ?? 'w';
   if (fresh || $('chessGame').hidden || (room.status === 'playing' && over && room.moves.length === 0)) {
     ui.show('chess');
@@ -569,17 +560,21 @@ export function onChessRoom(room: ChessRoomView) {
   drawPlayers();
   $('chessDrawNote').hidden = !room.drawOffer || room.drawOffer === mine || room.status !== 'playing';
   $('chessDrawNote').onclick = () => send({ type: 'chess_draw', id: room.id, offer: true });
+  $('chessAgain').textContent = tr(room.bound ? 'Back to lobby' : 'Play again');
+  $('chessToSetup').textContent = tr(room.bound ? 'Leave the room' : 'Change the game');
   if (room.status === 'over' && room.result && !over) finish(room.result.winner, room.result.reason);
   else draw();
+  const ch = room.ratings?.[meId()];
+  if (ch && over) { const d = ch.after - ch.before; $('chessOverWhy').textContent = `${tr(REASON[over.reason] ?? over.reason)} · ${tr('Rating')} ${ch.before} → ${ch.after} (${d >= 0 ? '+' : ''}${d})`; }
 }
 export function onChessError(error: string) {
   ui.toast(tr(error), 3500);
   // (round 4) the room is gone (its host left): back to the friend setup
-  if (error === 'The host left the room') { if (mode.kind === 'friend') { const lobby = !$('chessLobby').hidden; mode = { kind: 'bot', bot: pickBot }; if (lobby) showSetup('friend'); } return; }
+  if (error === 'The host left the room') { if (mode.kind === 'friend') mode = { kind: 'bot', bot: pickBot }; return; }
   if (mode.kind === 'friend') send({ type: 'chess_sync', id: mode.room.id });
 }
 /** back online: the friend game picks up where it was */
-export function chessReconnected() { if (mode.kind === 'friend' && (!over || !$('chessLobby').hidden)) send({ type: 'chess_sync', id: mode.room.id }); }
+export function chessReconnected() { if (mode.kind === 'friend' && !over) send({ type: 'chess_sync', id: mode.room.id }); }
 
 // ── (round 4) Match history → Chess: your games, each one to watch again ──
 export function showChessHistory(el: HTMLElement, games: ChessGame[] | null) {
@@ -588,7 +583,7 @@ export function showChessHistory(el: HTMLElement, games: ChessGame[] | null) {
   el.replaceChildren(...games.map((g) => {
     const b = h('button', `history-item chess-hist ${g.result}`, undefined, { type: 'button' });
     const bot = g.vsBot ? BOTS.find((x) => x.id === g.vsBot) : undefined;
-    const pic = h('span', 'ch-pic'); pic.innerHTML = heroSvg(bot?.id ?? 'wizard', 'opp');
+    const pic = h('span', 'ch-pic'); pic.innerHTML = botPic(bot?.id ?? 'wizard');
     const mid = h('span', 'ch-mid');
     mid.append(h('b', '', bot ? `${tr(bot.name)} ${bot.elo}` : g.vs), h('span', 'hint', `${tr(g.color === 'w' ? 'White' : 'Black')} · ${tr(REASON[g.reason] ?? g.reason)} · ${Math.ceil(g.moves.length / 2)} ${tr('moves')} · ${new Date(g.at).toLocaleDateString(lang() === 'ru' ? 'ru-RU' : undefined)}`));
     b.append(pic, mid, h('span', `ch-res ${g.result}`, tr(g.result === 'win' ? 'Win' : g.result === 'loss' ? 'Loss' : 'Draw')));
@@ -603,6 +598,9 @@ export function openChessReplay(g: ChessGame) {
   let at = r.moves.length; // the final position first
   let auto = 0;
   const d = $<HTMLDialogElement>('chessReplay');
+  // (round 5) the window lives in the chess page, which is hidden when Match history opens it: a modal window in a
+  // hidden page is never drawn, yet it still blocks everything else — the app looked frozen. It opens from the body.
+  if (d.parentElement !== document.body) document.body.append(d);
   const bot = g.vsBot ? BOTS.find((x) => x.id === g.vsBot) : undefined;
   $('chessReplayTitle').textContent = `${tr('You')} - ${bot ? tr(bot.name) : g.vs}`;
   $('chessReplayRes').textContent = `${tr(g.result === 'win' ? 'You won!' : g.result === 'loss' ? 'You lost' : 'Draw')} · ${tr(REASON[g.reason] ?? g.reason)}`;

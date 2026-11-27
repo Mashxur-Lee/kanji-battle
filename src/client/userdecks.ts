@@ -127,28 +127,28 @@ async function deleteDeck(d: UserDeckView) {
 async function importInto(deck: UserDeckView) {
   const { d, body, close } = sheet(`${tr('Import into')} “${deck.name}”`);
   d.classList.add('ud-import');
-  const intro = h('p', 'hint', 'Copy and paste your data here (from Quizlet, Anki, Word, Excel, Google Docs…). A definition may start with the reading: 猫 → ねこ - cat.');
+  const intro = h('p', 'hint', 'One word per card - from a word list, a spreadsheet or another app\'s export. The reading may come first in the meaning: 猫 → ねこ - cat.');
   const area = h('textarea', 'ud-area', undefined, { rows: '6', placeholder: '先生\tせんせい - teacher\n勉強\tstudy\n猫[ねこ]\tcat', lang: 'ja', spellcheck: 'false' }) as HTMLTextAreaElement;
   // the separators
   let termSep: TermSep = 'tab', cardSep: CardSep = 'newline';
+  // (round 5: the separators are a row of buttons — our own look, not a list of radio buttons)
   const group = (title: string, name: string, opts: Array<[string, string]>, on: string, set: (v: string, custom: string) => void) => {
-    const box = h('fieldset', 'ud-sep');
-    box.append(h('legend', '', title));
-    const custom = h('input', 'ud-custom', undefined, { type: 'text', maxlength: '8', placeholder: tr('Custom') }) as HTMLInputElement;
+    const box = h('div', 'ud-sep');
+    box.append(h('span', 'ud-sep-lbl', title));
+    const row = h('div', 'ud-seg', undefined, { role: 'radiogroup', 'aria-label': title });
+    const custom = h('input', 'ud-custom', undefined, { type: 'text', maxlength: '8', placeholder: tr('Custom'), 'aria-label': tr('Custom') }) as HTMLInputElement;
+    const pick = (v: string) => { for (const b of row.querySelectorAll<HTMLElement>('[data-v]')) { b.classList.toggle('on', b.dataset.v === v); b.setAttribute('aria-checked', String(b.dataset.v === v)); } custom.classList.toggle('on', v === 'custom'); };
     for (const [v, label] of opts) {
-      const l = h('label', 'ud-radio');
-      const r = h('input', '', undefined, { type: 'radio', name, value: v }) as HTMLInputElement;
-      r.checked = v === on;
-      r.onchange = () => { set(v, custom.value); refresh(); };
-      l.append(r, h('span', '', label));
-      box.append(l);
+      const b = h('button', 'ud-opt', label, { type: 'button', role: 'radio', 'data-v': v, name });
+      b.onclick = () => { pick(v); set(v, custom.value); refresh(); };
+      row.append(b);
     }
-    const l = h('label', 'ud-radio');
-    const r = h('input', '', undefined, { type: 'radio', name, value: 'custom' }) as HTMLInputElement;
-    r.onchange = () => { set('custom', custom.value); refresh(); };
-    custom.oninput = () => { r.checked = true; set('custom', custom.value); refresh(); };
-    l.append(r, custom);
-    box.append(l);
+    custom.oninput = () => { pick('custom'); set('custom', custom.value); refresh(); };
+    custom.onfocus = () => { if (custom.value) { pick('custom'); set('custom', custom.value); refresh(); } };
+    row.append(custom);
+    pick(on);
+    box.append(row);
+    (box as HTMLElement & { pick?: (v: string) => void }).pick = pick;
     return box;
   };
   const seps = h('div', 'ud-seps');
@@ -195,7 +195,7 @@ async function importInto(deck: UserDeckView) {
       tag();
       const x = h('button', 'ud-x', '✕', { type: 'button', 'aria-label': tr('Remove') });
       x.onclick = () => { cards.splice(i, 1); draw(); };
-      row.append(h('span', 'ud-n', String(i + 1)), field('kanji', 'Word', 'ja'), field('reading', 'Reading (kana)', 'ja'), field('meaning', 'Meaning'), chip, x);
+      row.append(h('span', 'ud-n', String(i + 1)), field('reading', 'Reading (kana)', 'ja'), field('kanji', 'Word', 'ja'), field('meaning', 'Meaning'), chip, x);
       return row;
     }), ...(cards.length > 300 ? [h('p', 'hint', tr(`…and ${cards.length - 300} more`))] : []));
   };
@@ -221,7 +221,7 @@ async function importInto(deck: UserDeckView) {
       area.dataset.seen = '1';
       termSep = guessTermSep(area.value);
       const v = typeof termSep === 'string' ? termSep : 'custom';
-      const r = d.querySelector<HTMLInputElement>(`input[name="udTerm"][value="${v}"]`); if (r) r.checked = true;
+      const sep = d.querySelector('.ud-sep') as (HTMLElement & { pick?: (v: string) => void }) | null; sep?.pick?.(v);
     }
     refresh();
   };
@@ -260,7 +260,14 @@ async function importInto(deck: UserDeckView) {
     }
   };
   const foot = h('div', 'ud-row ud-foot'); foot.append(pick, h('span', 'ud-gap'), cancel, go);
-  body.append(intro, area, seps, head, list, out);
+  const step = (n: string, text: string) => { const e = h('div', 'ud-step'); e.append(h('span', 'ud-step-n', n), h('b', '', text)); return e; };
+  const left = h('div', 'ud-col ud-left');
+  left.append(step('1', tr('Paste your words')), intro, area, step('2', tr('How are they split?')), seps);
+  const right = h('div', 'ud-col ud-right');
+  right.append(head, list, out);
+  const cols = h('div', 'ud-cols');
+  cols.append(left, right);
+  body.append(cols);
   d.append(foot); // (below the scrolling part: always in reach, never over a card)
   draw();
   setTimeout(() => area.focus(), 40);

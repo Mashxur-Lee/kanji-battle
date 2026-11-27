@@ -5,6 +5,9 @@
 // questions feed Grammar Clash, the quiz battle for 2–8 players.
 import { N5 } from './grammar-n5';
 import { N4 } from './grammar-n4';
+import { N3 } from './grammar-n3';
+import { N2 } from './grammar-n2';
+import { N1 } from './grammar-n1';
 
 export type GrammarLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export const GRAMMAR_LEVELS: GrammarLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
@@ -23,7 +26,7 @@ export interface GrammarPoint {
   questions: GrammarQuestion[];
 }
 
-export const GRAMMAR: GrammarPoint[] = [...N5, ...N4];
+export const GRAMMAR: GrammarPoint[] = [...N5, ...N4, ...N3, ...N2, ...N1]; // (round 5: N3, N2 and N1 too)
 export const grammarOf = (level: GrammarLevel) => GRAMMAR.filter((g) => g.level === level);
 export const grammarById = (id: string) => GRAMMAR.find((g) => g.id === id) ?? null;
 /** a lesson is passed with this many of its questions right (all but one) */

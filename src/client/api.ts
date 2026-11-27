@@ -209,6 +209,8 @@ export const api = {
   // 0.9.9.9.9.6 (round 4): the grammar lessons passed
   grammarPassed: () => call<{ passed: string[] }>('GET', '/api/grammar'),
   passGrammar: (id: string, right: number) => call<{ passed: string[]; ok: boolean }>('POST', '/api/grammar/pass', { id, right }),
+  /** 0.9.9.9.9.6 (round 5): an admin writes to every player as the team */
+  broadcast: (text: string) => call<{ sent: number }>('POST', '/api/messages/broadcast', { text }),
   chessGames: () => call<{ games: ChessGame[] }>('GET', '/api/chess/games'),
   saveChessGame: (g: { bot: string; color: 'w' | 'b'; moves: string[]; times: number[]; base: number; inc: number; reason: string; result: string }) => call<{ ok: true }>('POST', '/api/chess/games', g),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),

@@ -4,6 +4,7 @@ dist
 # fresh clone look broken
 public/app.js
 public/arena3d.js
+public/chessworker.js
 public/sw.js
 .data
 public/vocab.json
