@@ -769,6 +769,10 @@ const RU: Record<string, string> = {
   'Type yama': 'Напечатайте yama',
   '✓ やま - your first spell!': '✓ やま — ваше первое заклинание!',
   'Almost - type yama (or やま)': 'Почти — напечатайте yama (или やま)',
+  // 0.9.9.9.9.7 (round 2): the grammar streak task, AI players in Grammar Clash
+  "Pass a grammar lesson": "Пройти урок грамматики",
+  "A grammar lesson": "Урок грамматики",
+  "Share the code with your friends, or add AI players - then press Ready.": "Поделитесь кодом с друзьями или добавьте ИИ-игроков — затем нажмите «Готов».",
   // 0.9.9.9.9.7: the break after 500 cards, Grammar's search, the chess sounds' credit
   "Time for a break!": "Пора отдохнуть!",
   "Okay, let's play": "Хорошо, давай сыграем",

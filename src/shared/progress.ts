@@ -135,6 +135,9 @@ export const DAILY_TASKS = [
   // 0.9.9.7.1: the JLPT quiz OR a reading passage — one task (three a day, not four)
   { id: 'practice', label: '7/10 in any quiz', target: 1 }, // (0.9.9.9.9.6 round 5: the JLPT or the onomatopoeia quiz; a reading passage at 4/8 still counts)
   { id: 'daily', label: 'Play the daily challenge', target: 1 },
+  // 0.9.9.9.9.7 (round 2, the owner: "one grammar lesson for the daily streak — and if they have completed all of them, it
+  // is done automatically")
+  { id: 'grammar', label: 'Pass a grammar lesson', target: 1 },
 ] as const;
 /** 0.9.9.4.3: a quiz counts for the daily task at 7/10 or better, a passage at 4/8 (the same share of a shorter one) */
 export const TASK_PASS = { quiz: 0.7, passage: 0.5 } as const;

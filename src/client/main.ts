@@ -298,6 +298,7 @@ taskActions.quiz = () => void startQuiz();
 taskActions.daily = () => ui.$('dailyBtn').click();
 taskActions.passage = () => ui.$('passageBtn').click();
 taskActions.practice = () => void startQuiz(); // (0.9.9.9.6.9: Today's quiz step)
+taskActions.grammar = () => ui.$('grammarBtn').click(); // (0.9.9.9.9.7 round 2)
 // 0.9.9.9.6.9: Today's battle — a Kanji Reading duel against the AI at your level
 taskActions.battle = () => {
   if (!canPlay('reading')) { ui.toast(lockText('reading'), 5000); return; }

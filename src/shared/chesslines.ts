@@ -144,3 +144,21 @@ export function lineHash(jp: string): string {
 export const voiceClip = (bot: BotId, jp: string) => `voices/${bot}/${lineHash(jp)}.mp3`;
 /** what is said aloud: the readings (the voice can't misread a kanji) */
 export const spokenOf = (jp: string) => jp.replace(/\{([^|}]*)\|([^}]*)\}/g, '$2');
+
+/**
+ * 0.9.9.9.9.7 (round 2, the owner: "the wizard says the same thing every time — he should say today's lesson in
+ * Japanese"): Master Fumi names each lesson aloud. The pattern as it is spoken: its first form, kana in brackets kept
+ * ((よ)う → よう), English notes dropped, 〜 gone, A and B read as letters; the two adjective lessons said in words.
+ */
+const SAID: Record<string, string> = { 'い-adjectives': 'い{形容詞|けいようし}', 'な-adjectives': 'な{形容詞|けいようし}' };
+export function spokenPattern(pattern: string): string {
+  if (SAID[pattern]) return SAID[pattern];
+  return pattern.split('・')[0]
+    .replace(/[(（][^)）]*[A-Za-z][^)）]*[)）]/g, '') // (an English note)
+    .replace(/[(（]([^)）]*)[)）]/g, '$1') // (kana in brackets: kept)
+    .replace(/[〜~]/g, '').replace(/A/g, 'エー').replace(/B/g, 'ビー').replace(/\s+/g, '').replace(/、$/, '');
+}
+/** what Fumi says as a lesson opens — a lesson read again gets its own words */
+export const fumiLessonLine = (pattern: string, again: boolean) => again
+  ? `もう{一度|いちど}、「${spokenPattern(pattern)}」か。よい{心|こころ}がけじゃ。`
+  : `{今日|きょう}の{文法|ぶんぽう}は、「${spokenPattern(pattern)}」じゃ。よく{読|よ}んでみなさい。`;

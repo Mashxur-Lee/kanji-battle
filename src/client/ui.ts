@@ -679,7 +679,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       : 'Each player picks their own. ひらがな and カタカナ = the two kana alphabets, answered in romaji. Harder levels hit harder - so your opponent gets more HP.';
   const isHost = you === hostId;
   const canStart = players.length >= minPlayers;
-  $('addBot').hidden = !isHost || players.length >= maxPlayers || ext;
+  $('addBot').hidden = !isHost || players.length >= maxPlayers || mode === 'chess'; // (0.9.9.9.9.7 round 2: Grammar Clash takes AI players)
   const deck = mode === 'deck';
   $('levels').hidden = deck || ext; // Deck Duel deals cards from every level — nothing to pick
   renderRoomSettings(mode, settings, isHost);
@@ -694,7 +694,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   $('start').hidden = true;
   const solo = mode === 'boss' && players.length === 1;
   $('lobbyStatus').textContent = !canStart
-    ? (deck ? 'Share the code, or add a bot - then press Ready. The duel starts when both are ready.' : ext ? 'Share the code with your friends - then press Ready.' : 'Share the code with a friend, or add a bot - then press Ready.')
+    ? (deck ? 'Share the code, or add a bot - then press Ready. The duel starts when both are ready.' : mode === 'chess' ? 'Share the code with your friends - then press Ready.' : mode === 'clash' ? 'Share the code with your friends, or add AI players - then press Ready.' : 'Share the code with a friend, or add a bot - then press Ready.')
     : meReady ? (solo ? 'Starting…' : 'Waiting for the others to be ready…')
     : solo ? 'Press Ready to start your solo run (or wait for a teammate).' : 'Press Ready - the battle starts when every player is ready.';
   if (!isLobbyAside()) show('lobby');

@@ -517,7 +517,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'POST' && url === '/api/grammar/pass') {
         const u = await auth.authenticate(r.token);
         const b = (await r.json()) as Record<string, unknown>;
-        return res(200, await study.passGrammar(u.id, b.id, b.right));
+        return res(200, await study.passGrammar(u.id, b.id, b.right, resolveToday(b.today)));
       } else if (r.method === 'GET' && url === '/api/clash/games') {
         // 0.9.9.9.9.6 (round 7): your Grammar Clash games, round by round
         const u = await auth.authenticate(r.token);

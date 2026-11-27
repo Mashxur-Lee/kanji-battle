@@ -210,9 +210,9 @@ test('0.9.9.9.9.6 AI memory pictures: painted once per kanji, kept, a daily cap;
 
 // ── the rest ──
 test('0.9.9.9.9.6 the daily streak: two tasks (a quiz, the daily challenge) — no study count, no battle step; kept: a moment with the flame', () => {
-  assert.deepEqual(DAILY_TASKS.map((t) => t.id), ['practice', 'daily']);
+  assert.deepEqual(DAILY_TASKS.map((t) => t.id), ['practice', 'daily', 'grammar']); // (0.9.9.9.9.7 round 2: and a grammar lesson)
   const dt = src('src/client/dailytasks.ts');
-  assert.ok(dt.includes("const TODAY_ORDER = ['practice', 'daily'] as const;"));
+  assert.ok(dt.includes("const TODAY_ORDER = ['practice', 'grammar', 'daily'] as const;"));
   assert.ok(dt.includes('celebrateMoment((box) => {') && dt.includes("fl.classList.add('burst', 'sk-flame');"));
 });
 

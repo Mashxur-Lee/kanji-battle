@@ -194,12 +194,14 @@ function drawPlayers() {
   if (mode.kind === 'bot') {
     const b = BOTS.find((x) => x.id === (mode as { bot: BotId }).bot)!;
     opp.querySelector('.cp-pic')!.innerHTML = botPic(b.id);
+    (opp.querySelector('.cp-pic') as HTMLElement).dataset.bot = b.id; // (0.9.9.9.9.7 round 2: the Dragon is framed its own way)
     const name = opp.querySelector('.cp-name')!;
     const r = h('ruby', '', undefined, { lang: 'ja' }); r.append(b.jp, h('rt', '', b.reading));
     name.replaceChildren(h('b', '', tr(b.name)), r, h('span', 'cp-elo', String(b.elo)));
   } else {
     const r = mode.room, them = mine === 'w' ? r.black : r.white;
     opp.querySelector('.cp-pic')!.innerHTML = heroSvg('wizard', 'opp');
+    (opp.querySelector('.cp-pic') as HTMLElement).dataset.bot = '';
     opp.querySelector('.cp-name')!.replaceChildren(h('b', '', them?.name ?? tr('Waiting…')), h('span', 'cp-side', tr(mine === 'w' ? 'Black' : 'White')));
   }
   me.querySelector('.cp-name')!.replaceChildren(h('b', '', tr('You')), h('span', 'cp-side', tr(mine === 'w' ? 'White' : 'Black')));
