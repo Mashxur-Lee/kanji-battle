@@ -284,7 +284,7 @@ export class Session implements Client {
       const kind: string = msg.type;
       void (async () => {
         const look = ['clash_new', 'clash_join', 'clash_queue'].includes(kind) ? await this.profile().catch(() => null) : null;
-        await this.hub.grammar?.handle({ id: user.id, name: user.name ?? user.username, avatar: look?.character ?? 'wizard', staff: look?.staff ?? 'verdant', guest: !!user.guest }, msg);
+        await this.hub.grammar?.handle({ id: user.id, name: user.name ?? user.username, avatar: look?.character ?? 'wizard', staff: look?.staff ?? 'verdant', flame: look?.flame ?? 'blue', guest: !!user.guest }, msg);
       })();
       return;
     }

@@ -7375,8 +7375,6 @@ button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
 :root[data-theme="light"] .gc-side h4 { color: #5a3fc0; }
 /* three right in a row: the omnipotence aura round the player's figure */
 .gc-av.gc-omni { position: relative; isolation: isolate; }
-.gc-av.gc-omni::before { content: ""; position: absolute; inset: -18%; z-index: -1; border-radius: 50%; background: conic-gradient(from 0deg, #ffd479, #ff7ad9, #8b6cff, #5fd4ff, #ffd479); filter: blur(6px); opacity: .85; animation: gcOmniSpin 2.4s linear infinite, gcOmniPulse 1.2s ease-in-out infinite alternate; }
-.gc-av.gc-omni::after { content: ""; position: absolute; inset: -6%; z-index: -1; border-radius: 50%; box-shadow: 0 0 18px 6px rgba(255, 212, 121, .55), inset 0 0 12px rgba(255, 255, 255, .5); animation: gcOmniPulse 1.2s ease-in-out infinite alternate-reverse; }
 @keyframes gcOmniSpin { to { transform: rotate(360deg); } }
 @keyframes gcOmniPulse { from { opacity: .55; } to { opacity: 1; } }
 .gc-omni-note { display: inline-block; margin-left: 8px; font-weight: 900; letter-spacing: .04em; background: linear-gradient(90deg, #ffd479, #ff7ad9, #8b6cff); -webkit-background-clip: text; background-clip: text; color: transparent; animation: gcOmniPulse .6s ease-in-out 4 alternate; }
@@ -7417,3 +7415,49 @@ button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
 #chessOpp .cp-pic svg { height: 100%; width: 100%; max-width: none; scale: 1.75; transform-origin: 50% 4%; }
 @media (max-width: 900px) { #chessOpp .cp-pic { width: 110px; height: 104px; } }
 @media (max-width: 600px) { #chessOpp .cp-pic { width: 92px; height: 88px; } }
+
+/* 0.9.9.9.9.7: a closed window is never drawn — some windows' own display (grid / flex) overrode the browser's "closed:
+   hidden", so the closed photo viewer, a screen tall, made the menu taller than the window (the admin's error reports) */
+dialog:not([open]) { display: none !important; }
+/* 0.9.9.9.9.7: the small Fumi's face in the middle of its round frame (it showed the hat and the eyes, cut off below) */
+.tg-small .tg-body { inset: -14% -32% -54% -32%; place-items: start center; }
+
+/* 0.9.9.9.9.7: Grammar Clash's Omnipotence is the battle's own — the 5× combo flames in your Customize colour (it was a
+   rainbow ring) */
+.gc-av { --f0: 235,255,255; --f1: 120,230,255; --f2: 40,150,255; --f3: 20,60,200; position: relative; }
+.gc-av > .aura { position: absolute; left: -45%; right: -45%; top: -55%; bottom: -2%; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.gc-av > svg { position: relative; z-index: 1; }
+.gc-av.gc-omni > .aura { opacity: 1; }
+.gc-av.gc-omni > .aura::before, .gc-av.gc-omni > .aura::after {
+  content: ""; position: absolute; left: 50%; bottom: 0; width: 80%; height: 100%; transform-origin: 50% 100%;
+  background: radial-gradient(ellipse 48% 62% at 50% 100%, rgba(var(--f0),.95), rgba(var(--f1),.9) 32%, rgba(var(--f2),.65) 58%, rgba(var(--f3),.25) 75%, transparent 80%);
+  border-radius: 50% 50% 35% 35% / 80% 80% 20% 20%; filter: blur(3px) drop-shadow(0 0 18px rgba(var(--f1),.8));
+  animation: flame .38s ease-in-out infinite alternate; mix-blend-mode: screen;
+}
+.gc-av.gc-omni > .aura::after { width: 55%; height: 78%; animation-duration: .27s; animation-delay: -.15s;
+  background: radial-gradient(ellipse 48% 62% at 50% 100%, rgb(var(--f0)), rgba(var(--f1),.9) 40%, rgba(var(--f2),.5) 65%, transparent 80%); }
+.gc-av.gc-omni > svg { filter: drop-shadow(0 0 10px rgba(var(--f1),.9)); }
+/* (0.9.9.9.9.7) the in-game chat: one message under another, no big gaps */
+.gc-chatside .cc-list { display: flex; flex-direction: column; gap: 4px; align-content: start; justify-content: flex-start; }
+.gc-chatside .cc-list li { margin: 0; padding: 3px 0; line-height: 1.35; flex: none; }
+.gc-hint { display: block; }
+
+/* 0.9.9.9.9.7: Match history → Chess and Grammar Clash look like Matches */
+#chessHistList, #clashHistList { display: grid; gap: 8px; }
+.hist-row .ch-pic svg { width: 100%; height: 100%; }
+
+/* 0.9.9.9.9.7: Grammar's search */
+.gr-search { width: 100%; box-sizing: border-box; margin: 0 0 10px; }
+.gr-levels[hidden] { display: none; }
+/* (0.9.9.9.9.7) the small Fumi: his face (eyes to mouth) in the middle of the circle — the portrait 120 px tall, its top
+   above the frame */
+.tg-small .tg-body { inset: -44.5% -32% -37.3% -32%; }
+/* the big Fumi: the layers part less at the screen's edges (his back hair came loose from his face — "buggy on my PC") */
+.tg-stage { transform: rotateY(calc(var(--tx) * 8deg)) rotateX(calc(var(--ty) * -4deg)); }
+.tg .fumi .fu-back { transform: translate(calc(var(--tx) * -1.5px), calc(var(--ty) * -1px)); }
+.tg .fumi .fu-mid { transform: translate(calc(var(--tx) * 1.5px), calc(var(--ty) * 1px)); }
+.tg .fumi .fu-front { transform: translate(calc(var(--tx) * 2.5px), calc(var(--ty) * 1.5px)); }
+.tg .fumi .fu-hat { transform: translate(calc(var(--tx) * 1.5px), calc(var(--ty) * 1px)); }
+/* 0.9.9.9.9.7 (the general check): Kana's sets in the light theme — the unchosen ones were dark pills on a light page */
+:root[data-theme="light"] .kana-sets button { background: rgba(255, 255, 255, .85); color: #5d587a; border-color: rgba(107, 63, 214, .25); }
+:root[data-theme="light"] .kana-sets button[aria-selected="true"] { color: #b0346e; background: rgba(255, 158, 199, .22); border-color: #e06a9e; }

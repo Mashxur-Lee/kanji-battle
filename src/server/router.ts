@@ -1,7 +1,7 @@
 // The REST API without the transport (0.9.9.4): the Node server (http.ts) feeds it real requests, and the
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
-import { outcome, posKey, replay } from '../shared/chess';
+import { BOTS as CHESS_BOTS, outcome, posKey, replay } from '../shared/chess';
 import { IMPORT_ROWS_MAX, parseList, UserDeckError, USER_DECKS_MAX, type ImportRow } from './study/UserDecks';
 import { fillCards } from './study/importfill';
 import { achCounts } from '../shared/achievements';
@@ -532,7 +532,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         if (!limiter.allow(`chessrec:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
         const b = (await r.json(64 * 1024)) as Record<string, unknown>;
         const moves = Array.isArray(b.moves) ? (b.moves as unknown[]).filter((x): x is string => typeof x === 'string' && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(x)).slice(0, 600) : [];
-        const bots = ['goblin', 'knight', 'witch', 'wizard'];
+        // (0.9.9.9.9.7: every bot, from the one list — the Dragon was missing here, so its games were never kept)
+        const bots: string[] = CHESS_BOTS.map((x) => x.id);
         if (!bots.includes(String(b.bot)) || !moves.length) return res(400, { error: 'Not a game' });
         const g = replay(moves);
         if (!g.ok) return res(400, { error: 'Not a game' });

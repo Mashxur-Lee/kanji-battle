@@ -5,6 +5,7 @@
 // Round 5: no lobby or menu of its own — it is a mode of the private game (the same lobby as every mode) and of the
 // online queue; this page is the game itself, and Back to lobby goes back to the room.
 import type { ClashView, ClientMessage } from '../shared/protocol';
+import { flameColor } from '../shared/progress';
 import type { ClashGame } from './api';
 import * as audio from './audio';
 import { jpLine } from './grammarui';
@@ -95,9 +96,15 @@ function startTick() {
 function stopTick() { clearInterval(tick); tick = 0; }
 
 function avatarBox(p: ClashView['players'][number], cls = 'gc-av') {
-  // (round 7) three right in a row: the omnipotence aura round the player
+  // (round 7) three right in a row: Omnipotence round the player — (0.9.9.9.9.7) the battle's own flames, in the colour
+  // they chose in Customize → Omnipotence (it was a rainbow ring of our own)
   const b = h('span', `${cls}${p.streak >= 3 ? ' gc-omni' : ''}`);
+  // (the flame's colour, light to deep, from the colour chosen in Customize)
+  const [r, g, bl] = (flameColor(p.flame).match(/[0-9a-f]{2}/gi) ?? ['78', 'e6', 'ff']).map((x) => parseInt(x, 16));
+  const mix = (t: number, k: number) => [r, g, bl].map((c) => Math.round(k > 0 ? c + (255 - c) * k : c * (1 + k))).join(',');
+  b.style.cssText = `--f0:${mix(0, 0.85)};--f1:${mix(0, 0.2)};--f2:${mix(0, -0.25)};--f3:${mix(0, -0.6)}`;
   b.innerHTML = pic(p.avatar, p.staff);
+  b.prepend(h('span', 'aura'));
   return b;
 }
 function chat(list: HTMLElement, r: ClashView) {
@@ -156,7 +163,8 @@ function drawPlay(r: ClashView, changed: boolean) {
     }
     return b;
   }));
-  if (r.status === 'question') { if (q.mine === undefined) $('clashFeedback').textContent = tr('Choose what goes in the gap.'); else $('clashFeedback').textContent = tr('Waiting for the others…'); }
+  // (0.9.9.9.9.7: the sentence's translation while you answer, under the hint)
+  if (r.status === 'question') { $('clashFeedback').replaceChildren(h('span', 'gc-hint', tr(q.mine === undefined ? 'Choose what goes in the gap.' : 'Waiting for the others…')), h('span', 'gc-tr', lang() === 'ru' ? (q.ru ?? '') : (q.en ?? ''))); }
   else {
     const last = me?.last;
     const fb = $('clashFeedback');
@@ -226,11 +234,19 @@ function drawOver(r: ClashView, changed: boolean) {
 export function showClashHistory(el: HTMLElement, games: ClashGame[] | null) {
   if (!games) { el.replaceChildren(h('p', 'hint', tr('Loading…'))); return; }
   if (!games.length) { el.replaceChildren(h('p', 'hint', tr('No Grammar Clash games yet - play one from the online queue or a private room.'))); return; }
+  // (0.9.9.9.9.7: drawn like a match in Matches)
   el.replaceChildren(...games.map((g) => {
-    const b = h('button', `history-item clash-hist${g.place === 1 ? ' win' : ''}`, undefined, { type: 'button' });
-    const mid = h('span', 'ch-mid');
-    mid.append(h('b', '', `${tr('Grammar Clash')} · ${g.level === 'mix' ? tr('All levels') : g.level}`), h('span', 'hint', `${g.players.length} ${tr('players')} · ${g.rounds.length} ${tr('questions')} · ${new Date(g.at).toLocaleDateString(lang() === 'ru' ? 'ru-RU' : undefined)}`));
-    b.append(h('span', 'ch-place', `#${g.place}`), mid, h('span', `hist-ranked${g.ranked ? ' on' : ''}`, tr(g.ranked ? 'Ranked' : 'Unranked')));
+    const res = g.place === 1 ? 'win' : 'loss';
+    const b = h('button', `hist-row ${res}`, undefined, { type: 'button' });
+    const me = g.players.find((p) => p.id === myId) ?? g.players[g.place - 1];
+    const fig = h('span', 'char-sprite'); fig.innerHTML = pic(me?.avatar ?? 'wizard', 'verdant');
+    const text = h('span', 'hist-mode-text');
+    const name = h('span', 'hist-mode-name', tr('Grammar Clash'));
+    name.append(h('span', `hist-ranked${g.ranked ? ' on' : ''}`, tr(g.ranked ? 'Ranked' : 'Unranked')));
+    const others = g.players.filter((p) => p.id !== me?.id).map((p) => p.name).join(', ');
+    text.append(name, h('span', 'hist-vs-line', `vs ${others} · ${g.level === 'mix' ? tr('All levels') : g.level} · ${g.rounds.length} ${tr('questions')}`));
+    const mode = h('span', 'hist-mode'); mode.append(ui.modeBadge('clash'), text);
+    b.append(fig, mode, h('span', 'hist-result', g.place === 1 ? tr('VICTORY') : `#${g.place} / ${g.players.length}`), h('span', 'hist-date', ui.dateTime(g.at)));
     b.onclick = () => openClashGame(g);
     return b;
   }));

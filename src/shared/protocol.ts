@@ -406,7 +406,7 @@ export interface ClashView {
   now: number; endsAt: number; limitMs: number;
   /** the question's number (from 1) and how many */
   n: number; total: number;
-  players: Array<{ id: string; name: string; avatar: string; staff: string; ready: boolean; score: number; streak: number; best: number; right: number; left: boolean; answered: boolean;
+  players: Array<{ id: string; name: string; avatar: string; staff: string; flame?: string; ready: boolean; score: number; streak: number; best: number; right: number; left: boolean; answered: boolean;
     /** the last question: what they picked (null: nothing), right or not, the points */ last?: { k: number | null; right: boolean; points: number } }>;
   /** the question (its answer and translation once it is revealed; `mine` what you picked) */
   q?: { jp: string; options: string[]; double: boolean; answer?: number; filled?: string; en?: string; ru?: string; mine?: number;

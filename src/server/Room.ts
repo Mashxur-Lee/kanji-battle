@@ -96,7 +96,7 @@ export interface RoomDeps {
   /** a player left the room during such a game */
   externalLeave?: (mode: 'chess' | 'clash', id: PlayerId) => void;
 }
-export interface ExternalPlayer { id: PlayerId; name: string; avatar: string; staff: string }
+export interface ExternalPlayer { id: PlayerId; name: string; avatar: string; staff: string; flame?: string }
 /** 0.9.9.9.9.6 (round 5): the host's settings for chess (the clock) and Grammar Clash (the level, how many questions) */
 export interface RoomSettings { base: number; inc: number; level: string; count: number }
 export const isExternal = (m: GameMode): m is 'chess' | 'clash' => m === 'chess' || m === 'clash';
@@ -556,7 +556,7 @@ export class Room {
   /** 0.9.9.9.9.6 (round 5): chess / Grammar Clash — the players go to the game's hub; back to the lobby when it ends */
   private startExternal(mode: 'chess' | 'clash') {
     if (!this.deps.external) { for (const c of this.clients.values()) c.send({ type: 'error', message: 'This game needs the internet' }); return; }
-    const players = this.humans.map((p) => ({ id: p.id, name: p.name, avatar: p.profile.character ?? 'wizard', staff: p.profile.staff ?? 'verdant' }));
+    const players = this.humans.map((p) => ({ id: p.id, name: p.name, avatar: p.profile.character ?? 'wizard', staff: p.profile.staff ?? 'verdant', flame: p.profile.flame ?? 'blue' }));
     this.phase = 'game';
     this.gamesPlayed++;
     for (const p of this.roster) p.ready = false;

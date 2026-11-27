@@ -67,3 +67,18 @@ test('study cards: new words a day set, a card answered, its XP counted once eve
   await expect.poll(async () => (await api<{ studyXpToday?: number }>(page, token, 'GET', '/api/study')).json?.studyXpToday ?? 0).toBe(5);
   expect(errors).toEqual([]);
 });
+
+test('grammar search: by romaji, by meaning, across every level; cleared, back to the level list', async ({ page }) => {
+  const errors = watchErrors(page);
+  await signedIn(page);
+  await openPage(page, 'grammarBtn', 'grammar');
+  const search = page.locator('#grammarSearch');
+  await search.fill('nagara');
+  await expect(page.locator('.gr-item', { hasText: 'ながら' }).first()).toBeVisible();
+  await expect(page.locator('#grammarLevels')).toBeHidden();
+  await search.fill('according to');
+  await expect(page.locator('.gr-item', { hasText: 'によると' })).toHaveCount(1);
+  await search.fill('');
+  await expect(page.locator('#grammarLevels')).toBeVisible();
+  expect(errors).toEqual([]);
+});

@@ -1,12 +1,13 @@
 // 0.9.9.9.9.6 (round 4): Grammar — the JLPT grammar, lesson by lesson. Master Fumi explains each point (what it
 // means, how it is formed and used, examples with furigana — each kanji tappable, each sentence spoken), then asks its
 // questions; all but one right and the lesson is passed (kept on your account). Levels N5 → N1.
-import { filledQuestion, GRAMMAR_LEVELS, grammarOf, passMark, plainJp, shuffled, type GrammarLevel, type GrammarPoint } from '../shared/grammar';
+import { filledQuestion, GRAMMAR, GRAMMAR_LEVELS, grammarOf, passMark, plainJp, shuffled, type GrammarLevel, type GrammarPoint } from '../shared/grammar';
+import { toRomaji } from '../shared/kana';
 import { FUMI_LINES, fumiClip, grammarClip, parseLine } from '../shared/chesslines';
 import { api } from './api';
 import * as audio from './audio';
 import { lang, tr } from './i18n';
-import { showKanji } from './kanjihelp';
+import { wordsTappable } from './kanjihelp';
 import { guideEl, guideMood, typeText } from './tutorguide';
 import * as ui from './ui';
 import { playClip, say as sayWord } from './voice';
@@ -23,7 +24,6 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
   return e;
 };
-const HAN = /\p{Script=Han}/u;
 const KEY = 'kb:grammar';
 const t = (x: { en: string; ru: string }) => (lang() === 'ru' ? x.ru : x.en);
 
@@ -31,25 +31,26 @@ let level: GrammarLevel = 'N5';
 let passed = new Set<string>((() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') as string[]; } catch { return []; } })());
 const keep = () => { try { localStorage.setItem(KEY, JSON.stringify([...passed])); } catch { /* private mode */ } };
 
+let searchWired = false;
 export function openGrammar() {
   ui.show('grammar');
+  if (!searchWired) { searchWired = true; let t = 0; ($('grammarSearch') as HTMLInputElement).oninput = () => { clearTimeout(t); t = window.setTimeout(showList, 120); }; }
   showList();
   void api.grammarPassed().then((r) => { for (const id of r.passed) passed.add(id); keep(); if (!$('grammarList').hidden) showList(); }).catch(() => { /* offline: what this device knows */ });
 }
 
 /** a Japanese line with furigana, each kanji tappable */
 export function jpLine(s: string, cls = 'gr-jp'): HTMLElement {
+  // (0.9.9.9.9.7: a word with its reading over it, tapped, opens the whole word — it split 勉強 into 勉 and 強 — and its
+  // kanji from there)
   const p = h('p', cls, undefined, { lang: 'ja' });
   for (const part of parseLine(s)) {
     if (!part.reading) { p.append(part.text); continue; }
     const r = h('ruby');
-    for (const ch of part.text) {
-      if (HAN.test(ch)) { const k = h('button', 'gr-k', ch, { type: 'button', title: tr('Tap for its meaning') }); k.onclick = (e) => { e.stopPropagation(); void showKanji(ch, k); }; r.append(k); }
-      else r.append(ch);
-    }
-    r.append(h('rt', '', part.reading));
+    r.append(part.text, h('rt', '', part.reading));
     p.append(r);
   }
+  wordsTappable(p);
   return p;
 }
 
@@ -62,19 +63,31 @@ function showList() {
     b.onclick = () => { level = l; showList(); };
     return b;
   }));
-  const list = grammarOf(level);
+  // (0.9.9.9.9.7) a search: every level's lessons that match, each with its level; empty: this level's list
+  const q = norm(($('grammarSearch') as HTMLInputElement).value);
+  const searching = q.length > 0;
+  $('grammarLevels').hidden = searching;
+  const list = searching ? GRAMMAR.filter((g) => haystack(g).includes(q)) : grammarOf(level);
   const done = list.filter((g) => passed.has(g.id)).length;
   $('grammarProg').textContent = tr(`${done} of ${list.length} passed`);
   ($('grammarBar') as HTMLElement).style.width = `${list.length ? (done / list.length) * 100 : 0}%`;
   $('grammarItems').replaceChildren(...list.map((g, i) => {
     const b = h('button', `gr-item${passed.has(g.id) ? ' passed' : ''}`, undefined, { type: 'button' });
-    b.append(h('span', 'gr-n', String(i + 1)), h('b', 'gr-pat', g.pattern), h('span', 'gr-mean', t(g.meaning)), h('span', 'gr-state', tr(passed.has(g.id) ? 'Passed' : 'Learn')));
+    b.append(h('span', 'gr-n', searching ? g.level : String(i + 1)), h('b', 'gr-pat', g.pattern), h('span', 'gr-mean', t(g.meaning)), h('span', 'gr-state', tr(passed.has(g.id) ? 'Passed' : 'Learn')));
     b.querySelector('.gr-pat')!.setAttribute('lang', 'ja');
     b.onclick = () => openLesson(g);
     return b;
   }));
 }
 
+/** what a search looks in: the pattern (and its kana without 〜), its meanings, its romaji */
+const norm = (s: string) => s.trim().toLowerCase().replace(/[〜~・\s]/g, '');
+const hay = new Map<string, string>();
+function haystack(g: GrammarPoint): string {
+  let x = hay.get(g.id);
+  if (!x) { x = norm([g.pattern, g.meaning.en, g.meaning.ru, toRomaji(g.pattern.replace(/[^\u3040-\u30ff]/g, ''))].join('|')); hay.set(g.id, x); }
+  return x;
+}
 function openLesson(g: GrammarPoint) {
   $('grammarList').hidden = true;
   const box = $('grammarLesson');

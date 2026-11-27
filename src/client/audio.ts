@@ -180,6 +180,35 @@ function knock(at: number, gain = 1, pitch = 1, bright = 1) {
   noise(at, 0.014, 0.16 * gain * bright, 3400 * j, 'bandpass');
 }
 
+/** 0.9.9.9.9.7: the chess recordings (public/sounds/chess: light0–4, medium0–4, heavy0–4) */
+type Wood = 'light' | 'medium' | 'heavy';
+const woodBufs: Partial<Record<Wood, AudioBuffer[]>> = {};
+let woodLoading: Promise<void> | null = null;
+function loadWood() {
+  if (woodLoading || !ctx) return;
+  const c = ctx;
+  woodLoading = Promise.all((['light', 'medium', 'heavy'] as Wood[]).map(async (w) => {
+    const list: AudioBuffer[] = [];
+    for (let i = 0; i < 5; i++) {
+      try { list.push(await c.decodeAudioData(await (await fetch(`sounds/chess/${w}${i}.mp3`)).arrayBuffer())); } catch { /* offline: the synthesised knock */ }
+    }
+    if (list.length) woodBufs[w] = list;
+  })).then(() => undefined);
+}
+function wood(w: Wood, at: number, gain = 1) {
+  loadWood();
+  const list = woodBufs[w];
+  if (!list?.length) { knock(at, w === 'heavy' ? 1.2 : w === 'medium' ? 1 : 0.85); return; }
+  const src = ctx!.createBufferSource();
+  src.buffer = list[Math.floor(Math.random() * list.length)];
+  src.playbackRate.value = 0.97 + Math.random() * 0.06;
+  const g = ctx!.createGain(); g.gain.value = gain;
+  src.connect(g).connect(sfxBus);
+  src.start(at);
+}
+/** (the chess page opening: the recordings fetched before the first move) */
+export function preloadChessSounds() { if (ensure()) loadWood(); }
+
 const sfxOk = () => prefs.sfx && ensure() !== null && ctx!.state === 'running';
 
 export const sfx = {
@@ -227,54 +256,54 @@ export const sfx = {
     const t = ctx!.currentTime;
     [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
   },
-  // 0.9.9.9.9.6 (round 4): Kanji chess's own sounds. Round 7 (the owner: "good, calm and relatable"): a real wooden piece —
-  // a short knock of a few wooden resonances and a click, never a pitch sweep — each move a little different; capture,
-  // castling, check, promotion and checkmate each with a sound of their own, all soft
+  // 0.9.9.9.9.6 (round 4): Kanji chess's own sounds. 0.9.9.9.9.7 (the owner: "the move sounds are bad, maybe a ready one"):
+  // real wooden pieces on a wooden board — recordings from Kenney's "Impact Sounds" (CC0, credited anyway), light for a
+  // move, medium for a capture, heavy for the last move; one of five takes each time, so no two moves sound the same.
+  // Check, promotion and checkmate add one soft chime (synthesised) to the knock.
   /** a piece set down on the board */
-  chessMove() { if (sfxOk()) knock(ctx!.currentTime); },
+  chessMove() { if (sfxOk()) wood('light', ctx!.currentTime); },
   /** a capture: the taken piece clacked aside, then the taker set down firmly */
   chessCapture() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    knock(t, 0.7, 1.25, 1.5);
-    noise(t + 0.02, 0.05, 0.05, 1200, 'bandpass');
-    knock(t + 0.075, 1.15, 0.92, 1.1);
+    wood('light', t, 0.55);
+    wood('medium', t + 0.07);
   },
   /** castling: the king, then the rook beside it */
   chessCastle() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    knock(t, 0.95);
-    knock(t + 0.14, 0.85, 1.07);
+    wood('light', t);
+    wood('light', t + 0.15, 0.85);
   },
-  /** check: a firmer knock and one quiet, low chime */
+  /** check: a firm knock and one quiet chime */
   chessCheck() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    knock(t, 1.15, 1.02, 1.3);
-    bell(midi(76), t + 0.05, 0.45, 0.045);
+    wood('medium', t);
+    bell(midi(76), t + 0.05, 0.45, 0.04);
   },
   /** a pawn promoted: the knock, then two soft rising notes */
   chessPromote() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    knock(t);
-    bell(midi(72), t + 0.08, 0.5, 0.04);
-    bell(midi(79), t + 0.18, 0.7, 0.045);
+    wood('light', t);
+    bell(midi(72), t + 0.08, 0.5, 0.035);
+    bell(midi(79), t + 0.18, 0.7, 0.04);
   },
-  /** checkmate: the last knock and a warm, quiet chord that fades */
+  /** checkmate: the last, heavy knock and a warm, quiet chord that fades */
   chessMate() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    knock(t, 1.2, 0.97, 1.2);
-    for (const [n, d] of [[57, 0.1], [64, 0.16], [69, 0.22], [73, 0.28]] as const) tone(midi(n), t + d, 2.2, { gain: 0.05, send: 0.45, attack: 0.03 });
+    wood('heavy', t);
+    for (const [n, d] of [[57, 0.12], [64, 0.18], [69, 0.24], [73, 0.3]] as const) tone(midi(n), t + d, 2.2, { gain: 0.045, send: 0.45, attack: 0.03 });
   },
-  /** the game begins: two light knocks, as the first pieces are touched */
+  /** the game begins: two light knocks */
   chessStart() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    knock(t, 0.6, 1.05);
-    knock(t + 0.16, 0.7);
+    wood('light', t, 0.7);
+    wood('light', t + 0.16, 0.8);
   },
   mana() {
     if (!sfxOk()) return;

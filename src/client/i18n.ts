@@ -769,6 +769,12 @@ const RU: Record<string, string> = {
   'Type yama': 'Напечатайте yama',
   '✓ やま - your first spell!': '✓ やま — ваше первое заклинание!',
   'Almost - type yama (or やま)': 'Почти — напечатайте yama (или やま)',
+  // 0.9.9.9.9.7: the break after 500 cards, Grammar's search, the chess sounds' credit
+  "Time for a break!": "Пора отдохнуть!",
+  "Okay, let's play": "Хорошо, давай сыграем",
+  "Keep studying": "Продолжить учёбу",
+  "Search grammar - てから, because, nagara…": "Поиск по грамматике — てから, потому что, nagara…",
+  "Chess sounds:": "Звуки шахмат:",
   // 0.9.9.9.9.6 (round 7): Grammar Clash's sides and its Match history; the voices' credit
   "Voices (the chess wizards, Grammar):": "Голоса (шахматные волшебники, грамматика):",
   "Your mistake": "Ваша ошибка",
@@ -1816,6 +1822,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Your turn - choose a card( \(Frenzy: 2 cards\))?$/, (_, f) => `Ваш ход — выберите карту${f ? ' (Неистовство: 2 карты)' : ''}`],
   [/^Playing since (.+)$/, 'Играет с $1'],
   [/^(\d+) online now · (\d+) accounts · (\d+) banned$/, 'Сейчас в сети: $1 · аккаунтов: $2 · заблокировано: $3'],
+  [/^(\d+) cards today - impressive! Give your brain a rest: how about a game of Kanji chess or Grammar Clash\?$/, '$1 карточек за сегодня — впечатляет! Дай мозгу отдохнуть: как насчёт партии в Шахматы кандзи или Грамматическую битву?'],
   [/^last day: (.+)$/, 'последний день: $1'],
   [/^(\d+) learned today · (\d+) learned in total$/, 'выучено сегодня: $1 · всего: $2'],
 ];

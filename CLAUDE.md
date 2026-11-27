@@ -26,6 +26,11 @@ serves the web game, the Android app (a WebView shell) and the Windows app (Elec
   using the installed Chrome, against their own server (port 3998, a throwaway data file, never the database).
   `npm run test:all` runs both suites, `npm run test:coverage` writes `test-results/lcov.info`, and `npm run test:report`
   opens the last browser-test report.
+- `scripts/emulator.sh` (0.9.9.9.9.7) runs the Android app on an Android 16 emulator (set up in `D:/AndroidTest`):
+  start, install the newest release APK, open, tap, Back, screenshots — for what only the real app does.
+- `npx tsx scripts/check-words.ts` looks up every furigana word of the chess lines and grammar sentences the way a tap
+  does; run it after adding lines (a word it can't find goes in `EXTRA_WORDS`, `src/shared/wordlookup.ts`).
+- `npx tsx scripts/voices.mts` (with the VOICEVOX engine running) records any new chess or grammar line.
 - `npm run typecheck` checks the server and client. Locally the three.js typings may be missing; CI has them.
 - `npm run dev` builds the client and runs the server on :3000 (`PORT`); without `DATABASE_URL` it keeps data in a local JSON file.
 
