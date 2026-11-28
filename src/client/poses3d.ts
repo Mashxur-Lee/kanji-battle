@@ -41,7 +41,7 @@ function pointStaff(m: Character, dir: THREE.Vector3, k: number) {
 const ease = (k: number) => k * k * (3 - 2 * k);
 
 /** Bend the model into the pose (k = how far, 0–1). `time` drives the gentle floating bob. */
-export function applyPose(m: Character, pose: PoseId, kRaw: number, time: number) {
+export function applyPose(m: Character, pose: PoseId, kRaw: number, time: number, sword = false) {
   const k = ease(Math.max(0, Math.min(1, kRaw)));
   const [legL, legR] = m.legs ?? [];
   const reset = () => {
@@ -80,6 +80,18 @@ export function applyPose(m: Character, pose: PoseId, kRaw: number, time: number
     if (legL) { legL.hip.rotation.x = -0.32 * k; legL.knee.rotation.x = 1.15 * k; }
     if (legR) { legR.hip.rotation.x = -0.06 * k; legR.knee.rotation.x = 0.18 * k; }
     if (m.leftArm) m.leftArm.rotation.z = lerp(LEFT_REST.z(m), -0.55, k);
+  } else if (pose === 'aim' && sword) {
+    // 0.9.9.9.9.7 (round 5): a sword en garde — half side-on, the hand out in front at the chest, the point raised at
+    // the opponent's face; the free arm up behind for balance, the front knee bent (the staff's aim held a sword out
+    // flat like a pointer, and fought its slashes)
+    m.body.rotation.y = lerp(m.body.rotation.y, -0.8, k);
+    m.head.rotation.y = lerp(m.head.rotation.y, 0.7, k);
+    m.root.updateMatrixWorld(true);
+    reach(m.arm, m.body, m.body.worldToLocal(m.root.localToWorld(new THREE.Vector3(0.22, 1.02, 1.3))), k);
+    pointStaff(m, new THREE.Vector3(0, 0.62, 1), k);
+    if (m.leftArm) { m.leftArm.rotation.x = lerp(LEFT_REST.x(m), -0.45, k); m.leftArm.rotation.z = lerp(LEFT_REST.z(m), -1.25, k); }
+    if (legL) { legL.hip.rotation.x = 0.34 * k; legL.knee.rotation.x = 0.38 * k; }
+    if (legR) { legR.hip.rotation.x = -0.32 * k; legR.knee.rotation.x = 0.12 * k; }
   } else if (pose === 'aim') {
     // side-on: the right shoulder towards the opponent, the arm straight out at them, the core of the staff first
     m.body.rotation.y = lerp(m.body.rotation.y, -1.2, k);

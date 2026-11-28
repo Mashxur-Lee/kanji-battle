@@ -451,7 +451,7 @@ export function openCustomize(profile: Profile, isAdmin = false, onTimeChange: (
 
 // (new pictures with each version: the staffs may have changed — 0.9.9.9.9.5: and with each change of the models within a
 // version, THUMBS_REV: the remade swords kept showing their old pictures)
-const THUMBS_REV = 4; // (round 6: the Verdant staff is one solid wood)
+const THUMBS_REV = 5; // (round 6: the Verdant staff is one solid wood; 0.9.9.9.9.7 round 5: the swords remade)
 const THUMBS_KEY = `kb:staffThumbs:${VERSION}:${THUMBS_REV}`;
 const idle = (cb: () => void) => ((globalThis as unknown as { requestIdleCallback?: (f: () => void, o?: object) => number }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 120)))(cb, { timeout: 1500 });
 /** 0.9.9.9.7.4: staffs whose picture is still to be drawn (drawn only while Customize is open — see step) */

@@ -53,7 +53,7 @@ The same list is shown in the game under **About** (main menu).
 The chess wizards' spoken lines and the Grammar page's (Master Fumi, the examples) (`public/voices/`, made by `scripts/voices.mts`) were generated with
 [VOICEVOX](https://voicevox.hiroshiba.jp/) (engine 0.26.2). Each character's terms allow commercial use with a credit:
 
-- Goblin — VOICEVOX:ずんだもん
+- Goblin — VOICEVOX:栗田まろん
 - Knight — VOICEVOX:†聖騎士 紅桜†
 - Witch — VOICEVOX:九州そら
 - Wizard — VOICEVOX:麒ヶ島宗麟
@@ -73,7 +73,7 @@ game's own. The words shown are the ones the recordings sing, heard with [whispe
 ## Word voices (battles)
 
 The words your character says when you cast them are recorded with VOICEVOX in the four characters' voices
-(VOICEVOX:ずんだもん, VOICEVOX:†聖騎士 紅桜†, VOICEVOX:九州そら, VOICEVOX:麒ヶ島宗麟 — the chess wizards' voices above) and served
+(VOICEVOX:栗田まろん, VOICEVOX:†聖騎士 紅桜†, VOICEVOX:九州そら, VOICEVOX:麒ヶ島宗麟 — the chess wizards' voices above) and served
 from their own site, [kanji-wizards-voices](https://github.com/Mashxur-Lee/kanji-wizards-voices) (GitHub Pages).
 
 ## Sounds

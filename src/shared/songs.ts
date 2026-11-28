@@ -178,7 +178,7 @@ export const SONGS: Song[] = [
       L('Chorus', 'この{気持|きも}ちは {決|けっ}して{揺|ゆ}るがないよ', 'kono kimochi wa kesshite yuruganai yo', 'This feeling will never waver', 'Это чувство никогда не дрогнет'),
     ],
     times: [6.7, 13.8, 15.5, 17.5, 20.5, 24.3, 27.5, 32.1, 35.7, 38.5, 42.0, 45.7, 49.3, 52.9, 54.5, 56.2, 58.3, 63.0, 66.9, 70.3, 74.0, 77.2, 81.0],
-    ends: [12.9, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 85.2],
+    ends: [13.3, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 85.2],
   },
   {
     id: 'hakoniwa-no-honoo',
@@ -186,7 +186,7 @@ export const SONGS: Song[] = [
     difficulty: 3, level: 'N3', bpm: 150, length: 83.5,
     // (round 4: heard with whisper — the cut sings the intro, verse 1, the pre-chorus, the chorus's first half, then the
     // final chorus from 明日が来なくても, and the outro)
-    times: [10.0, 15.4, 19.4, 22.6, 25.2, 28.6, 31.6, 37.6, 42.2, 45.3, 48.3, ...Array(20).fill(null), 52.4, 61.1, 64.8, 67.5, 71.4],
+    times: [5.0, 15.4, 19.4, 22.6, 25.2, 28.6, 31.6, 37.6, 42.2, 45.3, 48.3, ...Array(20).fill(null), 52.4, 61.1, 64.8, 67.5, 71.4],
     ends: [...Array(35).fill(null), 79.2],
     about: {
       en: 'Fast, dark, theatrical rock about breaking out of the box called "normal". N3 words and grammar, sung with sudden stops - you will need quick fingers.',
@@ -298,7 +298,8 @@ export const SONGS: Song[] = [
       L('Final Chorus', '{誰|だれ}よりも {高|たか}く！', 'dare yori mo takaku', 'Higher than anyone!', 'Выше всех!'),
     ],
     times: [13.2, 16.8, 25.0, 31.9, 39.6, 47.0, 49.8, 53.6, 57.7, 63.6, 67.2, 70.3, 72.2, 78.8],
-    ends: [15.6, 23.2, 31.0, 37.4, null, 48.8, null, null, 62.6, null, null, null, 74.4, 82.6],
+    // (round 5: only the intro's end and the song's — the others were guesses that cut the last syllable off)
+    ends: [15.4, ...Array(12).fill(null), 82.6],
   },
   {
     id: 'aragae',

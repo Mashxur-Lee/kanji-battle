@@ -73,7 +73,8 @@ export function createStaffPreview(canvas: HTMLCanvasElement): StaffPreview | nu
     holder.position.y = Math.sin(time * 1.3) * 0.04;
     staff.gem.rotation.y += dt * 1.5;
     staff.gemMat.emissiveIntensity = 1.4 + Math.sin(time * 3) * 0.4;
-    staff.update(time, dt, 0.25);
+    // (0.9.9.9.9.7 round 5: a sword is grey steel until you write — here it fills with its colour and drains again)
+    staff.update(time, dt, isSword(shownId) ? 0.5 - 0.5 * Math.cos(time * 0.9) : 0.25);
     renderer.render(scene, camera);
   }
 
@@ -95,10 +96,10 @@ export function createStaffPreview(canvas: HTMLCanvasElement): StaffPreview | nu
       holder.rotation.y = 0.6; holder.position.y = 0;
       for (const id of ids) {
         // (0.9.9.9.9.5: a sword whole, its flat to the camera — the staff's close-up of the gem showed only its tip)
-        if (isSword(id)) { camera.position.set(0.05, 0.5, 3.1); camera.lookAt(0, 0.5, 0); camera.updateProjectionMatrix(); holder.rotation.y = 0.25; }
+        if (isSword(id)) { camera.position.set(0.05, 0.68, 3.5); camera.lookAt(0, 0.68, 0); camera.updateProjectionMatrix(); holder.rotation.y = 0.25; } // (round 5: longer blades)
         else { camera.position.set(0.35, GEM_Y + 0.12, 1.6); camera.lookAt(0, GEM_Y - 0.02, 0); camera.updateProjectionMatrix(); holder.rotation.y = 0.6; }
         const s = use(id);
-        s.update(1.2, 0, 0);
+        s.update(1.2, 0, isSword(id) ? 0.85 : 0); // (round 5: a sword's picture in its colours — at rest they are all grey)
         renderer.render(scene, camera);
         out.push(canvas.toDataURL('image/webp', 0.86)); // (0.9.9.9.5.5: small webp — they're kept between visits)
       }

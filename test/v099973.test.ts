@@ -43,7 +43,7 @@ test('0.9.9.9.7.3 a hit: a step back with one leg (the other one next time); a k
   assert.match(a3, /f\.hitLeg = 1 - f\.hitLeg/);
   assert.match(a3, /const back = legs\[f\.hitLeg\], front = legs\[1 - f\.hitLeg\];[\s\S]{0,300}back\.hip\.rotation\.x \+=[\s\S]{0,80}back\.knee\.rotation\.x \+=/, 'the thigh goes back, the knee bends as the foot lifts');
   // the leg step comes after applyPose (which puts the legs back to standing every frame)
-  assert.ok(a3.indexOf('applyPose(m, f.pose, f.poseK, time)') < a3.indexOf('const back = legs[f.hitLeg]'));
+  assert.ok(a3.indexOf('applyPose(m, f.pose, f.poseK * (1 - swingEnv3), time, swordF)') < a3.indexOf('const back = legs[f.hitLeg]')); // (0.9.9.9.9.7 round 5: a sword's swing)
   assert.match(a3, /const was = m \? \{ rx: m\.root\.rotation\.x[\s\S]{0,2000}const r = 1 - Math\.min\(1, k\);[\s\S]{0,600}m\.kneel\(k\)/, 'the lean, the step and the pose ease out as they kneel');
 });
 

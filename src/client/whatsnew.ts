@@ -31,6 +31,10 @@ const PATCHES: Patch[] = [
       "Watch a friend who is playing Kanji chess against a wizard (Watch their game on their profile). Grammar Clash in a private room can mix several levels - N5 and N4, for example - and the online queue uses every level the players share.",
       "Grammar: furigana over the kanji in lesson titles (〜に代わって, 〜を余儀なくされる…), in Grammar Clash too; in a quiz the sentence is read first, then Master Fumi says whether you were right; the dictionary is the side panel again, as on the other pages.",
       "Phones get their animations back - the menu's turning circle and rising kanji, the painting's drift, the screens and Settings sliding in. The menu's circle is drawn far more cheaply (about twice the frame rate on a slow phone), and only a phone that really can't keep up switches to calm effects, checked again every few days. The page tours keep pointing at the right thing while the page moves.",
+      "The swords, remade: every sword is grey steel until you write - then its colour runs into the blade, the guard and the grip, light streams up the blade from the guard's gem, and a star shines at the tip when it is full. Each now has its own shape, slimmer and longer: a straight arming sword, a crystal sword, a curved saber with a knuckle-bow, a katana with a glowing hamon, and a wavy flame blade with a winged crown.",
+      "Duelist with a sword: an en-garde stance of its own (the point raised at your opponent, the free arm back), and the pose now steps aside for every slash instead of fighting it.",
+      "Song lyrics: Back, Replay line and Next now jump to the line instead of restarting the song, and a song waiting for you stops just after the line ends (with a short fade) instead of cutting off its last syllable.",
+      "The Goblin has a new voice (VOICEVOX:栗田まろん). In a Grammar quiz, a wrong answer no longer reads the sentence out.",
     ],
     ru: [
       "Грамматика: 210 уроков от N5 до N1 (было 96), каждый пример и вопрос читаются вслух, и поиск по всем урокам — по конструкции, значению или ромадзи.",
@@ -55,6 +59,10 @@ const PATCHES: Patch[] = [
       "Смотрите, как друг играет в Шахматы кандзи против волшебника («Смотреть игру» в его профиле). Грамматическая битва в приватной комнате может смешивать несколько уровней — например, N5 и N4, — а онлайн-очередь берёт все уровни, общие для игроков.",
       "Грамматика: фуригана над кандзи в названиях уроков (〜に代わって, 〜を余儀なくされる…) и в Грамматической битве; в тесте сначала звучит предложение, затем Мастер Фуми говорит, верно ли; словарь — снова боковая панель, как на других страницах.",
       "На телефонах вернулись анимации — вращающийся круг и всплывающие кандзи в меню, движение картины, выезжающие экраны и Настройки. Круг в меню рисуется гораздо легче (примерно вдвое больше кадров на медленном телефоне), а на спокойные эффекты переходит только телефон, который действительно не справляется, — с повторной проверкой раз в несколько дней. Подсказки обзора продолжают указывать на нужное, пока страница движется.",
+      "Мечи переделаны: каждый меч — серая сталь, пока вы не пишете; тогда его цвет перетекает в клинок, гарду и рукоять, свет струится по клинку от камня гарды, а когда меч заряжен — на острие загорается звезда. У каждого теперь своя форма, тоньше и длиннее: прямой меч, кристаллический меч, изогнутая сабля с дужкой, катана со светящимся хамоном и волнистый пламенный клинок с крылатой короной.",
+      "Дуэлянт с мечом: своя стойка «к бою» (острие поднято на противника, свободная рука отведена назад), и поза теперь уступает каждому удару, а не мешает ему.",
+      "«Слова песен»: «Назад», «Повторить строку» и «Вперёд» теперь переходят к строке, а не начинают песню заново, а песня, ожидающая вас, останавливается сразу после конца строки (с коротким затуханием), не обрывая последний слог.",
+      "У Гоблина новый голос (VOICEVOX:栗田まろん). В тесте по грамматике неверный ответ больше не озвучивает предложение.",
     ],
   },
   {
