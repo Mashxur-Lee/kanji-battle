@@ -1506,9 +1506,17 @@ export function setRematchStatus(votes: PlayerId[], you: PlayerId, playerCount: 
 // ── modes, characters, other players' profiles, match history ────────────────
 export const MODE_ICON: Record<GameMode, string> = { reading: '読', rapid: '速', writing: '書', boss: '竜', deck: '札', chess: '将', clash: '闘' };
 
-/** The mode's logo (the same kanji as on the mode cards). */
+/** The mode's logo (the same kanji as on the mode cards; Kanji chess: the white knight, round 3). */
 export function modeBadge(mode: GameMode): HTMLElement {
-  return h('span', `mode-badge ${mode}`, MODE_ICON[mode], { lang: 'ja', title: MODE_LABEL[mode], 'aria-label': MODE_LABEL[mode] });
+  const b = h('span', `mode-badge ${mode}`, mode === 'chess' ? undefined : MODE_ICON[mode], { lang: 'ja', title: MODE_LABEL[mode], 'aria-label': MODE_LABEL[mode] });
+  if (mode === 'chess') b.append(knightImg());
+  return b;
+}
+/** 0.9.9.9.9.7 (round 3): Kanji chess's icon everywhere — the white knight piece (its 馬), not the kanji 将 */
+export function knightImg(): HTMLImageElement {
+  const i = document.createElement('img');
+  i.src = 'chess/wn.webp'; i.alt = ''; i.className = 'knight-ic'; i.draggable = false; i.decoding = 'async';
+  return i;
 }
 
 /** 0.9.9.9.9.5: the Rematch tile keeps its icon when its word changes */

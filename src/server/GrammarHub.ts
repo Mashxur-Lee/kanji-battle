@@ -59,7 +59,11 @@ interface Room {
   bound?: () => void;
   /** (round 7) each round as it went, for Match history */
   log?: ClashRecord['rounds'];
+  /** 0.9.9.9.9.7 (round 3): friends watching — they see what the players see, never anyone's pick before the reveal */
+  watchers?: Set<string>;
 }
+/** 0.9.9.9.9.7 (round 3): how many may watch one game */
+export const WATCHERS_MAX = 8;
 
 export class GrammarHub {
   private rooms = new Map<string, Room>();
@@ -178,6 +182,20 @@ export class GrammarHub {
   /** (round 5) someone left the room during a game it started */
   leaveUser(userId: string) { const r = this.rooms.get(this.byUser.get(userId) ?? ''); if (r?.bound && r.status !== 'over') this.leave(userId); }
   playing(userId: string) { const r = this.rooms.get(this.byUser.get(userId) ?? ''); return !!r && r.status !== 'lobby' && r.status !== 'over'; }
+  /** 0.9.9.9.9.7 (round 3): watch a friend's game (Session checked you're friends): null, or why not */
+  watch(userId: string, friendId: string, started?: () => void): string | null {
+    const r = this.rooms.get(this.byUser.get(friendId) ?? '');
+    if (!r || r.status === 'lobby' || r.status === 'over' || r.seats.get(friendId)?.left) return 'Your friend isn’t in a game right now';
+    if (r.seats.has(userId) && !r.seats.get(userId)!.left) return 'You’re playing in this game';
+    this.unwatch(userId);
+    r.watchers ??= new Set();
+    if (r.watchers.size >= WATCHERS_MAX) return 'This game has as many watchers as it can take';
+    r.watchers.add(userId);
+    started?.(); // (the watcher hears they're watching before the game's first frame)
+    this.send(userId, { type: 'clash', room: this.view(r, userId) });
+    return null;
+  }
+  unwatch(userId: string) { for (const r of this.rooms.values()) r.watchers?.delete(userId); }
 
   // ── rooms ──
   private make(host: ClashPlayer, quick: boolean, ranked: boolean, level: ClashLevel, count: number): Room {
@@ -380,6 +398,7 @@ export class GrammarHub {
   }
   private push(r: Room, only?: string) {
     for (const id of only ? [only] : r.seats.keys()) if ((!r.seats.get(id)?.left || id === only) && !r.seats.get(id)?.bot) this.send(id, { type: 'clash', room: this.view(r, id) });
+    if (!only) for (const id of r.watchers ?? []) this.send(id, { type: 'clash', room: this.view(r, id) }); // (round 3)
   }
   /** rooms nobody has touched for an hour (a lobby left open) go */
   sweep() {

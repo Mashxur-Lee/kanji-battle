@@ -186,8 +186,13 @@ export class Session implements Client {
   private room?: Room;
   /** 0.9.9.9.9: the game you're watching (a friend's) */
   private watched?: Room;
+  /** 0.9.9.9.9.7 (round 3): a friend's Kanji chess / Grammar Clash game being watched (their hubs keep it) */
+  private watchedHub?: 'chess' | 'clash';
   private stopWatching(tell = true) {
-    if (!this.watched || !this.user) return;
+    if (this.watchedHub && this.user) { if (this.watchedHub === 'chess') this.hub.chess?.unwatch(this.user.id); else this.hub.grammar?.unwatch(this.user.id); }
+    const was = !!this.watched || !!this.watchedHub;
+    this.watchedHub = undefined;
+    if (!this.watched || !this.user) { if (was && tell) this.send({ type: 'watching', on: false }); return; }
     this.watched.unwatch(this.user.id);
     this.watched = undefined;
     if (tell) this.send({ type: 'watching', on: false });
@@ -299,13 +304,21 @@ export class Session implements Client {
       this.matchmaker?.cancel(user.id, false);
       const friend = await this.auth.store.findById(friendId);
       const name = friend?.nickname || friend?.username || '';
+      // 0.9.9.9.9.7 (round 3): Kanji chess and Grammar Clash are played in their hubs — watched there
+      if (target.mode === 'chess' || target.mode === 'clash') {
+        const hubMode = target.mode;
+        const started = () => { this.watchedHub = hubMode; this.send({ type: 'watching', on: true, code: target.code, mode: hubMode, players: [], name, target: friendId }); };
+        const why = hubMode === 'chess' ? this.hub.chess?.watch(user.id, friendId, started) : this.hub.grammar?.watch(user.id, friendId, started);
+        if (why !== null) return this.send({ type: 'watching', on: false, reason: why ?? 'This game can’t be watched' });
+        return;
+      }
       const refused = target.watch(user.id, this, name, friendId);
       if (refused) return this.send({ type: 'watching', on: false, reason: refused });
       this.watched = target;
       return;
     }
     // (playing yourself ends watching)
-    if (this.watched && (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join')) this.stopWatching();
+    if ((this.watched || this.watchedHub) && (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join')) this.stopWatching();
 
     // too many struggling spells waiting: study first (checked on the server, so it can't be skipped)
     if (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join') {
@@ -512,12 +525,15 @@ export class Session implements Client {
   ip = '';
   /** What the player is doing (for admins): menus, searching, or in a room of some mode. */
   activity(): string {
+    // 0.9.9.9.9.7 (round 3): in a Kanji chess / Grammar Clash game — what the game's hub says, whatever the room's lobby says
+    if (this.user && this.hub.grammar?.playing(this.user.id)) return `Playing ${MODE_LABEL.clash}`;
+    if (this.user && this.hub.chess?.playing(this.user.id)) return `Playing ${MODE_LABEL.chess}`;
     if (this.room) {
       const mode = MODE_LABEL[this.room.mode] ?? this.room.mode;
       return this.room.stage === 'game' ? `Playing ${mode}` : this.room.stage === 'results' ? `Results · ${mode}` : `Lobby · ${mode}`;
     }
     if (this.user && this.matchmaker?.isQueued(this.user.id)) return 'In the online queue';
-    if (this.watched) return 'Watching a game'; // (0.9.9.9.9.5)
+    if (this.watched || this.watchedHub) return 'Watching a game'; // (0.9.9.9.9.5)
     return SCREEN_ACTIVITY[this.screen] ?? 'In the menus';
   }
 

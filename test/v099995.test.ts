@@ -303,7 +303,7 @@ test('0.9.9.9.9.5 friends see "Watching a replay" / "Watching a game"', () => {
   assert.equal(SCREEN_ACTIVITY.replay, 'Watching a replay');
   assert.equal(SCREEN_ACTIVITY.watching, 'Watching a game');
   assert.ok(src('src/client/main.ts').includes("const where = w === 'replay' ? 'replay' : w === 'live' ? 'watching' :"));
-  assert.ok(src('src/server/Session.ts').includes("if (this.watched) return 'Watching a game';"));
+  assert.ok(src('src/server/Session.ts').includes("if (this.watched || this.watchedHub) return 'Watching a game';")); // (0.9.9.9.9.7 round 3: a chess / Clash game too)
   assert.ok(src('src/client/i18n.ts').includes("'Watching a replay': 'Смотрит повтор'"));
 });
 

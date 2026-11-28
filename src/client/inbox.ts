@@ -201,7 +201,8 @@ let roomCode: () => string | null = () => null;
 export function setInviteJoin(join: (code: string) => void, current: () => string | null) { joinFn = join; roomCode = current; }
 function inviteCard(m: DmView, inv: NonNullable<ReturnType<typeof parseInvite>>, mine: boolean): HTMLElement {
   const card = h('div', `msg-inv m-${inv.mode}${inv.challenge ? ' chal' : ''}`);
-  const icon = h('span', 'msg-inv-ic', ui.MODE_ICON[inv.mode]); icon.lang = 'ja';
+  const icon = h('span', 'msg-inv-ic', inv.mode === 'chess' ? '' : ui.MODE_ICON[inv.mode]); icon.lang = 'ja';
+  if (inv.mode === 'chess') icon.append(ui.knightImg()); // (round 3: the white knight)
   const txt = h('div', 'msg-inv-t');
   txt.append(h('small', '', tr(inv.challenge ? (mine ? 'You challenged them' : 'Challenges you') : (mine ? 'You invited them' : 'Invites you to play'))), h('b', '', tr(MODE_LABEL[inv.mode])), h('span', 'msg-inv-code', `${tr('Room')} ${inv.code}`));
   card.append(icon, txt);

@@ -151,33 +151,130 @@ test('0.9.9.9.9.7 round 2: Fumi names each lesson in Japanese; the Dictionary on
   assert.equal(spokenPattern('AはBです'), 'エーはビーです');
   for (const g of GRAMMAR) for (const again of [false, true]) assert.ok(existsSync(join('public', fumiClip(fumiLessonLine(g.pattern, again)))), `${g.id}: Fumi's line recorded`);
   assert.ok(src('src/client/grammarui.ts').includes('fumiLessonLine(g.pattern, passed.has(g.id))'));
-  assert.ok(src('public/index.html').includes('id="grammarDict"') && src('src/client/grammarui.ts').includes("$('grammarDict').onclick = () => openDictionary();"));
+  // (round 3: the Dictionary is a search bar now)
+  assert.ok(src('public/index.html').includes('id="grammarDictForm"') && src('src/client/grammarui.ts').includes("openDictionary(i.value.trim())"));
   const css = src('public/style.css');
   assert.ok(css.includes('#chessOpp .cp-pic svg { scale: 1.28;') && css.includes('#chessOpp .cp-pic[data-bot="dragon"] svg { scale: 1;'));
   assert.ok(css.includes('.gc-av { overflow: visible; }'), 'the flames are no longer cut to a square');
 });
 
-test('0.9.9.9.9.7 round 2: Song lyrics — public-domain songs, every note with its syllable, sung by the game; romaji typed any common way', async () => {
-  const { SONGS, songTimeline, melodyNotes, sameWord, lineWords } = await import('../src/shared/songs');
-  assert.ok(SONGS.length >= 5);
+test('0.9.9.9.9.7 round 3: Song lyrics — the owner\'s five songs, easy to hard, each with what to study first; a song plays once timed; romaji typed any common way', async () => {
+  const { SONGS, songTimeline, playable, sameWord, startsWord, lineWords } = await import('../src/shared/songs');
+  const { GRAMMAR } = await import('../src/shared/grammar');
+  assert.deepEqual(SONGS.map((s) => s.id), ['shiroi-tegami', 'koi-no-mahou', 'hakoniwa-no-honoo', 'unmei-wo-tatakiokose', 'aragae']);
+  assert.deepEqual(SONGS.map((s) => s.difficulty), [1, 2, 3, 4, 5], 'easy to hard');
   for (const s of SONGS) {
-    assert.ok(/public domain/.test(s.credit), `${s.id}: why it is free`);
-    assert.ok(existsSync(join('public', 'songs', `${s.id}.mp3`)), `${s.id}: performed`);
-    const sung = melodyNotes(s).filter((n) => n.midi !== null && !n.slur).length;
-    const syllables = s.lines.reduce((n, l) => n + l.kana.split(/\s+/).length, 0);
-    assert.equal(sung, syllables, `${s.id}: one syllable for every sung note`);
-    for (const l of songTimeline(s)) {
-      assert.ok(l.end > l.start, `${s.id}: a line takes time`);
-      assert.ok(l.notes.filter((n) => n.syllable).every((n) => n.midi !== null));
-      assert.ok(lineWords(l).length >= 3);
+    for (const ext of ['mp3', 'webp']) assert.ok(existsSync(join('public', 'songs', `${s.id}.${ext}`)), `${s.id}.${ext}`);
+    assert.ok(s.words.length >= 5 && s.about.en && s.about.ru, `${s.id}: what to study, what it is`);
+    for (const g of s.grammar) if (g.lesson) assert.ok(GRAMMAR.some((x) => x.id === g.lesson), `${s.id}: ${g.lesson} is a lesson`);
+    for (const l of s.lines) {
+      assert.ok(l.en && l.ru && lineWords(l).length >= 1, `${s.id}: ${l.romaji}`);
+      assert.ok(/^[a-z ]+$/.test(l.romaji), `${s.id}: typeable romaji "${l.romaji}"`);
+      assert.equal((l.jp.match(/\{/g) ?? []).length, (l.jp.match(/\}/g) ?? []).length, `${s.id}: furigana closed in ${l.jp}`);
     }
+    if (s.times) assert.equal(s.times.length, s.lines.length, `${s.id}: a time for every line`);
   }
-  // the melodies as written: 春の小川 starts ミソ ラ ソ (E4 G4 A4 G4), 赤とんぼ ドファファソ (C4 F4 F4 G4)
-  assert.deepEqual(melodyNotes(SONGS.find((s) => s.id === 'haru-no-ogawa')!).slice(0, 4).map((n) => n.midi), [64, 67, 69, 67]);
-  assert.deepEqual(melodyNotes(SONGS.find((s) => s.id === 'akatonbo')!).slice(0, 4).map((n) => n.midi), [60, 65, 65, 67]);
-  assert.ok(!SONGS.find((s) => s.id === 'haru-no-ogawa')!.lines[0].romaji.includes('iku yo'), 'the 1912 words, not the 1942 revision (still protected)');
-  for (const [a, b] of [['tumoru', 'tsumoru'], ['yuyake', 'yuuyake'], ['ha', 'wa'], ['sinobine', 'shinobine'], ['hutte', 'futte']]) assert.ok(sameWord(a, b), `${a} = ${b}`);
-  assert.ok(!sameWord('suke', 'sake'));
+  for (const old of ['haru-no-ogawa', 'akatonbo', 'yuki']) assert.ok(!existsSync(join('public', 'songs', `${old}.mp3`)), `${old} is gone`);
+  // untimed: not offered; timed: each line until the next, lines the cut skips left out
+  const s = { ...SONGS[0] };
+  assert.equal(playable(s), !!s.times);
+  const times = s.lines.map((_, i) => (i < 3 ? 10 + i * 4 : i === 3 ? null : i < 6 ? 30 + i : null));
+  const tl = songTimeline({ ...s, times });
+  assert.deepEqual(tl.map((l) => [l.i, l.start, l.end]), [[0, 10, 14], [1, 14, 18], [2, 18, 34], [4, 34, 35], [5, 35, s.length]]);
+  assert.equal(songTimeline({ ...SONGS[3], times: [] }).length, 0, 'no lyrics yet: nothing to play');
+  for (const [a, b] of [['daijobu', 'daijoubu'], ['hontoo', 'hontou'], ['tumetai', 'tsumetai'], ['o', 'wo'], ['ha', 'wa'], ['he', 'e'], ['kiree', 'kirei'], ['daijōbu', 'daijoubu']]) assert.ok(sameWord(a, b), `${a} = ${b}`);
+  assert.ok(startsWord('ts', 'tsumetai') && startsWord('o', 'wo') && !sameWord('suke', 'sake'));
   assert.ok(src('src/client/songs.ts').includes('player.pause();') && src('public/index.html').includes('data-go="songsOpen"'), 'the song waits at a line\'s end; the Games tile opens it');
-  assert.ok(src('CREDITS.md').includes('VOICEVOX:冥鳴ひまり') && src('public/index.html').includes('VOICEVOX:冥鳴ひまり'));
+  assert.ok(src('src/client/songs.ts').includes('function startTiming(s: Song)') && src('public/index.html').includes('id="songTime"'), 'admins time a song in the game');
+  assert.ok(!src('public/index.html').includes('VOICEVOX:冥鳴ひまり') && !existsSync(join('scripts', 'songs.mts')), 'the sung public-domain songs are gone');
+});
+
+// ── 0.9.9.9.9.7 round 3 ──
+const fakeClock = () => {
+  const c = { t: 1_000_000, due: [] as Array<{ at: number; fn: () => void; id: number }>, seq: 0 };
+  const timers = {
+    setTimeout: (fn: () => void, ms: number) => { c.due.push({ at: c.t + ms, fn, id: ++c.seq }); return c.seq; },
+    clearTimeout: (h: number | undefined) => { const i = c.due.findIndex((d) => d.id === h); if (i >= 0) c.due.splice(i, 1); },
+  };
+  const advance = (ms: number) => { const end = c.t + ms; for (;;) { c.due.sort((a, b) => a.at - b.at); const d = c.due[0]; if (!d || d.at > end) break; c.due.shift(); c.t = d.at; d.fn(); } c.t = end; };
+  return { c, timers, advance };
+};
+
+test('0.9.9.9.9.7 round 3: a friend\'s Kanji chess and Grammar Clash can be watched; the watcher is told first, then sees each move, never acts', async () => {
+  const { ChessHub } = await import('../src/server/ChessHub');
+  type CV = { id: string; you: string | null; moves: string[] };
+  const sent: Array<[string, { type: string; room?: CV }]> = [];
+  const chess = new ChessHub((id, m) => sent.push([id, m as never]), () => 5_000, () => 0.1);
+  assert.equal(chess.watch('w', 'a'), 'Your friend isn’t in a game right now');
+  const gameId = chess.startMatch({ id: 'a', name: 'Ann' }, { id: 'b', name: 'Bob' }, 0, 0, false, () => {});
+  const order: string[] = [];
+  assert.equal(chess.watch('w', 'a', () => order.push('told')), null);
+  order.push(sent.at(-1)![1].type);
+  assert.deepEqual(order, ['told', 'chess'], 'told they are watching before the board comes');
+  assert.equal(sent.at(-1)![1].room!.you, null, 'a watcher has no side');
+  assert.equal(chess.watch('a', 'b'), 'You’re playing in this game');
+  const white = sent.find(([, m]) => m.type === 'chess' && m.room!.you === 'w')![0];
+  const black = white === 'a' ? 'b' : 'a';
+  const seen = () => sent.filter(([to]) => to === 'w');
+  await chess.handle({ id: white, name: '' }, { type: 'chess_move', id: gameId, uci: 'e2e4' });
+  assert.deepEqual(seen().at(-1)![1].room!.moves, ['e2e4'], 'the watcher sees the move');
+  await chess.handle({ id: 'w', name: '' }, { type: 'chess_move', id: gameId, uci: 'e7e5' });
+  assert.deepEqual(seen().filter(([, m]) => m.type === 'chess').at(-1)![1].room!.moves, ['e2e4'], 'and can\'t play');
+  chess.unwatch('w');
+  const n = seen().length;
+  await chess.handle({ id: black, name: '' }, { type: 'chess_move', id: gameId, uci: 'e7e5' });
+  assert.equal(seen().length, n, 'nothing after they stop');
+
+  const { GrammarHub } = await import('../src/server/GrammarHub');
+  const { c, timers, advance } = fakeClock();
+  const got: Array<[string, { type: string; room?: { status: string } }]> = [];
+  const clash = new GrammarHub((id, m) => got.push([id, m as never]), () => c.t, () => 0.42, timers as never);
+  const P = (id: string, bot?: string) => ({ id, name: id, avatar: 'witch', staff: 'verdant', ...(bot ? { bot: bot as never } : {}) });
+  clash.startMatch([P('a'), P('x', 'N5')], 'N5', 5, false, () => {});
+  assert.equal(clash.watch('w', 'a'), null);
+  advance(5_000);
+  assert.ok(got.some(([to, m]) => to === 'w' && m.room?.status === 'question'), 'the watcher sees the questions');
+  assert.equal(clash.watch('w2', 'nobody'), 'Your friend isn’t in a game right now');
+  // the Session: chess and Clash go to their hubs; a friend in one is "Playing …" whatever the room says; Watch for both
+  const session = src('src/server/Session.ts');
+  assert.ok(session.includes('if (this.user && this.hub.grammar?.playing(this.user.id)) return `Playing ${MODE_LABEL.clash}`;'));
+  assert.ok(session.includes('this.hub.chess?.watch(user.id, friendId, started)'));
+  assert.ok(src('src/client/main.ts').includes("!/Deck Duel/.test(link.activity ?? '')"), 'Watch offered for chess and Clash');
+});
+
+test('0.9.9.9.9.7 round 3: a Grammar Clash from a private lobby stays "Playing" when the others leave', async () => {
+  const { Room } = await import('../src/server/Room');
+  const client = () => ({ send: () => {} });
+  let ended = () => {};
+  const room = new Room('WXYZ', 'clash', { onEmpty: () => {}, external: (_m, _p, _o, onEnd) => { ended = onEnd; }, externalLeave: () => {} });
+  room.join('a', 'Ann', client() as never); room.join('b', 'Bob', client() as never); room.join('c', 'Cy', client() as never);
+  room.setLobbyReady('a', true); room.setLobbyReady('b', true); room.setLobbyReady('c', true);
+  assert.equal(room.stage, 'game');
+  room.leave('b'); room.leave('c');
+  assert.equal(room.stage, 'game', 'Ann still plays');
+  ended();
+  assert.equal(room.stage, 'lobby');
+});
+
+test('0.9.9.9.9.7 round 3: Games cards bigger, every kanji in the display font, the white knight for Kanji chess; Ranked one mode at a time', () => {
+  const css = src('public/style.css'), html = src('public/index.html');
+  for (const f of ['dela-gothic-one-97-400-normal.woff2', 'dela-gothic-one-107-400-normal.woff2']) assert.ok(existsSync(join('public', 'fonts', f)) && css.includes(`/fonts/${f}`), f);
+  assert.ok(/dela-gothic-one-107[^}]*U\+6b4c/.test(css) && /dela-gothic-one-97[^}]*U\+5c06/.test(css), '歌 and 将 in the display font');
+  assert.ok(css.includes('.games-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));'));
+  assert.ok(html.includes('<span class="gt-glyph gt-knight" aria-hidden="true"><img class="knight-ic" src="chess/wn.webp"'), 'the Games card');
+  assert.ok(!/>将</.test(html.replace('<span class="chess-seal" lang="ja" aria-hidden="true">将</span>', '')), 'no 将 icon left but the chess page\'s seal');
+  assert.ok(src('src/client/ui.ts').includes("if (mode === 'chess') b.append(knightImg());"), 'the queue tiles, history, results');
+  const q = src('src/client/queue.ts');
+  assert.ok(q.includes('const order: GameMode[] = rankedSide ? [...RANKED_MODES]') && q.includes('if (box.checked && rankedSide)'));
+  assert.ok(css.includes('#queue.q-ranked .rank-box.rank-modes, #queue.q-ranked .q-tiles { grid-template-columns: repeat(4, minmax(0, 1fr));'), 'each rank above its mode, in the middle');
+});
+
+test('0.9.9.9.9.7 round 3: Song lyrics replays a line, no chime for a right word (a quiet zap for a wrong letter); Grammar: the dictionary bar, the question read after Fumi; one pointer listener for the guides', () => {
+  const songs = src('src/client/songs.ts');
+  assert.ok(!songs.includes('audio.sfx.correct') && songs.includes('audio.sfx.zap()') && songs.includes('function replayLine()'));
+  assert.ok(src('public/index.html').includes('id="songReplay"') && src('src/client/audio.ts').includes('  zap() {'));
+  assert.ok(src('src/client/grammarui.ts').includes("void fumiSays(ok ? 'right' : 'wrong').then(() => { if (box.contains(opts)) void readOut(spoken); });"));
+  assert.ok(src('src/client/voice.ts').includes('export function playClip(url: string, fallback: () => void): Promise<void> {'), 'a clip says when it is over');
+  const g = src('src/client/tutorguide.ts');
+  assert.ok(g.includes("addEventListener('pointermove', onMove, { passive: true })") && g.includes("if (box.closest('[hidden]')) continue;"), 'hidden guides cost nothing');
 });

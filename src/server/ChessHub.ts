@@ -15,6 +15,8 @@ interface Room {
   timer?: ReturnType<typeof setTimeout>; endedAt?: number;
   /** (round 5) a game started by a room (the private lobby, the online queue): it gets the end; ranked from the queue */
   bound?: { onEnd: () => void; ranked: boolean; ratings?: Record<string, { before: number; after: number; games: number }> };
+  /** 0.9.9.9.9.7 (round 3): friends watching the game */
+  watchers?: Set<string>;
 }
 /** a finished game, for each player's match history */
 export interface ChessRecord { at: number; vs: string; vsBot?: string; ranked?: boolean; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
@@ -163,6 +165,20 @@ export class ChessHub {
   }
   /** (round 5) a game being played by this player (the room's "Playing Kanji chess") */
   playing(userId: string) { return [...this.rooms.values()].some((r) => r.status === 'playing' && (r.white?.id === userId || r.black?.id === userId)); }
+  /** 0.9.9.9.9.7 (round 3): watch a friend's game (Session checked you're friends): null, or why not */
+  watch(userId: string, friendId: string, started?: () => void): string | null {
+    const r = [...this.rooms.values()].find((x) => x.status === 'playing' && (x.white?.id === friendId || x.black?.id === friendId));
+    if (!r) return 'Your friend isn’t in a game right now';
+    if (r.white?.id === userId || r.black?.id === userId) return 'You’re playing in this game';
+    this.unwatch(userId);
+    r.watchers ??= new Set();
+    if (r.watchers.size >= 8) return 'This game has as many watchers as it can take';
+    r.watchers.add(userId);
+    started?.(); // (the watcher hears they're watching before the game's first frame)
+    this.send(userId, { type: 'chess', room: this.view(r, userId) });
+    return null;
+  }
+  unwatch(userId: string) { for (const r of this.rooms.values()) r.watchers?.delete(userId); }
 
   private start(r: Room) {
     const hostWhite = this.rnd() < 0.5;
@@ -230,6 +246,7 @@ export class ChessHub {
   private push(r: Room, only?: string) {
     const ids = only ? [only] : [...new Set([r.host.id, r.guest?.id].filter((x): x is string => !!x))];
     for (const id of ids) this.send(id, { type: 'chess', room: this.view(r, id) });
+    if (!only) for (const id of r.watchers ?? []) this.send(id, { type: 'chess', room: this.view(r, id) }); // (round 3)
   }
   /** finished games go after 10 minutes; a room nobody played in after an hour */
   private sweep() {

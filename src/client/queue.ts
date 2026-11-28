@@ -6,7 +6,7 @@ import * as ui from './ui';
 import * as audio from './audio';
 import { renderDeckGuide } from './deckui';
 import { tr } from './i18n';
-import { isRankedMode } from '../shared/ranked';
+import { isRankedMode, RANKED_MODES } from '../shared/ranked';
 import { renderRankBox, setRankSide } from './ladder';
 
 // The online queue screen: pick modes + levels (or Deck Duel on its own) and search for a player.
@@ -88,7 +88,7 @@ function setSide(ranked: boolean) {
   rankedSide = ranked;
   for (const b of document.querySelectorAll<HTMLElement>('#qSide [data-side]')) b.setAttribute('aria-selected', String((b.dataset.side === 'ranked') === ranked));
   ui.$('qSideSub').textContent = tr(ranked
-    ? 'Ranked: Rapid, Deck Duel, Kanji chess and Grammar Clash - each has its own rating. You meet only other ranked players; leaving a ranked game is a loss.'
+    ? 'Ranked: pick one mode - Rapid, Deck Duel, Kanji chess or Grammar Clash. Each has its own rating. You meet only other ranked players; leaving a ranked game is a loss.'
     : 'Tick what you\'d like to play. You\'ll be matched with the first player who wants the same, and the game starts straight away. Boss Elimination waits for a full party of 4.');
   ui.$('queue').classList.toggle('q-ranked', ranked);
   setRankSide(ranked);
@@ -122,7 +122,7 @@ export function initQueue(sender: typeof send, myId: () => string) {
     askNotifyPermission(); // so a found match can reach you in another tab
     if (pick === 'deck') return send({ type: 'queue', modes: ['deck'], ranked: rankedSide });
     const modes = picked('qModes').filter((m) => m !== 'deck'), levels = picked('qLevels');
-    if (!modes.length) return ui.toast('Tick at least one mode');
+    if (!modes.length) return ui.toast(rankedSide ? 'Pick a mode' : 'Tick at least one mode');
     if (!levels.length && modes.some((m) => WORD_MODES.has(m as GameMode))) return ui.toast('Tick at least one level');
     // (round 7: the levels a mode can use — kana only for the word modes)
     const words = modes.some((m) => WORD_MODES.has(m as GameMode));
@@ -143,9 +143,13 @@ export function openQueue() {
   const s = load();
   setSide(!!s.ranked);
   // 0.9.9.9.9.5: a tile per mode — its seal, its name, a (!) with its rules — Deck Duel among them
-  ui.$('qModes').replaceChildren(...[...sideModes(), 'deck' as GameMode].map((m) => {
+  // (0.9.9.9.9.7 round 3: Ranked queues one mode at a time, its tiles in the rank cards' order — each rank above its mode)
+  const order: GameMode[] = rankedSide ? [...RANKED_MODES] : [...sideModes(), 'deck'];
+  const firstRanked = rankedSide && s.pick !== 'deck' ? order.find((m) => s.modes.includes(m) && canPlay(m)) : undefined;
+  ui.$('qModes').replaceChildren(...order.map((m) => {
     const open = canPlay(m), isDeck = m === 'deck';
-    const c = chip(m, '', open && (isDeck ? s.pick === 'deck' : s.pick !== 'deck' && s.modes.includes(m)), 'qm');
+    const on = rankedSide ? (isDeck ? s.pick === 'deck' : m === firstRanked) : (isDeck ? s.pick === 'deck' : s.pick !== 'deck' && s.modes.includes(m));
+    const c = chip(m, '', open && on, 'qm');
     c.classList.add('q-tile', `q-${m}`);
     c.lastChild?.remove(); // (the chip's empty label text)
     const tick = document.createElement('span'); tick.className = 'q-tick'; tick.setAttribute('aria-hidden', 'true');
@@ -153,7 +157,14 @@ export function openQueue() {
     const info = document.createElement('span'); info.className = 'q-info'; info.textContent = '!'; info.setAttribute('aria-hidden', 'true');
     c.append(ui.modeBadge(m), name, info, tick);
     const box = c.querySelector('input')!;
-    box.addEventListener('change', () => { if (box.checked) choose(isDeck ? 'deck' : 'battle'); syncLevels(); });
+    box.addEventListener('change', () => {
+      if (box.checked && rankedSide) { // (round 3: one ranked mode at a time — the others untick)
+        for (const o of document.querySelectorAll<HTMLInputElement>('#qModes input')) if (o !== box && o.checked) { o.checked = false; o.closest('label')?.classList.remove('on'); }
+        remember();
+      }
+      if (box.checked) choose(isDeck ? 'deck' : 'battle');
+      syncLevels();
+    });
     if (!open) { c.classList.add('locked'); box.disabled = true; c.title = lockText(m); }
     if (isDeck) info.onclick = (e) => { e.preventDefault(); e.stopPropagation(); ui.$('qDeckHelp').click(); };
     else guideHover(c, m as Exclude<GameMode, 'deck'>);

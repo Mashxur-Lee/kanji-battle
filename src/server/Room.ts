@@ -548,7 +548,8 @@ export class Room {
       this.watchers.clear();
       return this.deps.onEmpty();
     }
-    if (wasInGame && isExternal(this.mode)) { if (this.humans.length < 2) { this.phase = 'lobby'; this.broadcastLobby(); } return; }
+    // (0.9.9.9.9.7 round 3: a Grammar Clash goes on for whoever stays — its room stays "Playing" until the game's own end)
+    if (wasInGame && isExternal(this.mode)) { if (this.mode === 'chess' && this.humans.length < 2) { this.phase = 'lobby'; this.broadcastLobby(); } return; }
     if (wasInGame && this.phase !== 'lobby') return;
     if (this.phase === 'lobby') this.broadcastLobby();
     else this.broadcast({ type: 'rematch_status', votes: [...this.rematchVotes] });
