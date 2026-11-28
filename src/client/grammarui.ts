@@ -35,7 +35,7 @@ const keep = () => { try { localStorage.setItem(KEY, JSON.stringify([...passed])
 let searchWired = false;
 export function openGrammar() {
   ui.show('grammar');
-  if (!searchWired) { searchWired = true; $('grammarDict').onclick = () => openDictionary(); // (0.9.9.9.9.7 round 2)
+  if (!searchWired) { searchWired = true; ($('grammarDictForm') as HTMLFormElement).onsubmit = (e) => { e.preventDefault(); const i = $<HTMLInputElement>('grammarDictQ'); openDictionary(i.value.trim()); i.value = ''; }; // (0.9.9.9.9.7 round 2; round 3: a bar)
     let t = 0; ($('grammarSearch') as HTMLInputElement).oninput = () => { clearTimeout(t); t = window.setTimeout(showList, 120); }; }
   showList();
   void api.grammarPassed().then((r) => { for (const id of r.passed) passed.add(id); keep(); if (!$('grammarList').hidden) showList(); }).catch(() => { /* offline: what this device knows */ });
@@ -89,6 +89,12 @@ function haystack(g: GrammarPoint): string {
   let x = hay.get(g.id);
   if (!x) { x = norm([g.pattern, g.meaning.en, g.meaning.ru, toRomaji(g.pattern.replace(/[^\u3040-\u30ff]/g, ''))].join('|')); hay.set(g.id, x); }
   return x;
+}
+/** 0.9.9.9.9.7 (round 3): straight into one lesson (a song's grammar) */
+export function openGrammarLesson(id: string) {
+  const g = GRAMMAR.find((x) => x.id === id);
+  openGrammar();
+  if (g) openLesson(g);
 }
 function openLesson(g: GrammarPoint) {
   $('grammarList').hidden = true;
@@ -163,8 +169,9 @@ function quiz(g: GrammarPoint, guide: HTMLElement, said: HTMLElement) {
         if (ok) { right++; audio.sfx.correct(1); guideMood(guide, 'cheer'); typeText(said, tr('Right!'), guide); }
         else { audio.sfx.wrong(); guideMood(guide, 'think'); typeText(said, `${tr('Not quite - it is')} ${q.options[0]}.`, guide); }
         // (round 7: "正解じゃ！" / "おしいのう。", then the whole sentence, read)
-        fumiSays(ok ? 'right' : 'wrong');
-        setTimeout(() => readOut(filledQuestion(q)), 1100);
+        // (round 3: the sentence after Fumi has finished — it cut him off)
+        const spoken = filledQuestion(q);
+        void fumiSays(ok ? 'right' : 'wrong').then(() => { if (box.contains(opts)) void readOut(spoken); });
         go.hidden = false; go.focus();
       };
       opts.append(b);

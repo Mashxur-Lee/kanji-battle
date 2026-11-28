@@ -64,11 +64,10 @@ The chess wizards' spoken lines and the Grammar page's (Master Fumi, the example
 
 ## Songs (Song lyrics)
 
-Five songs in the public domain in Japan and in the US: 春の小川 (1912, Takano Tatsuyuki / Okano Teiichi — the original
-1912 words, not the 1942 revision), 夏は来ぬ (1896, Sasaki Nobutsuna / Koyama Sakunosuke), 茶摘 (1912, a school song),
-赤とんぼ (1921/1927, Miki Rofū / Yamada Kōsaku) and 雪 (1911, a school song). The melodies were checked against the scores in
-the songs' Wikipedia articles. The game performs them itself (`scripts/songs.mts`): the voice is VOICEVOX:冥鳴ひまり
-(its singing mode), the music box and bass are synthesised. No recording or arrangement by anyone else is used.
+The five songs — 白い手紙, 恋の魔法と放課後, 箱庭の炎, 運命を叩き起こせ and 抗え、宿命なんて — are Kanji Wizards' own: made
+for the game by its owner, with original lyrics. All rights reserved, like the rest of the game. Their recordings
+(`public/songs/`) and cover pictures come from the owner's files; their study notes (words, grammar, translations) are the
+game's own.
 
 ## Sounds
 

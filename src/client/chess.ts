@@ -58,6 +58,7 @@ let voiceOn = (() => { try { return localStorage.getItem(VOICE_KEY) !== 'off'; }
 export function initChess(sender: (m: ClientMessage) => void) {
   send = sender;
   $('chessBack').onclick = () => {
+    if (spectating) return stopSpectating();
     if (!$('chessGame').hidden && !over && moves.length) { void leaveGame(); return; }
     ui.show('games');
   };
@@ -72,6 +73,7 @@ export function initChess(sender: (m: ClientMessage) => void) {
   $('chessVoice').onclick = () => { voiceOn = !voiceOn; try { localStorage.setItem(VOICE_KEY, voiceOn ? 'on' : 'off'); } catch { /* private mode */ } drawVoice(); };
   $('chessAgain').onclick = () => {
     $('chessOver').hidden = true;
+    if (spectating) return stopSpectating();
     if (mode.kind === 'bot') { $('chessAgain').textContent = tr('Play again'); return startBot(); }
     // (round 5) a room's game: back to its lobby (Ready there for another)
     if (mode.room.bound) { mode = { kind: 'bot', bot: pickBot }; dispatchEvent(new Event('kw:room-lobby')); return; }
@@ -79,6 +81,7 @@ export function initChess(sender: (m: ClientMessage) => void) {
   };
   $('chessToSetup').onclick = () => {
     $('chessOver').hidden = true;
+    if (spectating) return stopSpectating();
     if (mode.kind === 'friend' && mode.room.bound) { mode = { kind: 'bot', bot: pickBot }; send({ type: 'leave' }); showSetup('friend'); return; }
     if (mode.kind === 'friend') { send({ type: 'chess_leave', id: mode.room.id }); mode = { kind: 'bot', bot: pickBot }; showSetup('friend'); } else showSetup('bot');
   };
@@ -114,6 +117,17 @@ export function initChess(sender: (m: ClientMessage) => void) {
 let myId = '';
 /** the signed-in player's id (the lobby's Ready button and the chat need it) */
 export function setChessUser(id: string) { myId = id; }
+/**
+ * 0.9.9.9.9.7 (round 3): watching a friend's game — the board from their side, nothing to move, no resign or draw,
+ * the chat to read. '' = not watching (Back stops it)
+ */
+let spectating = '', spectName = '';
+export function chessSpectate(friendId: string, name: string) {
+  const was = spectating;
+  spectating = friendId; spectName = name;
+  if (!friendId && was) { $('chessGame').classList.remove('spectate'); if (mode.kind === 'friend') mode = { kind: 'bot', bot: pickBot }; if (ui.currentScreen() === 'chess') ui.show('games'); }
+}
+const stopSpectating = () => { send({ type: 'unwatch' }); chessSpectate('', ''); };
 const meId = () => myId;
 
 export function openChess() {
@@ -183,6 +197,8 @@ function begin(b: number, i: number) {
   $('chessUndo').hidden = friend; $('chessDraw').hidden = !friend; $('chessVoice').hidden = friend;
   $('chessChatBox').hidden = !friend;
   $('chessGame').classList.toggle('vs-friend', friend);
+  $('chessGame').classList.toggle('spectate', !!spectating); // (round 3: watching — no resign, draw or chat box to type in)
+  $('chessResign').hidden = !!spectating; if (spectating) $('chessDraw').hidden = true;
   $('chessBubble').hidden = true;
   setMood('calm');
   drawPlayers();
@@ -204,7 +220,8 @@ function drawPlayers() {
     (opp.querySelector('.cp-pic') as HTMLElement).dataset.bot = '';
     opp.querySelector('.cp-name')!.replaceChildren(h('b', '', them?.name ?? tr('Waiting…')), h('span', 'cp-side', tr(mine === 'w' ? 'Black' : 'White')));
   }
-  me.querySelector('.cp-name')!.replaceChildren(h('b', '', tr('You')), h('span', 'cp-side', tr(mine === 'w' ? 'White' : 'Black')));
+  const meName = spectating && mode.kind === 'friend' ? (mine === 'w' ? mode.room.white : mode.room.black)?.name ?? spectName : '';
+  me.querySelector('.cp-name')!.replaceChildren(h('b', '', meName || tr('You')), h('span', 'cp-side', tr(mine === 'w' ? 'White' : 'Black')));
 }
 function botTurn() {
   if (mode.kind !== 'bot' || over || pos.turn === mine) return;
@@ -352,6 +369,16 @@ function finish(winner: Color | null, reason: string) {
   stopClock();
   draw();
   const won = winner === mine, drawn = winner === null;
+  if (spectating) { // (round 3: watching — who won, no fanfare; the button says Back)
+    $('chessOverTitle').textContent = tr(drawn ? 'Draw' : winner === 'w' ? 'White wins' : 'Black wins');
+    $('chessOverTitle').className = 'draw';
+    $('chessOverWhy').textContent = tr(REASON[reason] ?? reason);
+    $('chessAgain').textContent = tr('Back');
+    $('chessToSetup').hidden = true;
+    window.setTimeout(() => { if (over) $('chessOver').hidden = false; }, 900);
+    return;
+  }
+  $('chessToSetup').hidden = false;
   if (mode.kind === 'bot') { say(drawn ? 'draw' : won ? 'botLoses' : 'botWins'); saveBotGame(); }
   if (reason !== 'checkmate') { if (won) audio.sfx.win(); else if (!drawn) audio.sfx.lose(); }
   else window.setTimeout(() => { if (won) audio.sfx.win(); else audio.sfx.lose(); }, 900);
@@ -439,13 +466,13 @@ function draw() {
   const m = material(pos);
   drawMaterial($('chessOppMat'), mine === 'w' ? 'b' : 'w', m);
   drawMaterial($('chessMeMat'), mine, m);
-  $('chessTurn').textContent = over ? '' : tr(pos.turn === mine ? 'Your move' : mode.kind === 'bot' ? 'Thinking…' : 'Their move');
+  $('chessTurn').textContent = over ? '' : spectating ? tr(pos.turn === 'w' ? 'White to move' : 'Black to move') : tr(pos.turn === mine ? 'Your move' : mode.kind === 'bot' ? 'Thinking…' : 'Their move');
   $('chessOpp').classList.toggle('to-move', !over && pos.turn !== mine);
   $('chessMe').classList.toggle('to-move', !over && pos.turn === mine);
   drawClocks();
 }
 function onSquare(i: number) {
-  if (over || thinking || pos.turn !== mine) return;
+  if (over || thinking || pos.turn !== mine || spectating) return;
   if (mode.kind === 'friend' && mode.room.status !== 'playing') return;
   const x = pos.board[i];
   if (selected >= 0 && selected !== i && tryMove(selected, i)) return;
@@ -554,7 +581,7 @@ export function onChessRoom(room: ChessRoomView) {
   chatSeen = room.chat.length;
   if (room.status === 'waiting' || room.status === 'lobby') return; // (round 5: games come from the private game's rooms)
   void prev;
-  mine = room.you ?? 'w';
+  mine = room.you ?? (spectating && room.black?.id === spectating ? 'b' : 'w'); // (round 3: watching — from your friend's side)
   if (fresh || $('chessGame').hidden || (room.status === 'playing' && over && room.moves.length === 0)) {
     ui.show('chess');
     begin(room.base, room.inc);
@@ -568,11 +595,11 @@ export function onChessRoom(room: ChessRoomView) {
   pos = r.positions[r.positions.length - 1];
   moves = r.moves; sans = r.moves.map((m, i) => moveSan(r.positions[i], m, true)); history = r.positions.slice(0, -1).map(posKey);
   times = room.times.slice(0, moves.length);
-  if (moves.length > had && moveUci(moves[moves.length - 1]) !== pending) { moveSound(moves[moves.length - 1], pos); if (pos.turn === mine && !inCheck(pos)) audio.sfx.yourTurn(); }
+  if (moves.length > had && moveUci(moves[moves.length - 1]) !== pending) { moveSound(moves[moves.length - 1], pos); if (pos.turn === mine && !inCheck(pos) && !spectating) audio.sfx.yourTurn(); }
   pending = '';
   clocks = { ...room.clocks }; base = room.base; inc = room.inc; turnSince = room.turnSince; clockSkew = room.now - Date.now();
   drawPlayers();
-  $('chessDrawNote').hidden = !room.drawOffer || room.drawOffer === mine || room.status !== 'playing';
+  $('chessDrawNote').hidden = !room.drawOffer || room.drawOffer === mine || room.status !== 'playing' || !!spectating; // (round 3: not for watchers)
   $('chessDrawNote').onclick = () => send({ type: 'chess_draw', id: room.id, offer: true });
   $('chessAgain').textContent = tr(room.bound ? 'Back to lobby' : 'Play again');
   $('chessToSetup').textContent = tr(room.bound ? 'Leave the room' : 'Change the game');
@@ -588,7 +615,10 @@ export function onChessError(error: string) {
   if (mode.kind === 'friend') send({ type: 'chess_sync', id: mode.room.id });
 }
 /** back online: the friend game picks up where it was */
-export function chessReconnected() { if (mode.kind === 'friend' && !over) send({ type: 'chess_sync', id: mode.room.id }); }
+export function chessReconnected() {
+  if (spectating) { if (!over) send({ type: 'watch', userId: spectating }); return; } // (round 3: watching again after a dropped connection)
+  if (mode.kind === 'friend' && !over) send({ type: 'chess_sync', id: mode.room.id });
+}
 
 // ── (round 4) Match history → Chess: your games, each one to watch again ──
 export function showChessHistory(el: HTMLElement, games: ChessGame[] | null) {

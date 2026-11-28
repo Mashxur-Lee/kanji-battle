@@ -112,17 +112,22 @@ export function parseLine(jp: string): Array<{ text: string; reading?: string }>
 // be deeper; the knight talking through the helmet; the goblin is a bit hard to understand")
 // fx: an ffmpeg audio filter on the recording — the Knight's helmet (a narrow, ringing band), the Dragon three semitones
 // lower with a cave's echo
-export interface BotVoice { name: string; style: number; pitch: number; speed: number; fx?: string }
+// 0.9.9.9.9.7 (round 3, the owner: "a bit robotic — make them feel natural"): more intonation than VOICEVOX's flat
+// default (intonation), and the voices that have them change their style with the moment — the Goblin pouts when he
+// loses (なみだめ) and gloats when he wins (ツンツン), the Witch purrs when she wins (セクシー). scripts/voices.mts also
+// shapes each line by its moment (MOOD there): livelier for a check or a blunder, slower and lower when beaten.
+export interface BotVoice { name: string; style: number; pitch: number; speed: number; fx?: string; /** VOICEVOX intonationScale (1 = its flat default) */ intonation?: number; /** another style of the same voice for some moments */ moods?: Partial<Record<Moment | 'right' | 'wrong' | 'passed' | 'failed', number>> }
 export const BOT_VOICE: Record<BotId, BotVoice> = {
-  goblin: { name: 'ずんだもん', style: 3, pitch: 0.03, speed: 1.04 },
-  knight: { name: '†聖騎士 紅桜†', style: 51, pitch: -0.02, speed: 0.96, fx: 'highpass=f=280,lowpass=f=3400,aecho=0.8:0.55:7|13:0.38|0.26,equalizer=f=1400:t=q:w=1.2:g=5' },
-  witch: { name: '九州そら', style: 16, pitch: -0.04, speed: 0.97 },
-  wizard: { name: '麒ヶ島宗麟', style: 53, pitch: 0, speed: 0.92 },
-  dragon: { name: '剣崎雌雄', style: 21, pitch: -0.15, speed: 0.9, fx: 'asetrate=24000*0.84,aresample=24000,atempo=1.19,lowpass=f=5000,aecho=0.8:0.7:70|160:0.4|0.25' },
+  goblin: { name: 'ずんだもん', style: 3, pitch: 0.03, speed: 1.04, intonation: 1.3, moods: { botWins: 7, blunder: 7, botLoses: 76 } },
+  knight: { name: '†聖騎士 紅桜†', style: 51, pitch: -0.02, speed: 0.96, intonation: 1.2, fx: 'highpass=f=280,lowpass=f=3400,aecho=0.8:0.55:7|13:0.38|0.26,equalizer=f=1400:t=q:w=1.2:g=5' },
+  witch: { name: '九州そら', style: 16, pitch: -0.04, speed: 0.97, intonation: 1.25, moods: { botWins: 17, blunder: 17, botLoses: 18 } },
+  wizard: { name: '麒ヶ島宗麟', style: 53, pitch: 0, speed: 0.92, intonation: 1.2 },
+  dragon: { name: '剣崎雌雄', style: 21, pitch: -0.15, speed: 0.9, intonation: 1.25, fx: 'asetrate=24000*0.84,aresample=24000,atempo=1.19,lowpass=f=5000,aecho=0.8:0.7:70|160:0.4|0.25' },
 };
 /** 0.9.9.9.9.6 (round 7): Master Fumi (the Grammar page) and the grammar examples' reader */
-export const FUMI_VOICE: BotVoice = { name: '麒ヶ島宗麟', style: 53, pitch: -0.02, speed: 0.95 };
-export const EXAMPLE_VOICE: BotVoice = { name: '雀松朱司', style: 52, pitch: 0, speed: 0.92 };
+export const FUMI_VOICE: BotVoice = { name: '麒ヶ島宗麟', style: 53, pitch: -0.02, speed: 0.95, intonation: 1.25 };
+/** (round 3: a little more life, still clear for a learner) */
+export const EXAMPLE_VOICE: BotVoice = { name: '雀松朱司', style: 52, pitch: 0, speed: 0.93, intonation: 1.12 };
 /** what Master Fumi says aloud on the Grammar page (in Japanese — VOICEVOX speaks only Japanese) */
 export const FUMI_LINES = {
   lesson: '{今日|きょう}の{文法|ぶんぽう}じゃ。よく{読|よ}んでみなさい。',

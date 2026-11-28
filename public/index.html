@@ -220,8 +220,8 @@
     <li>Handwriting recognition: <a href="https://github.com/asdfjkl/kanjicanvas" target="_blank" rel="noopener">KanjiCanvas</a> by Dominik Klein (MIT); its reference strokes come from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> by Ulrich Apel (CC BY-SA 3.0).</li>
     <li>Kanji meanings and readings (tap a kanji): <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noopener">KANJIDIC2</a> by the Electronic Dictionary Research and Development Group (<a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">CC BY-SA 4.0</a>), via <a href="https://github.com/davidluzgouveia/kanji-data" target="_blank" rel="noopener">kanji-data</a> by David Gouveia (MIT); the parts of each kanji from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> (CC BY-SA 3.0). The memory stories and Russian meanings were written for this game.</li>
     <li>Software: <a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a> (MIT) for the 3D arena; <a href="https://github.com/websockets/ws" target="_blank" rel="noopener">ws</a> (MIT) and <a href="https://github.com/porsager/postgres" target="_blank" rel="noopener">Postgres.js</a> (Unlicense) on the server; <a href="https://www.electronjs.org/" target="_blank" rel="noopener">Electron</a> (MIT) for the Windows app; Firebase Cloud Messaging (Apache 2.0) for the Android app's notifications.</li>
-    <li>Voices (the chess wizards, Grammar): <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX</a> · <span lang="ja" data-no-i18n>VOICEVOX:ずんだもん, VOICEVOX:†聖騎士 紅桜†, VOICEVOX:九州そら, VOICEVOX:麒ヶ島宗麟, VOICEVOX:剣崎雌雄, VOICEVOX:雀松朱司, VOICEVOX:冥鳴ひまり</span></li>
-    <li>Songs: <span lang="ja" data-no-i18n>春の小川, 夏は来ぬ, 茶摘, 赤とんぼ, 雪</span> - public domain, sung and played by the game (VOICEVOX:冥鳴ひまり).</li>
+    <li>Voices (the chess wizards, Grammar): <a href="https://voicevox.hiroshiba.jp/" target="_blank" rel="noopener">VOICEVOX</a> · <span lang="ja" data-no-i18n>VOICEVOX:ずんだもん, VOICEVOX:†聖騎士 紅桜†, VOICEVOX:九州そら, VOICEVOX:麒ヶ島宗麟, VOICEVOX:剣崎雌雄, VOICEVOX:雀松朱司</span></li>
+    <li>Songs: <span lang="ja" data-no-i18n>白い手紙, 恋の魔法と放課後, 箱庭の炎, 運命を叩き起こせ, 抗え、宿命なんて</span> - Kanji Wizards' own songs.</li>
     <li>Chess sounds: <a href="https://www.kenney.nl" target="_blank" rel="noopener">Kenney</a> - Impact Sounds (CC0).</li>
     <li>Art: the painted backgrounds, league frames and streak flames were generated with AI tools for this game by its author; the 3D characters, the dragon, staffs and arenas were modelled for it, and the 2D characters, icons and sounds are drawn and synthesised in code.</li>
     <li>Russian word meanings: translated for this game from the English meanings.</li>
@@ -575,7 +575,7 @@
     <div class="games-grid">
       <button class="game-tile gt-online" type="button" data-go="queueBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">戦</span><b>Online battle</b><span>Reading, Writing, Rapid, Boss, Deck Duel, Kanji chess and Grammar Clash against players - Rapid, Deck Duel, chess and Grammar Clash are ranked</span><span id="gamesOnline" class="online-pill" hidden></span></button>
       <button class="game-tile gt-private" type="button" data-go="privateBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">友</span><b>Private game</b><span>Play friends with a room code - every mode, Kanji chess and Grammar Clash too - or bots, offline too</span></button>
-      <button class="game-tile gt-chess" type="button" data-go="chessOpen"><span class="gt-glyph" lang="ja" aria-hidden="true">将</span><b>Kanji chess</b><span>Chess where every piece is its kanji - 馬 the knight, 王 the king. Four wizards to beat, or a friend</span><i class="gt-badge gt-new" data-new="chess">New</i></button>
+      <button class="game-tile gt-chess" type="button" data-go="chessOpen"><span class="gt-glyph gt-knight" aria-hidden="true"><img class="knight-ic" src="chess/wn.webp" alt="" draggable="false"></span><b>Kanji chess</b><span>Chess where every piece is its kanji - 馬 the knight, 王 the king. Four wizards to beat, or a friend</span><i class="gt-badge gt-new" data-new="chess">New</i></button>
       <!-- 0.9.9.9.9.7 (round 2): Song lyrics, open -->
       <button class="game-tile gt-songs" type="button" data-go="songsOpen"><span class="gt-glyph" lang="ja" aria-hidden="true">歌</span><b>Song lyrics</b><span>A Japanese song plays - type its missing lyrics in time</span><i class="gt-badge gt-new" data-new="songs">New</i></button>
     </div>
@@ -753,17 +753,23 @@
     <button id="songsBack" class="back" type="button">← Games</button>
     <div class="page-head"><h2>Song lyrics</h2></div>
     <div id="songList">
-      <p class="sub">A song plays and its words show - type the hidden ones in romaji as it sings. If a line ends before you have typed it, the song waits for you.</p>
+      <p class="sub">A song plays and its words show - type the hidden ones in romaji as it sings. If a line ends before you have typed it, the song waits for you. Study a song's words and grammar first - each song lists them.</p>
       <div id="songMode" class="seg song-mode" role="tablist"><button type="button" role="tab" data-mode="easy">Easy - every other word</button><button type="button" role="tab" data-mode="hard">Hard - every word</button></div>
       <div id="songCards" class="song-cards"></div>
-      <p class="hint song-free">All these songs are over a hundred years old and free for everyone (public domain). The game sings and plays them itself.</p>
+    </div>
+    <!-- 0.9.9.9.9.7 (round 3): timing a song (admins): Space as each line starts, N for a line the cut leaves out -->
+    <div id="songTime" class="song-play song-time" tabindex="-1" hidden>
+      <p class="sub">Press Space the moment each line starts. N - this line isn't sung in this cut. Backspace - undo. Enter - finish.</p>
+      <div id="songTimeLine" class="song-line"></div>
+      <div class="song-done-btns"><button id="songTimeTap" class="big" type="button">Line starts (Space)</button><button id="songTimeSkip" class="pill" type="button">Not sung (N)</button><button id="songTimeUndo" class="pill" type="button">Undo</button><button id="songTimeEnd" class="pill" type="button">Finish</button></div>
+      <div id="songTimeOut" hidden><p class="hint">Copied - paste it into the song in src/shared/songs.ts (or send it to the developer).</p><textarea id="songTimeText" class="song-time-text" rows="4" readonly></textarea><button id="songTimeBack" class="pill" type="button">Back to the songs</button></div>
     </div>
     <div id="songPlay" class="song-play" hidden>
       <div id="songTitle" class="song-title"></div>
       <div class="song-track"><i id="songBar"></i></div>
       <div id="songLine" class="song-line"></div>
       <p id="songWait" class="song-wait" hidden>Waiting for you - type the missing words</p>
-      <div class="song-type"><input id="songInput" class="song-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the word in romaji" aria-label="Type the word in romaji"><button id="songSkip" class="pill" type="button">Skip (Esc)</button></div>
+      <div class="song-type"><input id="songInput" class="song-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the word in romaji" aria-label="Type the word in romaji"><button id="songReplay" class="pill" type="button" title="Hear this line again (Tab)">Replay line</button><button id="songSkip" class="pill" type="button">Skip (Esc)</button></div>
       <p id="songScore" class="hint song-score"></p>
       <div id="songDone" class="song-done" hidden><b>Song finished!</b><span id="songDoneText"></span><div class="song-done-btns"><button id="songAgain" class="big" type="button">Sing again</button><button id="songBackList" class="pill" type="button">Other songs</button></div></div>
     </div>
@@ -775,7 +781,8 @@
       <p class="sub">Master Fumi explains each grammar point - what it means, how it is formed, examples - then asks a few questions. Get all but one right and the lesson is passed.</p>
       <!-- 0.9.9.9.9.7: 210 lessons — a search over every level (the pattern, its meaning, its romaji) -->
       <!-- 0.9.9.9.9.7 (round 2): the dictionary from Grammar too -->
-      <div class="gr-tools"><button id="grammarDict" class="pill" type="button"><span lang="ja" aria-hidden="true">辞</span> Dictionary</button></div>
+      <!-- (round 3: a search bar, not a button — the owner) -->
+      <form id="grammarDictForm" class="gr-dict" role="search"><span class="gr-dict-ic" lang="ja" aria-hidden="true">辞</span><input id="grammarDictQ" type="search" placeholder="Dictionary - look up a word" autocomplete="off" maxlength="40" aria-label="Dictionary - look up a word"><button class="pill" type="submit">Search</button></form>
       <input id="grammarSearch" class="gr-search" type="search" placeholder="Search grammar - てから, because, nagara…" autocomplete="off" maxlength="40" aria-label="Search grammar">
       <div id="grammarLevels" class="word-tabs gr-levels" role="tablist" aria-label="JLPT level"></div>
       <div class="gr-progress"><span id="grammarProg"></span><div class="gr-track"><i id="grammarBar"></i></div></div>
@@ -1020,7 +1027,7 @@
       <!-- 0.9.9.9.9.6 (round 5): Kanji chess and Grammar Clash in the same lobby as every other mode. (Round 7: chess isn't
            offered here any more — two ways into the same room; the chess page's "Play a friend" opens it) -->
       <button class="mode-card" data-mode="chess" hidden>
-        <span class="mode-icon jp">将</span>
+        <span class="mode-icon jp"><img class="knight-ic" src="chess/wn.webp" alt="" draggable="false"></span>
         <span class="mode-name">Kanji chess</span>
         <span class="mode-desc">Chess with a friend, every piece its kanji. The host sets the clock; sides are drawn by lot.</span>
       </button>

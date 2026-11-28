@@ -44,22 +44,36 @@ export function guideEl(size: 'big' | 'small' = 'big'): HTMLElement {
   return box;
 }
 
-/** the figure turns a little towards the pointer (the 2.5D: layers move by their depth) */
-function follow(box: HTMLElement) {
-  let raf = 0;
-  const onMove = (e: PointerEvent) => {
-    if (!box.isConnected) { removeEventListener('pointermove', onMove); return; }
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
+/**
+ * the figure turns a little towards the pointer (the 2.5D: layers move by their depth). 0.9.9.9.9.7 (round 3): one
+ * listener for every guide (each guide added its own, and each measured the layout on every mouse move — even on a page
+ * not on screen: the menu's cards turned slowly after Grammar), and only the guides on screen are measured
+ */
+const following = new Set<HTMLElement>();
+let lastMove: PointerEvent | null = null, moveRaf = 0;
+function onMove(e: PointerEvent) {
+  lastMove = e;
+  if (moveRaf) return;
+  moveRaf = requestAnimationFrame(() => {
+    moveRaf = 0;
+    const ev = lastMove!;
+    for (const box of following) {
+      if (!box.isConnected) { following.delete(box); continue; }
+      if (box.closest('[hidden]')) continue; // (its page isn't on screen)
       const r = box.getBoundingClientRect();
-      const dx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (innerWidth / 2)));
-      const dy = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (innerHeight / 2)));
+      if (!r.width) continue;
+      const dx = Math.max(-1, Math.min(1, (ev.clientX - (r.left + r.width / 2)) / (innerWidth / 2)));
+      const dy = Math.max(-1, Math.min(1, (ev.clientY - (r.top + r.height / 2)) / (innerHeight / 2)));
       box.style.setProperty('--tx', dx.toFixed(3));
       box.style.setProperty('--ty', dy.toFixed(3));
-    });
-  };
-  addEventListener('pointermove', onMove, { passive: true });
+    }
+    if (!following.size) { removeEventListener('pointermove', onMove); listening = false; }
+  });
+}
+let listening = false;
+function follow(box: HTMLElement) {
+  following.add(box);
+  if (!listening) { addEventListener('pointermove', onMove, { passive: true }); listening = true; }
 }
 
 /** how the guide stands: talking, cheering (a hop and a burst), thinking, pointing, a bow */

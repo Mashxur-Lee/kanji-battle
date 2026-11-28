@@ -34,9 +34,9 @@ let skew = 0, tick = 0, lastStatus = '', lastN = 0, lastBeep = 0;
 
 export function initClash(sender: (m: ClientMessage) => void) {
   send = sender;
-  $('clashBack').onclick = () => { if (room && room.status !== 'over') { void leaveGame(); return; } toLobby(); };
-  $('clashAgain').onclick = () => toLobby();
-  $('clashExit').onclick = () => { room = null; stopTick(); send({ type: 'leave' }); };
+  $('clashBack').onclick = () => { if (spectating) return stopSpectating(); if (room && room.status !== 'over') { void leaveGame(); return; } toLobby(); };
+  $('clashAgain').onclick = () => { if (spectating) return stopSpectating(); toLobby(); };
+  $('clashExit').onclick = () => { if (spectating) return stopSpectating(); room = null; stopTick(); send({ type: 'leave' }); };
   // (round 7: the chat at the side during the game too)
   for (const id of ['clashOverChatForm', 'clashChatForm']) {
     const f = $<HTMLFormElement>(id);
@@ -46,11 +46,29 @@ export function initClash(sender: (m: ClientMessage) => void) {
 /** the game is over: back to the room's lobby (Ready there for another game) */
 function toLobby() { room = null; stopTick(); dispatchEvent(new Event('kw:room-lobby')); }
 export function setClashUser(id: string) { myId = id; }
+/**
+ * 0.9.9.9.9.7 (round 3): watching a friend's Grammar Clash — the game from their seat (their score, their result),
+ * the choices not pressable, the chat to read. '' = not watching
+ */
+let spectating = '', spectName = '';
+/** whose seat the screen shows: yours, or the friend's you watch */
+const seat = () => spectating || myId;
+export function clashSpectate(friendId: string, name: string) {
+  const was = spectating;
+  spectating = friendId; spectName = name;
+  $('clash').classList.toggle('spectate', !!friendId);
+  $('clashBack').textContent = tr(friendId ? '← Games' : '← Lobby'); // (a watcher has no lobby here)
+  if (!friendId && was) { room = null; stopTick(); if (ui.currentScreen() === 'clash') ui.show('games'); }
+}
+const stopSpectating = () => { send({ type: 'unwatch' }); clashSpectate('', ''); };
 // (round 4's invites to a Clash room by code: rooms of the private game are invited the usual way now)
 export async function onClashInvite(_from: { id: string; name: string }, _code: string) { /* no longer sent */ }
 export function onClashQueue(_on: boolean, _waiting: number, _ranked: boolean) { /* the online queue's own screen says it */ }
 export function onClashError(e: string) { ui.toast(tr(e), 3500); }
-export function clashReconnected() { if (room && room.status !== 'over') send({ type: 'clash_sync' }); }
+export function clashReconnected() {
+  if (spectating) { if (room && room.status !== 'over') send({ type: 'watch', userId: spectating }); return; } // (round 3)
+  if (room && room.status !== 'over') send({ type: 'clash_sync' });
+}
 
 async function leaveGame() {
   if (!(await ui.confirmBox('Leave the game?', room?.ranked ? 'You finish last in this ranked game.' : 'Your score stays on the board, but you can\'t come back to this game.', 'Leave', 'Stay'))) return;
@@ -129,7 +147,7 @@ function drawStarting(r: ClashView) {
 function drawPlay(r: ClashView, changed: boolean) {
   $('clashPlay').hidden = false;
   const q = r.q!;
-  const me = r.players.find((p) => p.id === myId);
+  const me = r.players.find((p) => p.id === seat());
   const answered = r.players.filter((p) => p.answered || p.last).length, live = r.players.filter((p) => !p.left).length;
   const top: HTMLElement[] = [h('b', '', `${r.n} / ${r.total}`)];
   if (q.double) top.push(h('span', 'gc-double', '×2'));
@@ -151,6 +169,7 @@ function drawPlay(r: ClashView, changed: boolean) {
     b.querySelector('.gc-mark')!.setAttribute('lang', 'ja'); b.querySelector('.gc-text')!.setAttribute('lang', 'ja');
     if (r.status === 'question') {
       if (q.mine !== undefined) { b.disabled = true; b.classList.toggle('mine', q.mine === k); b.classList.toggle('dim', q.mine !== k); }
+      else if (spectating) b.disabled = true; // (round 3: watching)
       else b.onclick = () => { send({ type: 'clash_answer', i: r.n - 1, k }); audio.sfx.flip(); for (const x of opts.querySelectorAll<HTMLButtonElement>('button')) { x.disabled = true; x.classList.toggle('dim', x !== b); } b.classList.add('mine'); $('clashFeedback').textContent = tr('Waiting for the others…'); };
     } else {
       b.disabled = true;
@@ -164,7 +183,7 @@ function drawPlay(r: ClashView, changed: boolean) {
     return b;
   }));
   // (0.9.9.9.9.7: the sentence's translation while you answer, under the hint)
-  if (r.status === 'question') { $('clashFeedback').replaceChildren(h('span', 'gc-hint', tr(q.mine === undefined ? 'Choose what goes in the gap.' : 'Waiting for the others…')), h('span', 'gc-tr', lang() === 'ru' ? (q.ru ?? '') : (q.en ?? ''))); }
+  if (r.status === 'question') { $('clashFeedback').replaceChildren(h('span', 'gc-hint', spectating ? tr('Watching {name}').replace('{name}', spectName) : tr(q.mine === undefined ? 'Choose what goes in the gap.' : 'Waiting for the others…')), h('span', 'gc-tr', lang() === 'ru' ? (q.ru ?? '') : (q.en ?? ''))); }
   else {
     const last = me?.last;
     const fb = $('clashFeedback');
@@ -184,10 +203,10 @@ function drawPlay(r: ClashView, changed: boolean) {
       why.append(head, h('p', 'gc-why-mean', t(q.why.meaning)));
       if (q.why.rule) why.append(h('p', 'gc-why-rule', t(q.why.rule)));
       const side = $('clashWhySide');
-      side.replaceChildren(h('h4', '', tr('Your mistake')), jpLine(q.jp.replace('＿＿', `【${q.filled}】`), 'gc-q gc-q-sm'), why);
+      side.replaceChildren(h('h4', '', tr(spectating ? 'The answer' : 'Your mistake')), jpLine(q.jp.replace('＿＿', `【${q.filled}】`), 'gc-q gc-q-sm'), why);
       side.hidden = false;
     }
-    if (changed) { if (last?.right) audio.sfx.correct(Math.min(5, me?.streak ?? 1)); else audio.sfx.wrong(); }
+    if (changed && !spectating) { if (last?.right) audio.sfx.correct(Math.min(5, me?.streak ?? 1)); else audio.sfx.wrong(); }
   }
 }
 function ranking(r: ClashView) { return [...r.players].sort((a, b) => Number(a.left) - Number(b.left) || b.score - a.score || b.right - a.right); }
@@ -197,7 +216,7 @@ function drawBoard(r: ClashView) {
   const list = ranking(r);
   const top = list[0]?.score || 1;
   $('clashBoardList').replaceChildren(...list.map((p, i) => {
-    const row = h('div', `gc-row${p.id === myId ? ' me' : ''}${p.left ? ' gone' : ''}`);
+    const row = h('div', `gc-row${p.id === seat() ? ' me' : ''}${p.left ? ' gone' : ''}`);
     const bar = h('span', 'gc-bar'); const fill = h('i'); fill.style.width = `${Math.max(4, (p.score / top) * 100)}%`; bar.append(fill);
     row.append(h('span', 'gc-place', String(i + 1)), avatarBox(p, 'gc-av sm'), h('b', 'gc-name', p.name), bar, h('span', 'gc-pts', String(p.score)));
     if (p.last?.right && p.last.points) row.append(h('span', 'gc-gain', `+${p.last.points}`));
@@ -212,21 +231,21 @@ function drawOver(r: ClashView, changed: boolean) {
   const pod = $('clashPodium');
   pod.replaceChildren(...[1, 0, 2].filter((i) => list[i]).map((i) => {
     const p = list[i];
-    const c = h('div', `gc-pod p${i + 1}${p.id === myId ? ' me' : ''}`);
+    const c = h('div', `gc-pod p${i + 1}${p.id === seat() ? ' me' : ''}`);
     c.append(avatarBox(p, 'gc-av lg'), h('b', '', p.name), h('span', 'gc-pts', String(p.score)), h('span', 'gc-step', String(i + 1)));
     return c;
   }));
-  const mine = list.findIndex((p) => p.id === myId);
-  $('clashOverTitle').textContent = tr(mine === 0 ? 'You won!' : `You finished ${mine + 1} of ${list.length}`);
+  const mine = list.findIndex((p) => p.id === seat());
+  $('clashOverTitle').textContent = spectating ? tr('{name} won!').replace('{name}', list[0]?.name ?? '') : tr(mine === 0 ? 'You won!' : `You finished ${mine + 1} of ${list.length}`);
   $('clashOverList').replaceChildren(...list.map((p, i) => {
-    const row = h('div', `gc-row${p.id === myId ? ' me' : ''}`);
+    const row = h('div', `gc-row${p.id === seat() ? ' me' : ''}`);
     row.append(h('span', 'gc-place', String(i + 1)), avatarBox(p, 'gc-av sm'), h('b', 'gc-name', p.name), h('span', 'hint', tr(`${p.right} right · best combo ${p.best}`)), h('span', 'gc-pts', String(p.score)));
     const ch = r.ratings?.[p.id];
     if (ch) { const d = ch.after - ch.before; row.append(h('span', `gc-rate ${d >= 0 ? 'up' : 'down'}`, `${d >= 0 ? '+' : ''}${d}`)); }
     return row;
   }));
   $('clashAgain').hidden = false; // (round 5: Back to lobby — the room's)
-  if (changed) { if (mine === 0) audio.sfx.win(); else audio.sfx.lose(); }
+  if (changed && !spectating) { if (mine === 0) audio.sfx.win(); else audio.sfx.lose(); }
   chat($('clashOverChat'), r);
 }
 

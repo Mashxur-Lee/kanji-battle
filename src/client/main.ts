@@ -1,8 +1,8 @@
 import { knowPlayer, setMentionSelf } from './mentions';
-import { initSongs, openSongs, songsLeft } from './songs';
+import { initSongs, openSongs, setSongsAdmin, songsLeft } from './songs';
 import { openGrammar } from './grammarui';
-import { showClashHistory, clashReconnected, initClash, onClashError, onClashInvite, onClashQueue, onClashRoom, setClashUser } from './clash';
-import { chessReconnected, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
+import { showClashHistory, clashReconnected, clashSpectate, initClash, onClashError, onClashInvite, onClashQueue, onClashRoom, setClashUser } from './clash';
+import { chessReconnected, chessSpectate, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
 import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
@@ -530,7 +530,7 @@ function onMessage(msg: ServerMessage) {
       arenaTyping(msg.id, msg.on);
       break;
     case 'welcome':
-      chessReconnected(); // (0.9.9.9.9.6: a friend game picks up where it was)
+      chessReconnected(); // (0.9.9.9.9.6: a friend game picks up where it was; round 3: a watched one too)
       clashReconnected(); // (round 4: and a Grammar Clash)
       offline.serverSeen(); // 0.9.9.9.5: the server is there — leave offline mode now
       checkBuild(msg.build); // 0.9.9.9.6.4: an older app updates itself
@@ -543,6 +543,7 @@ function onMessage(msg: ServerMessage) {
       registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
       if (watchedFriend && watching() === 'live') socket.send({ type: 'watch', userId: watchedFriend }); // (0.9.9.9.9.5: back from the background)
       inboxUser(msg.user.id, msg.user.role === 'admin'); // 0.9.9.9.6: Messages (unread)
+      setSongsAdmin(msg.user.role === 'admin'); // (0.9.9.9.9.7 round 3: admins time the songs)
       askEmail(); // 0.9.9.9.6.6: an account from before emails adds one, once
       setRailMe(msg.user.id); // 0.9.9.9.6.3: friends in your room: "Playing with you"
       // 0.9.9.9.7.3: back after a long while away (the app in the background) and the room has closed meanwhile: to the
@@ -556,8 +557,10 @@ function onMessage(msg: ServerMessage) {
       onInviteDeclined(msg);
       break;
     case 'watching': // 0.9.9.9.9: watching a friend's game (or not any more)
+      // (0.9.9.9.9.7 round 3: a friend's Kanji chess or Grammar Clash — their own screens, read-only; the game comes next)
+      if (msg.on && (msg.mode === 'chess' || msg.mode === 'clash')) { (msg.mode === 'chess' ? chessSpectate : clashSpectate)(msg.target ?? watchedFriend, msg.name ?? ''); break; }
       if (msg.on) liveStarted(msg);
-      else { watchedFriend = ''; liveEnded(); if (msg.reason) ui.toast(tr(msg.reason)); }
+      else { watchedFriend = ''; liveEnded(); chessSpectate('', ''); clashSpectate('', ''); if (msg.reason) ui.toast(tr(msg.reason)); }
       break;
     case 'watch_wait': // 0.9.9.9.9.5: they're still studying — the battle opens here when it starts
       ui.toast(tr('They are studying their spells - the battle opens here when it starts ({s} s)').replace('{s}', String(Math.max(1, Math.round(msg.leftMs / 1000)))), 6000);
@@ -1749,7 +1752,7 @@ addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail =
         message: link?.status === 'accepted' ? () => { ui.hideProfileCard(); void openInbox(id); } : undefined,
         // 0.9.9.9.5.5: their lobby is open (and has room): join it
         // 0.9.9.9.9: a friend in a game: watch it
-        watch: link?.status === 'accepted' && link.online && /^Playing /.test(link.activity ?? '') && !/Deck Duel|Kanji chess|Grammar Clash/.test(link.activity ?? '') && !inRoom ? () => watchFriend(id) : undefined,
+        watch: link?.status === 'accepted' && link.online && /^Playing /.test(link.activity ?? '') && !/Deck Duel/.test(link.activity ?? '') && !inRoom ? () => watchFriend(id) : undefined,
         join: link?.status === 'accepted' && link.party?.code && link.party.code !== (inRoom ? code : '') && !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? '')
           ? { label: `${link.party.size}/${link.party.max}`, mode: link.party.mode, go: () => joinRoom(link.party!.code!) } : undefined,
       });

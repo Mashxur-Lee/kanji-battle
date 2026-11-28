@@ -372,6 +372,13 @@ export const sfx = {
     }
   },
   tick() { if (sfxOk()) bell(1320, ctx!.currentTime, 0.25, 0.08); },
+  /** 0.9.9.9.9.7 (round 3): a wrong letter in Song lyrics — a short, quiet static zap, under the music (no chime for a right word: it broke into the song) */
+  zap() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    noise(t, 0.09, 0.05, 2600, 'bandpass');
+    tone(140, t, 0.08, { type: 'square', gain: 0.025, to: 90, attack: 0.002 });
+  },
   go() { if (sfxOk()) bell(midi(88), ctx!.currentTime, 0.8, 0.14); },
   /** Deck Duel: your turn — two bright rising bells. */
   yourTurn() {
