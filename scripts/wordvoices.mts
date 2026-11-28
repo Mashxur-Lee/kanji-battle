@@ -30,7 +30,8 @@ const VOCAB: Vocab[] = JSON.parse(readFileSync(join(import.meta.dirname, '..', '
 // what is said, once each, in the order of the levels
 const said: string[] = [];
 const seen = new Set<string>();
-for (const lv of ORDER) for (const w of VOCAB) if (w.level === lv) { const s = spokenWord(w.kanji, w.reading); if (s && !seen.has(s)) { seen.add(s); said.push(s); } }
+// (a kana level's battle says the kana as written — ア, not あ — so both are recorded)
+for (const lv of ORDER) for (const w of VOCAB) if (w.level === lv) for (const s of [spokenWord(w.kanji, w.reading), ...(lv === 'KANA' || lv === 'KATA' ? [w.kanji] : [])]) if (s && !seen.has(s)) { seen.add(s); said.push(s); }
 // two words with one file name would say each other: report it (the game then uses the device's voice for both)
 const byHash = new Map<string, string>();
 const clash = new Set<string>();
