@@ -671,7 +671,7 @@ export function deckEvent(e: DeckEvent) {
       break;
     case 'resolve':
       // both players hear the spell's word first, then the spell's sound
-      animateResolve(e, me, e.ok ? voice.speak(e.reading) : Promise.resolve());
+      animateResolve(e, me, e.ok ? voice.speakWord(e.reading) : Promise.resolve()); // (0.9.9.9.9.7 round 4: your character's voice)
       showReveal(e);
       break;
   }

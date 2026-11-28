@@ -32,8 +32,14 @@ serves the web game, the Android app (a WebView shell) and the Windows app (Elec
   does; run it after adding lines (a word it can't find goes in `EXTRA_WORDS`, `src/shared/wordlookup.ts`).
 - `npx tsx scripts/voices.mts` (with the VOICEVOX engine running) records any new chess or grammar line.
 - Song lyrics (0.9.9.9.9.7 round 3) plays the owner's own songs: `public/songs/<id>.mp3` and `.webp` (the cover) from
-  the owner's files, the lyrics and study notes in `src/shared/songs.ts`. A song is offered once it has `times`: an admin
-  gets them in the game (Song lyrics → Time this song) and they are pasted into the song.
+  the owner's files, the lyrics and study notes in `src/shared/songs.ts`. A song is offered once it has `times` (and
+  `ends` for gaps). Round 4 got the words and times with whisper.cpp (`D:/DESKTOP/Kanji wizards resources/_claude-work/whisper`,
+  model ggml-large-v3-turbo-q5_0: transcribe 12 s windows every 6 s with `-ot/-d -ml 1 -mc 0`; whole-song runs
+  invent text over intros). The lyrics files that came with a song are not always what is sung; a line not heard
+  clearly is `unsure` (shown, nothing typed). An admin can also time a song in the game (Song lyrics → Time this song).
+- `npx tsx scripts/wordvoices.mts --out <kanji-wizards-voices folder>` (VOICEVOX running) records the battle words in
+  the four characters' voices for the separate voices site (repo kanji-wizards-voices, GitHub Pages; ~24,600 clips,
+  hours): only missing clips, `--levels N5,N4` to do some. Commit and push that repo to publish them.
 - `npm run typecheck` checks the server and client. Locally the three.js typings may be missing; CI has them.
 - `npm run dev` builds the client and runs the server on :3000 (`PORT`); without `DATABASE_URL` it keeps data in a local JSON file.
 

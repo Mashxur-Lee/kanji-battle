@@ -764,13 +764,34 @@
       <div class="song-done-btns"><button id="songTimeTap" class="big" type="button">Line starts (Space)</button><button id="songTimeSkip" class="pill" type="button">Not sung (N)</button><button id="songTimeUndo" class="pill" type="button">Undo</button><button id="songTimeEnd" class="pill" type="button">Finish</button></div>
       <div id="songTimeOut" hidden><p class="hint">Copied - paste it into the song in src/shared/songs.ts (or send it to the developer).</p><textarea id="songTimeText" class="song-time-text" rows="4" readonly></textarea><button id="songTimeBack" class="pill" type="button">Back to the songs</button></div>
     </div>
-    <div id="songPlay" class="song-play" hidden>
-      <div id="songTitle" class="song-title"></div>
-      <div class="song-track"><i id="songBar"></i></div>
+    <div id="songPlay" class="song-play sp2" hidden>
+      <!-- 0.9.9.9.9.7 (round 4): the stage — the song's cover, and the music as a live wave line -->
+      <div class="sp-stage">
+        <img id="songCoverBg" class="sp-bg" alt="" aria-hidden="true">
+        <img id="songCover" class="sp-cover" alt="">
+        <div class="sp-head"><div id="songTitle" class="song-title"></div><span id="songPart" class="sp-part"></span></div>
+        <canvas id="songWave" class="sp-wave" aria-hidden="true"></canvas>
+      </div>
+      <div class="sp-bar">
+        <div class="sp-progress"><b id="songCount">0 / 0</b><div class="song-track"><i id="songBar"></i></div></div>
+        <div class="sp-ctrls" role="group" aria-label="Song controls">
+          <button id="songPrev" class="sp-ic" type="button" title="Back a line" aria-label="Back a line"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+          <button id="songToggle" class="sp-ic sp-main" type="button" title="Pause" aria-label="Pause" data-state="playing"><svg class="i-pause" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg><svg class="i-play" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z"/></svg></button>
+          <button id="songReplay" class="sp-ic" type="button" title="Hear this line again (Tab)" aria-label="Hear this line again (Tab)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg></button>
+          <button id="songNext" class="sp-ic" type="button" title="Next line" aria-label="Next line"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+          <button id="songHint" class="sp-ic" type="button" title="Show the next letter" aria-label="Show the next letter"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg></button>
+        </div>
+        <span id="songClock" class="sp-clock">00:00 / 00:00</span>
+      </div>
       <div id="songLine" class="song-line"></div>
-      <p id="songWait" class="song-wait" hidden>Waiting for you - type the missing words</p>
-      <div class="song-type"><input id="songInput" class="song-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the word in romaji" aria-label="Type the word in romaji"><button id="songReplay" class="pill" type="button" title="Hear this line again (Tab)">Replay line</button><button id="songSkip" class="pill" type="button">Skip (Esc)</button></div>
-      <p id="songScore" class="hint song-score"></p>
+      <p id="songWait" class="song-wait" hidden>The song waits for you - type the missing words</p>
+      <input id="songInput" class="song-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="Type the word in romaji" aria-label="Type the word in romaji">
+      <div class="sp-tools">
+        <button id="songSkip" class="pill" type="button">Show the word (Esc)</button>
+        <button id="songShowJp" class="pill sp-switch" type="button" aria-pressed="true">Japanese</button>
+        <button id="songShowTr" class="pill sp-switch" type="button" aria-pressed="true">Translation</button>
+        <span id="songScore" class="hint song-score"></span>
+      </div>
       <div id="songDone" class="song-done" hidden><b>Song finished!</b><span id="songDoneText"></span><div class="song-done-btns"><button id="songAgain" class="big" type="button">Sing again</button><button id="songBackList" class="pill" type="button">Other songs</button></div></div>
     </div>
   </section>
@@ -782,7 +803,6 @@
       <!-- 0.9.9.9.9.7: 210 lessons — a search over every level (the pattern, its meaning, its romaji) -->
       <!-- 0.9.9.9.9.7 (round 2): the dictionary from Grammar too -->
       <!-- (round 3: a search bar, not a button — the owner) -->
-      <form id="grammarDictForm" class="gr-dict" role="search"><span class="gr-dict-ic" lang="ja" aria-hidden="true">辞</span><input id="grammarDictQ" type="search" placeholder="Dictionary - look up a word" autocomplete="off" maxlength="40" aria-label="Dictionary - look up a word"><button class="pill" type="submit">Search</button></form>
       <input id="grammarSearch" class="gr-search" type="search" placeholder="Search grammar - てから, because, nagara…" autocomplete="off" maxlength="40" aria-label="Search grammar">
       <div id="grammarLevels" class="word-tabs gr-levels" role="tablist" aria-label="JLPT level"></div>
       <div class="gr-progress"><span id="grammarProg"></span><div class="gr-track"><i id="grammarBar"></i></div></div>

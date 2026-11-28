@@ -18,6 +18,13 @@ interface Room {
   /** 0.9.9.9.9.7 (round 3): friends watching the game */
   watchers?: Set<string>;
 }
+/**
+ * 0.9.9.9.9.7 (round 4, the owner: "if my friend is playing chess i cant spectate him … even though he is playing with a
+ * bot"): a game against a chess wizard is played on the device; its moves are told to the hub (chess_local) so friends
+ * can watch it like any other. Only what the player's own app says — nothing here decides the game.
+ */
+interface LocalGame { id: string; player: Player; bot: Player; color: 'w' | 'b'; moves: string[]; times: number[]; clocks: { w: number; b: number }; turnSince: number; base: number; inc: number; result?: { winner: 'w' | 'b' | null; reason: string }; watchers: Set<string>; at: number }
+const UCI = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
 /** a finished game, for each player's match history */
 export interface ChessRecord { at: number; vs: string; vsBot?: string; ranked?: boolean; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -42,10 +49,13 @@ export interface ChessHooks {
 export class ChessHub {
   private rooms = new Map<string, Room>();
   private byCode = new Map<string, string>();
+  /** (round 4) games against the wizards, by player */
+  private local = new Map<string, LocalGame>();
   constructor(private readonly send: (userId: string, msg: ServerMessage) => void, private readonly now: () => number = Date.now, private readonly rnd: () => number = Math.random, private readonly hooks: ChessHooks = {}) {}
 
   async handle(user: Player, msg: Record<string, unknown>) {
     this.sweep();
+    if (msg.type === 'chess_local') return this.localUpdate(user, msg);
     const err = (error: string) => this.send(user.id, { type: 'chess_error', error });
     const room = typeof msg.id === 'string' ? this.rooms.get(msg.id) : undefined;
     const inRoom = !!room && (room.host.id === user.id || room.guest?.id === user.id);
@@ -164,10 +174,58 @@ export class ChessHub {
     }
   }
   /** (round 5) a game being played by this player (the room's "Playing Kanji chess") */
-  playing(userId: string) { return [...this.rooms.values()].some((r) => r.status === 'playing' && (r.white?.id === userId || r.black?.id === userId)); }
+  playing(userId: string) { return [...this.rooms.values()].some((r) => r.status === 'playing' && (r.white?.id === userId || r.black?.id === userId)) || this.playingLocal(userId); }
+  /** (round 4) a game against a wizard: started, moved, finished or left (end) */
+  private localUpdate(user: Player, msg: Record<string, unknown>) {
+    const had = this.local.get(user.id);
+    if (msg.end === true) {
+      if (had) { for (const w of had.watchers) this.send(w, { type: 'chess_error', error: 'The game is over' }); this.local.delete(user.id); }
+      return;
+    }
+    const moves = Array.isArray(msg.moves) ? msg.moves.filter((m): m is string => typeof m === 'string' && UCI.test(m)).slice(0, 600) : [];
+    const color = msg.color === 'b' ? 'b' : 'w';
+    const botId = String(msg.bot ?? 'goblin').replace(/[^a-z]/g, '').slice(0, 12) || 'goblin';
+    const botName = String(msg.botName ?? botId).slice(0, 24);
+    const { base, inc } = cleanTime(msg.base, msg.inc);
+    // a new game (fewer moves than before, or another wizard or side): a new id, the watchers stay
+    const fresh = !had || moves.length < had.moves.length || had.bot.id !== `bot:${botId}` || had.color !== color || !!had.result;
+    const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(3_600_000, Math.round(v))) : d);
+    const c = (msg.clocks ?? {}) as { w?: unknown; b?: unknown };
+    const g: LocalGame = {
+      id: fresh ? `L${Math.floor(this.rnd() * 1e9).toString(36)}${this.now().toString(36)}` : had!.id,
+      player: user, bot: { id: `bot:${botId}`, name: botName }, color, moves,
+      times: Array.isArray(msg.times) ? msg.times.slice(0, 600).map((t) => num(t, 0)) : [],
+      clocks: { w: num(c.w, base), b: num(c.b, base) }, turnSince: this.now(), base, inc,
+      ...(msg.result && typeof msg.result === 'object' ? { result: { winner: (msg.result as { winner?: unknown }).winner === 'w' ? 'w' : (msg.result as { winner?: unknown }).winner === 'b' ? 'b' : null, reason: String((msg.result as { reason?: unknown }).reason ?? '').slice(0, 20) } } : {}),
+      watchers: had?.watchers ?? new Set(), at: this.now(),
+    };
+    this.local.set(user.id, g);
+    for (const w of g.watchers) this.send(w, { type: 'chess', room: this.localView(g) });
+  }
+  private localView(g: LocalGame): ChessRoomView {
+    const white = g.color === 'w' ? g.player : g.bot, black = g.color === 'w' ? g.bot : g.player;
+    return {
+      id: g.id, code: '', you: null, white, black, host: g.player, guest: g.bot, ready: [], chat: [], times: g.times,
+      moves: g.moves, clocks: { ...g.clocks }, turnSince: g.turnSince, now: this.now(), base: g.base, inc: g.inc,
+      status: g.result ? 'over' : 'playing', ...(g.result ? { result: g.result } : {}), drawOffer: null,
+    };
+  }
+  /** (round 4) the player has a game against a wizard going (the Session's "can I watch") */
+  playingLocal(userId: string) { const g = this.local.get(userId); return !!g && !g.result; }
+
   /** 0.9.9.9.9.7 (round 3): watch a friend's game (Session checked you're friends): null, or why not */
   watch(userId: string, friendId: string, started?: () => void): string | null {
     const r = [...this.rooms.values()].find((x) => x.status === 'playing' && (x.white?.id === friendId || x.black?.id === friendId));
+    // (round 4: or their game against a wizard)
+    const lg = this.local.get(friendId);
+    if (!r && lg && !lg.result) {
+      this.unwatch(userId);
+      if (lg.watchers.size >= 8) return 'This game has as many watchers as it can take';
+      lg.watchers.add(userId);
+      started?.();
+      this.send(userId, { type: 'chess', room: this.localView(lg) });
+      return null;
+    }
     if (!r) return 'Your friend isn’t in a game right now';
     if (r.white?.id === userId || r.black?.id === userId) return 'You’re playing in this game';
     this.unwatch(userId);
@@ -178,7 +236,7 @@ export class ChessHub {
     this.send(userId, { type: 'chess', room: this.view(r, userId) });
     return null;
   }
-  unwatch(userId: string) { for (const r of this.rooms.values()) r.watchers?.delete(userId); }
+  unwatch(userId: string) { for (const r of this.rooms.values()) r.watchers?.delete(userId); for (const g of this.local.values()) g.watchers.delete(userId); }
 
   private start(r: Room) {
     const hostWhite = this.rnd() < 0.5;
@@ -251,6 +309,7 @@ export class ChessHub {
   /** finished games go after 10 minutes; a room nobody played in after an hour */
   private sweep() {
     const t = this.now();
+    for (const [id, g] of this.local) if (t - g.at > (g.result ? 600_000 : 3_600_000)) this.local.delete(id); // (round 4: a wizard game nobody touched)
     for (const r of this.rooms.values()) {
       if ((r.status === 'over' && t - (r.endedAt ?? t) > 600_000) || ((r.status === 'waiting' || r.status === 'lobby') && t - r.createdAt > 3_600_000)) { this.rooms.delete(r.id); this.byCode.delete(r.code); }
     }

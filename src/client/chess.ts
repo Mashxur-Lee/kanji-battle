@@ -128,6 +128,20 @@ export function chessSpectate(friendId: string, name: string) {
   if (!friendId && was) { $('chessGame').classList.remove('spectate'); if (mode.kind === 'friend') mode = { kind: 'bot', bot: pickBot }; if (ui.currentScreen() === 'chess') ui.show('games'); }
 }
 const stopSpectating = () => { send({ type: 'unwatch' }); chessSpectate('', ''); };
+/**
+ * 0.9.9.9.9.7 (round 4): a game against a wizard is told to the server as it goes, so friends can watch it (the server
+ * only passes it on). end: the game was left
+ */
+let reported = false;
+function reportLocal(end = false) {
+  if (end) { if (reported) send({ type: 'chess_local', end: true }); reported = false; return; }
+  if (mode.kind !== 'bot') return;
+  const b = BOTS.find((x) => x.id === (mode as { bot: BotId }).bot);
+  reported = true;
+  send({ type: 'chess_local', bot: b?.id ?? 'goblin', botName: b ? tr(b.name) : 'Wizard', color: mine, moves: moves.map(moveUci), times: times.slice(0, moves.length), base, inc, clocks: { ...clocks }, ...(over ? { result: { winner: over.winner, reason: over.reason } } : {}) });
+}
+/** main.ts: the chess page was left — a wizard game there is no longer watchable */
+export function chessLeft() { reportLocal(true); }
 const meId = () => myId;
 
 export function openChess() {
@@ -145,6 +159,7 @@ export async function onChessInvite(from: { id: string; name: string }, code: st
   send({ type: 'chess_join', code });
 }
 function showSetup(tab: 'bot' | 'friend') {
+  reportLocal(true); // (round 4: the game is over or left)
   $('chessSetup').hidden = false; $('chessGame').hidden = true;
   for (const b of document.querySelectorAll<HTMLElement>('#chessTabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
   $('chessBotSetup').hidden = tab !== 'bot'; $('chessFriendSetup').hidden = tab !== 'friend';
@@ -186,6 +201,7 @@ function startBot() {
   say('hello');
   audio.sfx.chessStart();
   if (pos.turn !== mine) botTurn();
+  reportLocal(); // (round 4: friends can watch)
 }
 function begin(b: number, i: number) {
   saidThisGame.clear(); lastRemark = 0;
@@ -216,8 +232,10 @@ function drawPlayers() {
     name.replaceChildren(h('b', '', tr(b.name)), r, h('span', 'cp-elo', String(b.elo)));
   } else {
     const r = mode.room, them = mine === 'w' ? r.black : r.white;
-    opp.querySelector('.cp-pic')!.innerHTML = heroSvg('wizard', 'opp');
-    (opp.querySelector('.cp-pic') as HTMLElement).dataset.bot = '';
+    // (round 4: watching a friend against a wizard — the wizard's own portrait)
+    const wiz = them?.id.startsWith('bot:') ? BOTS.find((x) => `bot:${x.id}` === them.id) : undefined;
+    opp.querySelector('.cp-pic')!.innerHTML = wiz ? botPic(wiz.id) : heroSvg('wizard', 'opp');
+    (opp.querySelector('.cp-pic') as HTMLElement).dataset.bot = wiz?.id ?? '';
     opp.querySelector('.cp-name')!.replaceChildren(h('b', '', them?.name ?? tr('Waiting…')), h('span', 'cp-side', tr(mine === 'w' ? 'Black' : 'White')));
   }
   const meName = spectating && mode.kind === 'friend' ? (mine === 'w' ? mode.room.white : mode.room.black)?.name ?? spectName : '';
@@ -286,6 +304,7 @@ function play(m: Move) {
   moveSound(m, pos);
   draw();
   if (mode.kind === 'bot') {
+    reportLocal(); // (round 4: each move, for friends watching)
     const o = outcome(pos, history);
     if (o.over) finish(o.winner, o.reason);
     else if (pos.turn !== mine) { if (colorOf(m.piece) === mine) comment(before, m); botTurn(); }
@@ -344,6 +363,7 @@ function takeBack() {
   times = times.slice(0, moves.length); moveSince = Date.now();
   over = null; selected = -1; $('chessOver').hidden = true;
   draw();
+  reportLocal();
   if (pos.turn !== mine) botTurn();
 }
 async function resign() {
@@ -379,7 +399,7 @@ function finish(winner: Color | null, reason: string) {
     return;
   }
   $('chessToSetup').hidden = false;
-  if (mode.kind === 'bot') { say(drawn ? 'draw' : won ? 'botLoses' : 'botWins'); saveBotGame(); }
+  if (mode.kind === 'bot') { say(drawn ? 'draw' : won ? 'botLoses' : 'botWins'); saveBotGame(); reportLocal(); }
   if (reason !== 'checkmate') { if (won) audio.sfx.win(); else if (!drawn) audio.sfx.lose(); }
   else window.setTimeout(() => { if (won) audio.sfx.win(); else audio.sfx.lose(); }, 900);
   $('chessOverTitle').textContent = tr(drawn ? 'Draw' : won ? 'You won!' : 'You lost');
@@ -610,6 +630,7 @@ export function onChessRoom(room: ChessRoomView) {
 }
 export function onChessError(error: string) {
   ui.toast(tr(error), 3500);
+  if (spectating) { chessSpectate('', ''); return; } // (round 4: the watched game ended — no asking for it again)
   // (round 4) the room is gone (its host left): back to the friend setup
   if (error === 'The host left the room') { if (mode.kind === 'friend') mode = { kind: 'bot', bot: pickBot }; return; }
   if (mode.kind === 'friend') send({ type: 'chess_sync', id: mode.room.id });

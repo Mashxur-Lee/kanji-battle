@@ -263,6 +263,13 @@ async function spotlight(steps: Step[], opts: { finalLabel: string; onSkip?: () 
       nx.focus();
     };
     addEventListener('resize', place);
+    // 0.9.9.9.9.7 (round 4, the owner: on phones the tour sometimes pointed at the wrong thing): the light follows its
+    // part while the page still moves under it — cards sliding in, pictures loading, a scroll — instead of staying where
+    // the part was when the step opened
+    // (it stops by itself once the tour is gone)
+    const follow = () => { if (!spot.isConnected) { removeEventListener('scroll', follow, true); clearInterval(watch); return; } place(); };
+    addEventListener('scroll', follow, true);
+    const watch = window.setInterval(follow, 300);
     render();
   });
 }

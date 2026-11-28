@@ -215,7 +215,7 @@ test('0.9.9.9.9.5 Battles and Results: a rank card with every rank, mode tiles, 
 });
 
 test('0.9.9.9.9.5 phones: light effects on weaker phones, the background scrolls, the FABs stay off pages with bottom controls, the chat above the keyboard', () => {
-  assert.ok(src('src/client/perf.ts').includes("if ((nav.hardwareConcurrency ?? 8) <= 6 || (nav.deviceMemory ?? 8) <= 4) { set(true, true); return; }"));
+  assert.ok(src('src/client/perf.ts').includes("if ((nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 2) { set(true, true); return; }")) // (0.9.9.9.9.7 round 4: fairer — the rest are measured);
   const css = src('public/style.css');
   assert.ok(css.includes('@media (pointer: coarse) { body { background-attachment: scroll; } }'));
   assert.ok(css.includes('body.kb-up[data-screen="inbox"] .inbox-screen .msgr { height: calc(var(--kbh, 100dvh) - 76px) !important;'));

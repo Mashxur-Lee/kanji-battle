@@ -1,8 +1,7 @@
 // 0.9.9.9.9.6 (round 4): Grammar — the JLPT grammar, lesson by lesson. Master Fumi explains each point (what it
 // means, how it is formed and used, examples with furigana — each kanji tappable, each sentence spoken), then asks its
 // questions; all but one right and the lesson is passed (kept on your account). Levels N5 → N1.
-import { filledQuestion, GRAMMAR, GRAMMAR_LEVELS, grammarOf, passMark, plainJp, shuffled, type GrammarLevel, type GrammarPoint } from '../shared/grammar';
-import { openDictionary } from './dictui';
+import { filledQuestion, GRAMMAR, patternFurigana, GRAMMAR_LEVELS, grammarOf, passMark, plainJp, shuffled, type GrammarLevel, type GrammarPoint } from '../shared/grammar';
 import { toRomaji } from '../shared/kana';
 import { FUMI_LINES, fumiClip, fumiLessonLine, grammarClip, parseLine } from '../shared/chesslines';
 import { api } from './api';
@@ -35,13 +34,24 @@ const keep = () => { try { localStorage.setItem(KEY, JSON.stringify([...passed])
 let searchWired = false;
 export function openGrammar() {
   ui.show('grammar');
-  if (!searchWired) { searchWired = true; ($('grammarDictForm') as HTMLFormElement).onsubmit = (e) => { e.preventDefault(); const i = $<HTMLInputElement>('grammarDictQ'); openDictionary(i.value.trim()); i.value = ''; }; // (0.9.9.9.9.7 round 2; round 3: a bar)
+  if (!searchWired) { searchWired = true; // (0.9.9.9.9.7 round 4: the dictionary is the side panel's, as on the other pages)
     let t = 0; ($('grammarSearch') as HTMLInputElement).oninput = () => { clearTimeout(t); t = window.setTimeout(showList, 120); }; }
   showList();
   void api.grammarPassed().then((r) => { for (const id of r.passed) passed.add(id); keep(); if (!$('grammarList').hidden) showList(); }).catch(() => { /* offline: what this device knows */ });
 }
 
 /** a Japanese line with furigana, each kanji tappable */
+/** 0.9.9.9.9.7 (round 4): a grammar pattern with furigana over its kanji (in buttons and headings: not tappable) */
+export function patternEl(tag: 'b' | 'div' | 'span', cls: string, pattern: string): HTMLElement {
+  const el = h(tag, cls, undefined, { lang: 'ja' });
+  for (const part of parseLine(patternFurigana(pattern))) {
+    if (!part.reading) { el.append(part.text); continue; }
+    const r = h('ruby');
+    r.append(part.text, h('rt', '', part.reading));
+    el.append(r);
+  }
+  return el;
+}
 export function jpLine(s: string, cls = 'gr-jp'): HTMLElement {
   // (0.9.9.9.9.7: a word with its reading over it, tapped, opens the whole word — it split 勉強 into 勉 and 強 — and its
   // kanji from there)
@@ -75,7 +85,7 @@ function showList() {
   ($('grammarBar') as HTMLElement).style.width = `${list.length ? (done / list.length) * 100 : 0}%`;
   $('grammarItems').replaceChildren(...list.map((g, i) => {
     const b = h('button', `gr-item${passed.has(g.id) ? ' passed' : ''}`, undefined, { type: 'button' });
-    b.append(h('span', 'gr-n', searching ? g.level : String(i + 1)), h('b', 'gr-pat', g.pattern), h('span', 'gr-mean', t(g.meaning)), h('span', 'gr-state', tr(passed.has(g.id) ? 'Passed' : 'Learn')));
+    b.append(h('span', 'gr-n', searching ? g.level : String(i + 1)), patternEl('b', 'gr-pat', g.pattern), h('span', 'gr-mean', t(g.meaning)), h('span', 'gr-state', tr(passed.has(g.id) ? 'Passed' : 'Learn')));
     b.querySelector('.gr-pat')!.setAttribute('lang', 'ja');
     b.onclick = () => openLesson(g);
     return b;
@@ -103,7 +113,7 @@ function openLesson(g: GrammarPoint) {
   const guide = guideEl('big');
   const said = h('p', 'tut-said gr-said');
   const head = h('div', 'gr-head');
-  head.append(h('span', 'gr-lvl', g.level), h('div', 'gr-pattern', g.pattern), h('p', 'gr-meaning', t(g.meaning)));
+  head.append(h('span', 'gr-lvl', g.level), patternEl('div', 'gr-pattern', g.pattern), h('p', 'gr-meaning', t(g.meaning)));
   head.querySelector('.gr-pattern')!.setAttribute('lang', 'ja');
   const rules = h('ol', 'gr-rules');
   for (const r of g.rules) rules.append(h('li', '', t(r)));
@@ -169,9 +179,9 @@ function quiz(g: GrammarPoint, guide: HTMLElement, said: HTMLElement) {
         if (ok) { right++; audio.sfx.correct(1); guideMood(guide, 'cheer'); typeText(said, tr('Right!'), guide); }
         else { audio.sfx.wrong(); guideMood(guide, 'think'); typeText(said, `${tr('Not quite - it is')} ${q.options[0]}.`, guide); }
         // (round 7: "正解じゃ！" / "おしいのう。", then the whole sentence, read)
-        // (round 3: the sentence after Fumi has finished — it cut him off)
+        // (round 3: one after the other — they cut each other off; round 4, the owner: the sentence first, then Fumi's verdict)
         const spoken = filledQuestion(q);
-        void fumiSays(ok ? 'right' : 'wrong').then(() => { if (box.contains(opts)) void readOut(spoken); });
+        void readOut(spoken).then(() => { if (box.contains(opts)) void fumiSays(ok ? 'right' : 'wrong'); });
         go.hidden = false; go.focus();
       };
       opts.append(b);

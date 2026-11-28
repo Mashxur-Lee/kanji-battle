@@ -21,7 +21,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
 };
 
 /** where the panel is offered */
-const DICT_SCREENS = new Set(['menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'results', 'study', 'review', 'passage', 'customize', 'history', 'progress', 'friends', 'inbox', 'quizzes', 'kana']); // (0.9.9.9.6.1: and Messages, Quizzes, Kana)
+const DICT_SCREENS = new Set(['menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'results', 'study', 'review', 'passage', 'customize', 'history', 'progress', 'friends', 'inbox', 'quizzes', 'kana', 'grammar']); // (0.9.9.9.6.1: and Messages, Quizzes, Kana; 0.9.9.9.9.7 round 4: and Grammar)
 /** screens of a room: "Full entry" would take you out of it, so it isn't offered there */
 const ROOM_SCREENS = new Set(['lobby', 'queue', 'results']);
 let signedIn = false;

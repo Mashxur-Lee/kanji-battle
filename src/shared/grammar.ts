@@ -44,6 +44,22 @@ export function shuffled(q: GrammarQuestion, rnd = Math.random): { options: stri
   return { options: order.map((i) => q.options[i]), answer: order.indexOf(0) };
 }
 /** the markup gone: {漢字|かんじ} → 漢字 (or its reading) */
+/**
+ * 0.9.9.9.9.7 (round 4, the owner: "grammar topics that are kanji only need furigana above them"): each kanji word that
+ * appears in a pattern, with its reading — patternFurigana gives a pattern in the {漢字|かんじ} form the lines use
+ */
+const PATTERN_WORDS: Record<string, string> = {
+  好き: '{好|す}き', 上手: '{上手|じょうず}', 分かる: '{分|わ}かる', 行く: '{行|い}く', 来る: '{来|く}る', 一番: '{一番|いちばん}', 何: '{何|なに}',
+  思う: '{思|おも}う', 一方: '{一方|いっぽう}', 方: '{方|かた}', 始める: '{始|はじ}める', 終わる: '{終|お}わる', 言う: '{言|い}う', 代わって: '{代|か}わって',
+  限らず: '{限|かぎ}らず', 関して: '{関|かん}して', 対して: '{対|たい}して', 比べて: '{比|くら}べて', 従って: '{従|したが}って', 違いない: '{違|ちが}いない',
+  限り: '{限|かぎ}り', 以上: '{以上|いじょう}', 沿って: '{沿|そ}って', 反して: '{反|はん}して', 応じて: '{応|おう}じて', 伴って: '{伴|ともな}って',
+  上で: '{上|うえ}で', 先立って: '{先立|さきだ}って', 抜き: '{抜|ぬ}き', 次第: '{次第|しだい}', 最中: '{最中|さいちゅう}', 得ない: '{得|え}ない',
+  基づいて: '{基|もと}づいて', 否: '{否|いな}', 難くない: '{難|かた}くない', 早いか: '{早|はや}いか', 禁じ: '{禁|きん}じ', 余儀: '{余儀|よぎ}',
+  足る: '{足|た}る', 足りない: '{足|た}りない', 最後: '{最後|さいご}', 即して: '{即|そく}して', 皮切り: '{皮切|かわき}り', 極まり: '{極|きわ}まり',
+  極まる: '{極|きわ}まる', 過ぎない: '{過|す}ぎない',
+};
+const PATTERN_RE = new RegExp(Object.keys(PATTERN_WORDS).sort((a, b) => b.length - a.length).join('|'), 'g');
+export const patternFurigana = (pattern: string) => pattern.replace(PATTERN_RE, (w) => PATTERN_WORDS[w]);
 export const plainJp = (s: string, reading = false) => s.replace(/\{([^|}]+)\|([^}]+)\}/g, (_m, k, r) => (reading ? r : k));
 
 /** 0.9.9.9.9.6 (round 7): the question's sentence with the right answer in its gap (read aloud once you have answered) */

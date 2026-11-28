@@ -299,6 +299,16 @@ export class Session implements Client {
       if (this.room) return this.send({ type: 'watching', on: false, reason: 'Leave your room first' });
       if (!this.social || !(await this.social.areFriends(user.id, friendId))) return this.send({ type: 'watching', on: false, reason: 'You can watch your friends’ games' });
       const target = this.rooms.roomOf(friendId);
+      // 0.9.9.9.9.7 (round 4): a game against a chess wizard — no room, the chess hub has its moves
+      if ((!target || target.stage === 'lobby') && this.hub.chess?.playingLocal(friendId)) {
+        this.stopWatching(false);
+        this.matchmaker?.cancel(user.id, false);
+        const friend = await this.auth.store.findById(friendId);
+        const name = friend?.nickname || friend?.username || '';
+        const why = this.hub.chess.watch(user.id, friendId, () => { this.watchedHub = 'chess'; this.send({ type: 'watching', on: true, code: '', mode: 'chess', players: [], name, target: friendId }); });
+        if (why !== null) return this.send({ type: 'watching', on: false, reason: why });
+        return;
+      }
       if (!target || target.stage === 'lobby') return this.send({ type: 'watching', on: false, reason: 'Your friend isn’t in a game right now' });
       this.stopWatching(false);
       this.matchmaker?.cancel(user.id, false);

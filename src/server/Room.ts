@@ -1,3 +1,4 @@
+import { clashLevels, cleanClashLevel } from '../shared/clashlevels';
 import { PausableClock } from './clock';
 import { Bot, botLevels, botName, isBotLevel, type BotHost, type BotLevel } from './Bot';
 import { borderOf, FLAMES, POSES, STAFFS } from '../shared/progress';
@@ -314,7 +315,7 @@ export class Room {
       const base = Math.round(raw.base), inc = Math.round(raw.inc);
       if ((base === 0 && inc === 0) || (base >= 60_000 && base <= 3_600_000 && inc >= 0 && inc <= 60_000)) { s.base = base; s.inc = inc; }
     }
-    if (typeof raw.level === 'string' && ['N5', 'N4', 'N3', 'N2', 'N1', 'mix'].includes(raw.level)) s.level = raw.level;
+    if (typeof raw.level === 'string' && clashLevels(raw.level).length) s.level = cleanClashLevel(raw.level); // (0.9.9.9.9.7 round 4: several levels)
     if ([5, 10, 15, 20].includes(Number(raw.count))) s.count = Number(raw.count);
     this.settings = s;
     for (const p of this.roster) if (!p.bot && p.id !== by) p.ready = false;

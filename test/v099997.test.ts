@@ -152,7 +152,8 @@ test('0.9.9.9.9.7 round 2: Fumi names each lesson in Japanese; the Dictionary on
   for (const g of GRAMMAR) for (const again of [false, true]) assert.ok(existsSync(join('public', fumiClip(fumiLessonLine(g.pattern, again)))), `${g.id}: Fumi's line recorded`);
   assert.ok(src('src/client/grammarui.ts').includes('fumiLessonLine(g.pattern, passed.has(g.id))'));
   // (round 3: the Dictionary is a search bar now)
-  assert.ok(src('public/index.html').includes('id="grammarDictForm"') && src('src/client/grammarui.ts').includes("openDictionary(i.value.trim())"));
+  // (round 3: a search bar; round 4, the owner: the side panel's dictionary, as on the other pages)
+  assert.ok(!src('public/index.html').includes('id="grammarDictForm"') && src('src/client/dictrail.ts').includes("'kana', 'grammar']"));
   const css = src('public/style.css');
   assert.ok(css.includes('#chessOpp .cp-pic svg { scale: 1.28;') && css.includes('#chessOpp .cp-pic[data-bot="dragon"] svg { scale: 1;'));
   assert.ok(css.includes('.gc-av { overflow: visible; }'), 'the flames are no longer cut to a square');
@@ -273,8 +274,119 @@ test('0.9.9.9.9.7 round 3: Song lyrics replays a line, no chime for a right word
   const songs = src('src/client/songs.ts');
   assert.ok(!songs.includes('audio.sfx.correct') && songs.includes('audio.sfx.zap()') && songs.includes('function replayLine()'));
   assert.ok(src('public/index.html').includes('id="songReplay"') && src('src/client/audio.ts').includes('  zap() {'));
-  assert.ok(src('src/client/grammarui.ts').includes("void fumiSays(ok ? 'right' : 'wrong').then(() => { if (box.contains(opts)) void readOut(spoken); });"));
+  // (round 4, the owner: the sentence first, then Master Fumi's verdict)
+  assert.ok(src('src/client/grammarui.ts').includes("void readOut(spoken).then(() => { if (box.contains(opts)) void fumiSays(ok ? 'right' : 'wrong'); });"));
   assert.ok(src('src/client/voice.ts').includes('export function playClip(url: string, fallback: () => void): Promise<void> {'), 'a clip says when it is over');
   const g = src('src/client/tutorguide.ts');
   assert.ok(g.includes("addEventListener('pointermove', onMove, { passive: true })") && g.includes("if (box.closest('[hidden]')) continue;"), 'hidden guides cost nothing');
+});
+
+// ── 0.9.9.9.9.7 round 4 ──
+test('0.9.9.9.9.7 round 4: Grammar Clash from several levels at once (the private lobby, the queue)', async () => {
+  const { clashLevels, cleanClashLevel, clashLevelText } = await import('../src/shared/clashlevels');
+  assert.deepEqual(clashLevels('N4,N5'), ['N5', 'N4']);
+  assert.deepEqual(clashLevels('mix'), ['N5', 'N4', 'N3', 'N2', 'N1']);
+  assert.equal(cleanClashLevel('N3,x,N3'), 'N3');
+  assert.equal(cleanClashLevel('N1,N2,N3,N4,N5'), 'mix');
+  assert.equal(cleanClashLevel('nonsense'), 'N5');
+  assert.equal(clashLevelText('N5,N3'), 'N5 · N3');
+  const { Room } = await import('../src/server/Room');
+  const sent: Array<{ type: string; settings?: { level: string } }> = [];
+  const room = new Room('LVLS', 'clash', { onEmpty: () => {} });
+  room.join('a', 'Ann', { send: (m: never) => sent.push(m) } as never);
+  room.setSettings('a', { level: 'N5,N3' });
+  assert.equal(sent.filter((m) => m.type === 'lobby').at(-1)!.settings!.level, 'N5,N3', 'the host picks two levels');
+  const { GrammarHub } = await import('../src/server/GrammarHub');
+  const hub = new GrammarHub(() => {}, Date.now, () => 0.3);
+  const qs = hub.pickQuestions('N5,N3', 20);
+  assert.ok(qs.every((q) => q.g.level === 'N5' || q.g.level === 'N3') && new Set(qs.map((q) => q.g.level)).size === 2, 'questions from both');
+  assert.ok(src('src/client/ui.ts').includes('const next = has ? (on.length > 1 ? on.filter((x) => x !== l) : on) : [...on, l];'), 'each level a toggle, one always on');
+  assert.ok(src('src/server/Matchmaker.ts').includes("level: any && both.length ? both.join(',') : 'mix'"), 'the queue: every level the players share');
+});
+
+test('0.9.9.9.9.7 round 4: watching a friend\'s game against a chess wizard (it is played on their device, its moves told to the server)', async () => {
+  const { ChessHub } = await import('../src/server/ChessHub');
+  const sent: Array<[string, { type: string; room?: { moves: string[]; status: string; white: { id: string }; black: { id: string } }; error?: string }]> = [];
+  const hub = new ChessHub((id, m) => sent.push([id, m as never]), () => 1000, () => 0.5);
+  const ann = { id: 'ann', name: 'Ann' };
+  assert.equal(hub.playingLocal('ann'), false);
+  await hub.handle(ann, { type: 'chess_local', bot: 'witch', botName: 'Witch', color: 'b', moves: ['e2e4'], base: 0, inc: 0 });
+  assert.ok(hub.playingLocal('ann') && hub.playing('ann'), '"Playing Kanji chess", watchable');
+  let told = false;
+  assert.equal(hub.watch('bob', 'ann', () => { told = true; }), null);
+  const first = sent.filter(([to]) => to === 'bob').at(-1)![1];
+  assert.ok(told && first.room!.black.id === 'ann' && first.room!.white.id === 'bot:witch' && first.room!.moves.join() === 'e2e4');
+  await hub.handle(ann, { type: 'chess_local', bot: 'witch', color: 'b', moves: ['e2e4', 'e7e5', 'bogus!'] });
+  assert.deepEqual(sent.filter(([to]) => to === 'bob').at(-1)![1].room!.moves, ['e2e4', 'e7e5'], 'each move reaches the watcher (nonsense dropped)');
+  await hub.handle(ann, { type: 'chess_local', bot: 'witch', color: 'b', moves: ['e2e4', 'e7e5'], result: { winner: 'b', reason: 'resigned' } });
+  assert.equal(sent.filter(([to]) => to === 'bob').at(-1)![1].room!.status, 'over');
+  await hub.handle(ann, { type: 'chess_local', end: true });
+  assert.equal(sent.filter(([to]) => to === 'bob').at(-1)![1].type, 'chess_error', 'the watcher is told the game is over');
+  assert.equal(hub.playingLocal('ann'), false);
+  assert.ok(src('src/server/Session.ts').includes('this.hub.chess?.playingLocal(friendId)'), 'the Session lets friends watch it');
+  const c = src('src/client/chess.ts');
+  assert.ok(c.includes("reportLocal(); // (round 4: each move, for friends watching)") && c.includes("if (spectating) { chessSpectate('', ''); return; }"), 'every move told; a watcher whose game ended stops asking');
+});
+
+test('0.9.9.9.9.7 round 4: Grammar — furigana over every kanji of a pattern; the sentence first, then Fumi; the side panel\'s dictionary', async () => {
+  const { GRAMMAR, patternFurigana } = await import('../src/shared/grammar');
+  for (const g of GRAMMAR) {
+    const f = patternFurigana(g.pattern);
+    assert.ok(!/[一-鿿]/.test(f.replace(/\{[^}]*\}/g, '')), `${g.pattern}: every kanji with its reading`);
+  }
+  assert.equal(patternFurigana('〜を余儀なくされる'), '〜を{余儀|よぎ}なくされる');
+  assert.equal(patternFurigana('〜一方(で)'), '〜{一方|いっぽう}(で)');
+  assert.ok(src('src/client/grammarui.ts').includes("patternEl('b', 'gr-pat', g.pattern)") && src('src/client/clash.ts').includes("patternEl('span', 'gc-why-pat', q.why.pattern)"));
+});
+
+test('0.9.9.9.9.7 round 4: your character says the words you cast — its recordings from their own site, kept once heard', async () => {
+  const { spokenWord, wordClipUrl, WORD_VOICE_ORIGIN } = await import('../src/shared/wordvoice');
+  const { lineHash } = await import('../src/shared/chesslines');
+  assert.equal(spokenWord('会う', 'あう'), 'あう');
+  assert.equal(spokenWord('あ', 'a'), 'あ', 'the kana levels say the kana');
+  assert.equal(wordClipUrl('witch', 'あう'), `https://mashxur-lee.github.io/kanji-wizards-voices/words/witch/${lineHash('あう')}.mp3`);
+  const { securityHeaders } = await import('../src/server/security');
+  const csp = securityHeaders([], true)['Content-Security-Policy'];
+  assert.ok(csp.includes(`media-src 'self' data: blob: ${WORD_VOICE_ORIGIN}`) && csp.includes(`connect-src 'self' https://api.github.com ${WORD_VOICE_ORIGIN}`), 'the page may load them');
+  const main = src('src/client/main.ts');
+  assert.ok(main.includes('void voice.speakWord(kana)') && main.includes('prefetchWords(msg.pool)') && main.includes('setWordCharacter(characterOf(p.unlocks))'));
+  assert.ok(src('src/client/voice.ts').includes('if (await playWord(kana, prefs.vol)) return;\n  return speak(kana);'), 'the device\'s voice when the clip isn\'t there');
+  assert.ok(existsSync(join('scripts', 'wordvoices.mts')));
+});
+
+test('0.9.9.9.9.7 round 4: Song lyrics — the words as the recordings sing them, timed; letters marked as they are typed; a wave line between lines', async () => {
+  const { SONGS, playable, songTimeline } = await import('../src/shared/songs');
+  const ready = SONGS.filter(playable);
+  assert.ok(ready.length >= 4, 'four songs play');
+  for (const s of ready) {
+    const tl = songTimeline(s);
+    for (let i = 0; i < tl.length; i++) {
+      assert.ok(tl[i].end > tl[i].start, `${s.id}: line ${tl[i].i} takes time`);
+      if (i) assert.ok(tl[i].start > tl[i - 1].start, `${s.id}: lines in order`);
+    }
+    assert.ok(tl[tl.length - 1].end <= s.length);
+  }
+  const koi = SONGS.find((s) => s.id === 'koi-no-mahou')!;
+  assert.ok(koi.lines[1].jp.includes('{届|とど}けたい') && koi.lines.some((l) => l.unsure), 'the words as sung; the unclear lines shown, not typed');
+  // a line's own end: the gap after it, until the next line (the wave line shows there)
+  const s = SONGS.find((x) => x.id === 'shiroi-tegami')!;
+  const last = songTimeline(s).at(-1)!;
+  assert.equal(last.end, 84.2);
+  const c = src('src/client/songs.ts');
+  assert.ok(c.includes("el.append(h('i', `sl ${good ? 'good' : 'bad'}`, ch));"), 'each letter green or red, in its slot');
+  assert.ok(!c.includes('value.slice(0, -1)'), 'a wrong letter isn\'t refused');
+  assert.ok(c.includes("$('songLine').classList.toggle('gap', gap);") && c.includes('createMediaElementSource'), 'the wave line from the music');
+  const html = src('public/index.html');
+  for (const id of ['songPrev', 'songToggle', 'songReplay', 'songNext', 'songHint', 'songWave', 'songClock', 'songCount']) assert.ok(html.includes(`id="${id}"`), id);
+});
+
+test('0.9.9.9.9.7 round 4: phones get their animations back — only a phone that can\'t keep up (body.lowfx) has them stopped; tours follow their part', () => {
+  const css = src('public/style.css');
+  assert.ok(css.includes('body.lowfx .menu-veil, body.lowfx .menu-veil * { animation: none !important; }'));
+  assert.ok(css.includes('body.lowfx .fx-mist, body.lowfx .fx-rays, body.lowfx .fx-ring { animation: none !important; }'));
+  assert.ok(!/@media \(pointer: coarse\) \{\n  \.menu-veil, \.menu-veil \* \{ animation: none/.test(css), 'not for every phone any more');
+  const perf = src('src/client/perf.ts');
+  assert.ok(perf.includes("types.includes('long-animation-frame')") && perf.includes('const KEEP_MS = 3 * 86_400_000;'), 'measured again, and watched while playing');
+  assert.ok(src('src/client/tutorial.ts').includes("addEventListener('scroll', follow, true);"), 'the tour\'s light follows its part');
+  assert.ok(!/@media[^{]*prefers-reduced-motion/.test(css), "animations run even with the OS animations off");
 });

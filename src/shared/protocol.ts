@@ -185,6 +185,8 @@ export type ClientMessage =
   | { type: 'chess_time'; id: string; base: number; inc: number }
   | { type: 'chess_chat'; id: string; text: string }
   | { type: 'chess_again'; id: string }
+  /** 0.9.9.9.9.7 (round 4): a game against a chess wizard (played on the device) told to the server, so friends can watch it; end: it's over or left */
+  | { type: 'chess_local'; bot?: string; botName?: string; color?: 'w' | 'b'; moves?: string[]; times?: number[]; base?: number; inc?: number; clocks?: { w: number; b: number }; result?: { winner: 'w' | 'b' | null; reason: string }; end?: boolean }
   // 0.9.9.9.9.6 (round 5): the host's settings for chess / Grammar Clash in the room's lobby
   | { type: 'room_settings'; base?: number; inc?: number; level?: string; count?: number }
   // 0.9.9.9.9.6 (round 4): Grammar Clash — the grammar quiz for 2–8 players (GrammarHub)
