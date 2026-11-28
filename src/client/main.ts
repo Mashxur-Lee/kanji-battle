@@ -1,8 +1,10 @@
+import { characterOf } from '../shared/progress';
+import { prefetchWords, setWordCharacter } from './wordvoice';
 import { knowPlayer, setMentionSelf } from './mentions';
 import { initSongs, openSongs, setSongsAdmin, songsLeft } from './songs';
 import { openGrammar } from './grammarui';
 import { showClashHistory, clashReconnected, clashSpectate, initClash, onClashError, onClashInvite, onClashQueue, onClashRoom, setClashUser } from './clash';
-import { chessReconnected, chessSpectate, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
+import { chessLeft, chessReconnected, chessSpectate, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
 import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
@@ -237,6 +239,7 @@ ui.onScreen((s) => {
   setGameKb(s === 'battle' && mode !== 'writing'); // phones: the compact battle keyboard
   tutorialScreen(s);
   if (s !== 'songs') songsLeft(); // (0.9.9.9.9.7 round 2: the song stops when you leave)
+  if (s !== 'chess') chessLeft(); // (round 4: a wizard game left is no longer watchable)
   setTimeout(() => applyBackground(!GAME_SCREENS.has(s)), 0); // catch up on the cycle after a game; the arena (or not) for this screen
 });
 
@@ -272,6 +275,7 @@ function applyProfile(p: Profile) {
   // (0.9.9.3: new unlocks — monthly rewards too — are shown by the reward box, rewards.ts)
   profile = p;
   ui.setProfile(p);
+  setWordCharacter(characterOf(p.unlocks)); // (0.9.9.9.9.7 round 4: whose voice says your words)
   ui.$('kanaRow').hidden = ui.$('kanaInfo').hidden = false;
   ui.$<HTMLInputElement>('kanaMastered').checked = !ui.kanaBeginner();
   setModeAccess(p.level, user?.role === 'admin', ui.kanaBeginner());
@@ -660,6 +664,7 @@ function onMessage(msg: ServerMessage) {
     case 'prep':
       players = msg.players;
       ui.showPrep(msg.pool, msg.durationMs, mode);
+      prefetchWords(msg.pool); // (0.9.9.9.9.7 round 4: your character's recordings of these words, while you study them)
       prepReady(msg.readyIds);
       primeArena(mode, players, you); // 0.9.9.9.7.3: the arena is built while you study (its fly-in fits the 3-2-1 then)
       break;
@@ -706,8 +711,9 @@ function onMessage(msg: ServerMessage) {
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
         // (0.9.9.9.8: the sound of your staff — each has its own; 0.9.9.9.9.1: the enemy's HP decides how fierce)
         lastCombo = msg.combo;
-        if (!isSwordId(myStaff())) void voice.speak(kana).then(() => audio.sfx.cast(myStaff(), msg.combo));
-        else void voice.speak(kana); // (the sword's slash plays with the swing)
+        // (0.9.9.9.9.7 round 4: in your character's own voice — its recording — when there is one)
+        if (!isSwordId(myStaff())) void voice.speakWord(kana).then(() => audio.sfx.cast(myStaff(), msg.combo));
+        else void voice.speakWord(kana); // (the sword's slash plays with the swing)
         if (mode !== 'deck') comboMilestone(msg.combo, profile?.unlocks); // "On Fire" / "Inferno" / "Unstoppable" right away
       } else { audio.sfx.wrong(); arena()?.fizzle('me'); }
       break;

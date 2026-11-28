@@ -10,7 +10,8 @@
 //   · Ranked: the final order moves everyone's rating — each pair of players counts as one game between them.
 import { REAL_TIMERS, type TimerHandle, type Timers } from './clock';
 import { botChance, type BotLevel } from './Bot';
-import { GRAMMAR, grammarOf, shuffled, type GrammarLevel, type GrammarPoint, type GrammarQuestion } from '../shared/grammar';
+import { GRAMMAR, shuffled, type GrammarPoint, type GrammarQuestion } from '../shared/grammar';
+import { clashLevels, cleanClashLevel } from '../shared/clashlevels';
 import type { ClashView, ClientMessage, ServerMessage } from '../shared/protocol';
 
 export interface ClashPlayer { id: string; name: string; avatar: string; staff: string; /** (0.9.9.9.9.7 round 2) an AI player: its level */ bot?: BotLevel; /** (0.9.9.9.9.7) Customize → Omnipotence: the colour of their flames */ flame?: string; guest?: boolean }
@@ -33,7 +34,8 @@ export interface ClashRecord {
 }
 // (round 7: a longer look at the answer and the board — the owner: "increase the delay by a bit")
 export const CLASH = { questionMs: 20_000, revealMs: 6_000, boardMs: 5_000, startMs: 4_000, gatherMs: 8_000, maxPlayers: 8, minPlayers: 2 };
-export type ClashLevel = GrammarLevel | 'mix';
+/** (0.9.9.9.9.7 round 4: one level, several — 'N5,N4' — or 'mix'; shared/clashlevels.ts) */
+export type ClashLevel = string;
 const COUNTS = [5, 10, 15, 20];
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
@@ -267,7 +269,8 @@ export class GrammarHub {
    * completed grammar") one from a lesson each player has passed, when they have passed one in this level
    */
   pickQuestions(level: ClashLevel, count: number, passedBy: string[][] = []): Q[] {
-    const lessons = level === 'mix' ? GRAMMAR : grammarOf(level);
+    const levels: string[] = clashLevels(level); // (round 4: from every level the host picked)
+    const lessons = GRAMMAR.filter((g) => levels.includes(g.level));
     const pool = lessons.flatMap((g) => g.questions.map((q) => ({ q, g })));
     const bag = [...pool];
     for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(this.rnd() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
@@ -406,5 +409,5 @@ export class GrammarHub {
     for (const r of this.rooms.values()) if (r.status === 'lobby' && t - r.createdAt > 3_600_000) this.close(r);
   }
 }
-const cleanLevel = (v: unknown): ClashLevel => (['N5', 'N4', 'N3', 'N2', 'N1', 'mix'].includes(String(v)) && (v === 'mix' || grammarOf(v as GrammarLevel).length) ? v as ClashLevel : 'N5');
+const cleanLevel = (v: unknown): ClashLevel => cleanClashLevel(v);
 const cleanCount = (v: unknown): number => (COUNTS.includes(Number(v)) ? Number(v) : 10);

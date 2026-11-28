@@ -67,7 +67,14 @@ The chess wizards' spoken lines and the Grammar page's (Master Fumi, the example
 The five songs — 白い手紙, 恋の魔法と放課後, 箱庭の炎, 運命を叩き起こせ and 抗え、宿命なんて — are Kanji Wizards' own: made
 for the game by its owner, with original lyrics. All rights reserved, like the rest of the game. Their recordings
 (`public/songs/`) and cover pictures come from the owner's files; their study notes (words, grammar, translations) are the
-game's own.
+game's own. The words shown are the ones the recordings sing, heard with [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
+(MIT) and the openly licensed Whisper models (MIT), which also gave each line its time in the recording.
+
+## Word voices (battles)
+
+The words your character says when you cast them are recorded with VOICEVOX in the four characters' voices
+(VOICEVOX:ずんだもん, VOICEVOX:†聖騎士 紅桜†, VOICEVOX:九州そら, VOICEVOX:麒ヶ島宗麟 — the chess wizards' voices above) and served
+from their own site, [kanji-wizards-voices](https://github.com/Mashxur-Lee/kanji-wizards-voices) (GitHub Pages).
 
 ## Sounds
 

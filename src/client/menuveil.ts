@@ -22,8 +22,10 @@ export function initMenuVeil() {
       <circle cx="200" cy="200" r="190" stroke-width="1.2"/><circle cx="200" cy="200" r="168" stroke-width=".8"/>
       <circle cx="200" cy="200" r="132" stroke-width="1"/><polygon points="${star}" stroke-width=".9"/>
       <g fill="currentColor" stroke="none" font-family="serif">${ring(179, 36, 13)}</g>
-      <g class="mv-inner" fill="currentColor" stroke="none" font-family="serif">${ring(118, 18, 11)}</g>
     </svg>
+    <!-- 0.9.9.9.9.7 (round 4): the inner ring is a picture of its own, turned as a whole (by the graphics chip) — turning
+         it inside the big circle's picture redrew all of it, every frame: the menu's costliest part on a phone -->
+    <svg class="mv-circle mv-ring2" viewBox="0 0 400 400" aria-hidden="true"><g fill="currentColor" stroke="none" font-family="serif">${ring(118, 18, 11)}</g></svg>
     <div class="mv-glyphs">${Array.from({ length: innerWidth > 900 ? 22 : 14 }, (_, i) => {
       const g = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
       // 0.9.9.9.2: also with "reduce motion" on (Windows turns it on with its animation effects off), drifting as usual

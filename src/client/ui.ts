@@ -1,3 +1,4 @@
+import { CLASH_LEVELS, clashLevels, cleanClashLevel } from '../shared/clashlevels';
 import { exampleFor } from './examples';
 import { TIERS, type RankView } from '../shared/ranked';
 import { locale, tr } from './i18n';
@@ -720,7 +721,12 @@ function renderRoomSettings(mode: GameMode, s: { base: number; inc: number; leve
   };
   const rows = mode === 'chess'
     ? [row('Clock', CHESS_CLOCKS.map(([t, base, inc]) => [t, { base, inc }, s.base === base && s.inc === inc]))]
-    : [row('Grammar', [['N5', 'N5'], ['N4', 'N4'], ['N3', 'N3'], ['N2', 'N2'], ['N1', 'N1'], ['Mixed', 'mix']].map(([t, v]) => [t, { level: v }, s.level === v] as [string, Record<string, unknown>, boolean])),
+    // (0.9.9.9.9.7 round 4: several levels at once — each a toggle, one always left on; All picks every level)
+    : [row('Grammar', [...CLASH_LEVELS.map((l): [string, Record<string, unknown>, boolean] => {
+        const on = clashLevels(s.level), has = on.includes(l);
+        const next = has ? (on.length > 1 ? on.filter((x) => x !== l) : on) : [...on, l];
+        return [l, { level: cleanClashLevel(next.join(',')) }, has];
+      }), ['All', { level: 'mix' }, s.level === 'mix'] as [string, Record<string, unknown>, boolean]]),
       row('Questions', [5, 10, 15, 20].map((n) => [String(n), { count: n }, s.count === n] as [string, Record<string, unknown>, boolean]))];
   box.replaceChildren(h('b', 'rs-title', tr(host ? 'Game settings' : 'Game settings (the host’s)')), ...rows);
 }

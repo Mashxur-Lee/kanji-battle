@@ -6,6 +6,7 @@
 // (Windows: Ichiro / Keita, Apple: Otoya / Hattori …); otherwise the default Japanese voice is pitched
 // down. We speak the kana reading, so the voice can't pick a wrong reading for the kanji.
 
+import { playWord } from './wordvoice';
 const KEY = 'kb:voice';
 type Prefs = { on: boolean; vol: number };
 const prefs: Prefs = (() => { try { return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return { on: true, vol: 0.9 }; } })();
@@ -89,6 +90,16 @@ export function speak(kana: string): Promise<void> {
     synth.cancel();
     synth.speak(u);
   });
+}
+
+/**
+ * 0.9.9.9.9.7 (round 4): a word you cast, said by the character you play as (its VOICEVOX clip, wordvoice.ts) — the
+ * device's voice when the clip isn't there in time
+ */
+export async function speakWord(kana: string): Promise<void> {
+  if (!prefs.on || prefs.vol <= 0 || document.visibilityState !== 'visible') return;
+  if (await playWord(kana, prefs.vol)) return;
+  return speak(kana);
 }
 
 /** 0.9.9.9.9.6 (round 4): a chess wizard says its line in its own voice (its rate and pitch); kana, so the reading is right */

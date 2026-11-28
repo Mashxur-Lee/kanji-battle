@@ -4,11 +4,12 @@
 // leaderboard; at the end the podium (and the rating change, ranked).
 // Round 5: no lobby or menu of its own — it is a mode of the private game (the same lobby as every mode) and of the
 // online queue; this page is the game itself, and Back to lobby goes back to the room.
+import { clashLevelText } from '../shared/clashlevels';
 import type { ClashView, ClientMessage } from '../shared/protocol';
 import { flameColor } from '../shared/progress';
 import type { ClashGame } from './api';
 import * as audio from './audio';
-import { jpLine } from './grammarui';
+import { jpLine, patternEl } from './grammarui';
 import { lang, tr } from './i18n';
 import * as ui from './ui';
 import { avatarSvg } from './wizard';
@@ -198,7 +199,7 @@ function drawPlay(r: ClashView, changed: boolean) {
       const why = h('div', 'gc-why');
       const t = (x: { en: string; ru: string }) => (lang() === 'ru' ? x.ru : x.en);
       const head = h('div', 'gc-why-head');
-      head.append(h('span', 'gc-why-lbl', tr('Why')), h('b', 'gc-why-ans', q.filled ?? ''), h('span', 'gc-why-pat', q.why.pattern), h('span', 'gc-why-lvl', q.why.level));
+      head.append(h('span', 'gc-why-lbl', tr('Why')), h('b', 'gc-why-ans', q.filled ?? ''), patternEl('span', 'gc-why-pat', q.why.pattern), h('span', 'gc-why-lvl', q.why.level));
       head.querySelector('.gc-why-ans')!.setAttribute('lang', 'ja'); head.querySelector('.gc-why-pat')!.setAttribute('lang', 'ja');
       why.append(head, h('p', 'gc-why-mean', t(q.why.meaning)));
       if (q.why.rule) why.append(h('p', 'gc-why-rule', t(q.why.rule)));
@@ -263,7 +264,7 @@ export function showClashHistory(el: HTMLElement, games: ClashGame[] | null) {
     const name = h('span', 'hist-mode-name', tr('Grammar Clash'));
     name.append(h('span', `hist-ranked${g.ranked ? ' on' : ''}`, tr(g.ranked ? 'Ranked' : 'Unranked')));
     const others = g.players.filter((p) => p.id !== me?.id).map((p) => p.name).join(', ');
-    text.append(name, h('span', 'hist-vs-line', `vs ${others} · ${g.level === 'mix' ? tr('All levels') : g.level} · ${g.rounds.length} ${tr('questions')}`));
+    text.append(name, h('span', 'hist-vs-line', `vs ${others} · ${tr(clashLevelText(g.level))} · ${g.rounds.length} ${tr('questions')}`));
     const mode = h('span', 'hist-mode'); mode.append(ui.modeBadge('clash'), text);
     b.append(fig, mode, h('span', 'hist-result', g.place === 1 ? tr('VICTORY') : `#${g.place} / ${g.players.length}`), h('span', 'hist-date', ui.dateTime(g.at)));
     b.onclick = () => openClashGame(g);
@@ -280,7 +281,7 @@ function openClashGame(g: ClashGame) {
   const rounds = h('div', 'gcg-rounds');
   g.rounds.forEach((r, i) => {
     const card = h('div', 'gcg-round');
-    const top = h('div', 'gcg-top'); top.append(h('b', '', `${i + 1}`), ...(r.double ? [h('span', 'gc-double', '×2')] : []), h('span', 'gc-why-pat', r.pattern));
+    const top = h('div', 'gcg-top'); top.append(h('b', '', `${i + 1}`), ...(r.double ? [h('span', 'gc-double', '×2')] : []), patternEl('span', 'gc-why-pat', r.pattern));
     card.append(top, jpLine(r.jp.replace('＿＿', `【${r.filled}】`), 'gc-q gc-q-sm'), h('p', 'gc-tr', lang() === 'ru' ? r.ru : r.en));
     const picks = h('ul', 'gcg-picks');
     for (const [id, p] of Object.entries(r.picks)) {

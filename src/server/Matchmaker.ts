@@ -160,7 +160,8 @@ export class Matchmaker {
           const lv = (t: Ticket) => t.levels.filter((l) => /^N\d$/.test(l));
           const both = ['N5', 'N4', 'N3', 'N2', 'N1'].filter((l) => seated.every((t) => !lv(t).length || lv(t).includes(l as Level)));
           const any = seated.some((t) => lv(t).length);
-          room.setSettings(seated[0].id, { level: any && both.length ? both[Math.floor(this.rng() * both.length)] : 'mix', count: 10 });
+          // (0.9.9.9.9.7 round 4: every level they share — several can be played at once now)
+          room.setSettings(seated[0].id, { level: any && both.length ? both.join(',') : 'mix', count: 10 });
         }
         room.start(seated[0].id);
       }

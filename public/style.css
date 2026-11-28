@@ -3092,10 +3092,11 @@ body[data-screen="menu"] .menu-veil { opacity: 1; }
 @keyframes mvDriftB { to { transform: translate(-16vw, -8vh) scale(.9); } }
 .menu-veil .mv-circle { position: absolute; left: 50%; top: 54%; width: min(92vmin, 900px); height: min(92vmin, 900px); transform: translate(-50%, -50%); color: #b49bff; opacity: .1;
   animation: mvSpin 140s linear infinite; }
-.menu-veil .mv-circle .mv-inner { transform-origin: 200px 200px; animation: mvSpin 70s linear infinite reverse; }
+/* (0.9.9.9.9.7 round 4: each ring its own layer, turned whole; the rising kanji too) */
+.menu-veil .mv-circle { will-change: transform; }
+.menu-veil .mv-circle.mv-ring2 { animation: mvSpin 70s linear infinite reverse; }
+.menu-veil .mv-glyphs span { will-change: transform, opacity; }
 @keyframes mvSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-.menu-veil .mv-circle .mv-inner { animation-name: mvSpinIn; }
-@keyframes mvSpinIn { to { transform: rotate(-360deg); } }
 .menu-veil .mv-glyphs span { position: absolute; bottom: -3rem; font-family: var(--jp); font-weight: 800; color: #d9cbff; opacity: 0; text-shadow: 0 0 12px rgba(169, 139, 255, .8);
   animation: mvRise linear infinite; }
 @keyframes mvRise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: var(--o); } 80% { opacity: var(--o); } 100% { transform: translateY(-110vh); opacity: 0; } }
@@ -4135,17 +4136,17 @@ body.lang-switching::after { content: ""; position: fixed; inset: 0; z-index: 10
 .ach-tip .ach-tier { font-weight: 900; }
 .ach-tip .ach-tier.t1 { color: #e7a466; } .ach-tip .ach-tier.t2 { color: #dfe5ee; } .ach-tip .ach-tier.t3 { color: #ffd34d; } .ach-tip .ach-tier.t4 { color: #ff5c8d; }
 :root[data-theme="light"] .ach-tip .ach-tier.t2 { color: #6e7787; } :root[data-theme="light"] .ach-tip .ach-tier.t3 { color: #a86a00; }
-@media (pointer: coarse) { .ach.mini::before, .ach.mini svg { animation: none !important; } }
+@media (pointer: coarse) { body.lowfx .ach.mini::before, body.lowfx .ach.mini svg { animation: none !important; } }
 
 /* ── 0.9.9.9.5.3: phones — less for the phone to redraw while you move between screens ── */
 @media (pointer: coarse) {
   /* the picture as its own layer: shown as it is (no redrawing it at the screen's resolution) */
   .art-img { will-change: transform; }
   /* the menu's circle turns as one piece (the inner ring turning inside the SVG redrew it every frame) */
-  .menu-veil .mv-circle .mv-inner { animation: none; }
-  .menu-veil .mv-aurora { display: none; }
+  body.lowfx .menu-veil .mv-circle.mv-ring2 { animation: none; }
+  body.lowfx .menu-veil .mv-aurora { display: none; }
   /* the background doesn't fade darker and lighter between screens (it showed as a dark wave) */
-  #bg::before, #bg::after, .menu-veil { transition: none; }
+  body.lowfx #bg::before, body.lowfx #bg::after, body.lowfx .menu-veil { transition: none; }
 }
 
 /* ── 0.9.9.9.5.3: Customize — the Hero Locker ──────────────────────────────────────────────────────────────── */
@@ -4479,13 +4480,13 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
    circle: each was a layer as big as the screen, redrawn every frame; with some arenas the phone flickered black
    again), and the falling things have no shadows or blending (each would be re-drawn as it moves) */
 @media (pointer: coarse) {
-  .fx-mist, .fx-rays, .fx-ring { animation: none !important; }
-  .fx-rays { opacity: calc(var(--o) * .7); }
-  .fx-ring { opacity: .22; }
-  .fx-leaf, .fx-petal, .fx-snow, .fx-seed { filter: none; }
-  .fx-leaf, .fx-petal { animation-name: fxLeaf; animation-duration: var(--dur); } /* (no 3D flip: one animation each) */
-  .fx-frost, .fx-flash { mix-blend-mode: normal; }
-  .fx-flash { opacity: 0; animation-name: fxFlashP; }
+  body.lowfx .fx-mist, body.lowfx .fx-rays, body.lowfx .fx-ring { animation: none !important; }
+  body.lowfx .fx-rays { opacity: calc(var(--o) * .7); }
+  body.lowfx .fx-ring { opacity: .22; }
+  body.lowfx .fx-leaf, body.lowfx .fx-petal, body.lowfx .fx-snow, body.lowfx .fx-seed { filter: none; }
+  body.lowfx .fx-leaf, body.lowfx .fx-petal { animation-name: fxLeaf; animation-duration: var(--dur); } /* (no 3D flip: one animation each) */
+  body.lowfx .fx-frost, body.lowfx .fx-flash { mix-blend-mode: normal; }
+  body.lowfx .fx-flash { opacity: 0; animation-name: fxFlashP; }
   @keyframes fxFlashP { 0%, 100% { opacity: 0; } 1% { opacity: .45; } 3% { opacity: 0; } }
 }
 
@@ -4562,10 +4563,10 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
    each card kept to itself (scrolling made them flicker: every frame re-drew the large blurred shadows and glows
    over the moving picture behind) */
 @media (pointer: coarse), (max-width: 900px) {
-  #menu button.mc-card { box-shadow: 0 6px 14px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .08); transition: none; contain: paint; }
-  #menu button.mc-card:hover, #menu button.mc-card:focus-visible { transform: none; translate: 0 0; box-shadow: 0 6px 14px rgba(0, 0, 0, .38), 0 0 0 1px var(--mc, var(--accent)); }
-  #menu .mc-glyph { text-shadow: 0 0 10px color-mix(in srgb, var(--mc) 45%, transparent); }
-  #menu .mc-card.nudge { animation: none; outline: 2px solid var(--mc, var(--accent)); }
+  body.lowfx #menu button.mc-card { box-shadow: 0 6px 14px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .08); transition: none; contain: paint; }
+  body.lowfx #menu button.mc-card:hover, body.lowfx #menu button.mc-card:focus-visible { transform: none; translate: 0 0; box-shadow: 0 6px 14px rgba(0, 0, 0, .38), 0 0 0 1px var(--mc, var(--accent)); }
+  body.lowfx #menu .mc-glyph { text-shadow: 0 0 10px color-mix(in srgb, var(--mc) 45%, transparent); }
+  body.lowfx #menu .mc-card.nudge { animation: none; outline: 2px solid var(--mc, var(--accent)); }
 }
 @media (pointer: coarse) { body { background-attachment: scroll; } } /* (fixed: the whole page re-drawn on every scroll frame) */
 
@@ -4885,14 +4886,14 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 /* phones: the daily tasks banner and Settings drawn calmly (they flickered): no blur behind Settings, no fade, an
    opaque box; the banner kept to itself with a small shadow, its flame without filters or sparks */
 @media (pointer: coarse) {
-  .settings-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; animation: none; background: rgba(6, 5, 20, .86); }
-  .settings-box { background: #1a1540; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
-  #menu .tasks-btn { contain: paint; box-shadow: 0 4px 12px rgba(0, 0, 0, .35); transition: none; }
-  #menu .tasks-btn.done { box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
-  .sf .sf-k { filter: none; }
-  .sf .sf-e, .sf .sf-halo { display: none; }
-  .sf::before { display: none; }
-  .sf .tg { animation-duration: calc(var(--s, 1.4s) * 1.4); }
+  body.lowfx .settings-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; animation: none; background: rgba(6, 5, 20, .86); }
+  body.lowfx .settings-box { background: #1a1540; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+  body.lowfx #menu .tasks-btn { contain: paint; box-shadow: 0 4px 12px rgba(0, 0, 0, .35); transition: none; }
+  body.lowfx #menu .tasks-btn.done { box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
+  body.lowfx .sf .sf-k { filter: none; }
+  body.lowfx .sf .sf-e, body.lowfx .sf .sf-halo { display: none; }
+  body.lowfx .sf::before { display: none; }
+  body.lowfx .sf .tg { animation-duration: calc(var(--s, 1.4s) * 1.4); }
 }
 
 /* ── 0.9.9.9.6.2 ─────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -5026,10 +5027,12 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
    through, so nothing behind it has to be drawn: the moving background is hidden and paused while it's open, the box
    sits on its own layer, and nothing in it fades or slides */
 @media (pointer: coarse) {
-  .settings-overlay { background: #0b0920 !important; transition: none !important; animation: none !important; }
-  .settings-box { background: #1a1540 !important; transition: none !important; animation: none !important; scale: 1 !important; translate: 0 0 !important;
+  .settings-overlay { background: #0b0920 !important; }
+  body.lowfx .settings-overlay { transition: none !important; animation: none !important; }
+  body.lowfx .settings-box { transition: none !important; animation: none !important; scale: 1 !important; translate: 0 0 !important; }
+  .settings-box { background: #1a1540 !important;
     contain: layout paint; transform: translateZ(0); will-change: transform; box-shadow: none; }
-  .settings-box *, .settings-box *::before, .settings-box *::after { transition: none !important; }
+  body.lowfx .settings-box *, body.lowfx .settings-box *::before, body.lowfx .settings-box *::after { transition: none !important; }
   body.settings-open :is(#bg, .menu-veil) { visibility: hidden; }
   body.settings-open :is(#bg, .menu-veil) * { animation-play-state: paused !important; }
 }
@@ -5163,9 +5166,9 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
    painting's own details (weather, runes, islands, flags) keep moving. With the lighter flame and a lighter echo
    for the sound, the phone has room for the music again. */
 @media (pointer: coarse) {
-  .menu-veil, .menu-veil * { animation: none !important; }
-  .art-stage { animation: none !important; }
-  #appBtn { animation: none !important; }
+  body.lowfx .menu-veil, body.lowfx .menu-veil * { animation: none !important; }
+  body.lowfx .art-stage { animation: none !important; }
+  body.lowfx #appBtn { animation: none !important; }
 }
 /* 0.9.9.9.6.3: @mentions — a name you can tap (its card, Add friend when you aren't friends), and lines that name you */
 .mention { color: #9fd0ff; font-weight: 700; cursor: pointer; border-radius: 5px; padding: 0 2px; margin: 0 -2px; background: rgba(120, 180, 255, .12); }
@@ -7514,11 +7517,6 @@ dialog:not([open]) { display: none !important; }
 :root[data-theme="light"] .sl-tr { color: #4a4566; } :root[data-theme="light"] .sl-w.hid { color: #7a72a8; }
 @media (max-width: 600px) { .sl-jp { font-size: 1.3rem; } .sl-romaji { font-size: 1.05rem; } .song-line { min-height: 150px; } }
 
-/* 0.9.9.9.9.7 (round 3): the Grammar page's dictionary as a search bar */
-.gr-dict { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 6px 6px 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
-.gr-dict-ic { font: 800 1.1rem var(--jp, serif); color: var(--gold, #ffd479); }
-.gr-dict input { flex: 1; min-width: 0; border: 0; background: transparent; box-shadow: none; padding: 6px 2px; }
-.gr-dict .pill { margin: 0; }
 
 /* 0.9.9.9.9.7 (round 3): the Games cards bigger; Kanji chess's icon is the white knight piece everywhere */
 .games-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; max-width: 1320px; }
@@ -7591,3 +7589,84 @@ dialog:not([open]) { display: none !important; }
 :root[data-theme="light"] .song-card .sc-study summary { color: #0a6f8c; }
 :root[data-theme="light"] .song-card .sc-diff i:not(.on) { background: rgba(0, 0, 0, .12); }
 :root[data-theme="light"] #games .gt-chess { color: #fff; --muted: #f1e6cf; } /* (round 3: its text on its dark gold card) */
+
+/* 0.9.9.9.9.7 (round 4): Song lyrics played like the owner's reference — a stage with the cover and the music's wave
+   line, a bar of controls, one big row of letter slots (dots for the hidden letters; what you type fills them, green
+   or red as it lands), the translation, a quiet box to type in. The wave line takes the lyric's place between lines. */
+.sp2 { --sp-ok: #4fd1c5; --sp-bad: #ff6b81; --sp-help: #f2b866; --sp-dot: rgba(220, 214, 255, .38); gap: 14px; padding: 16px; }
+.sp-stage { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr; gap: 6px 16px; align-items: center; min-height: 148px; padding: 16px; border-radius: 16px; overflow: hidden; isolation: isolate; background: #120d26; }
+.sp-bg { position: absolute; inset: -30px; width: calc(100% + 60px); height: calc(100% + 60px); object-fit: cover; filter: blur(26px) saturate(1.3) brightness(.55); z-index: -1; transform: scale(1.1); }
+.sp-cover { grid-row: 1 / span 2; width: 116px; height: 116px; border-radius: 12px; object-fit: cover; box-shadow: 0 10px 28px rgba(0, 0, 0, .5); }
+.sp-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; color: #fff; }
+.sp-head .song-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: .95rem; color: rgba(255, 255, 255, .78); }
+.sp-head .song-title b { font: 800 1.5rem/1.15 var(--jp, serif); color: #fff; }
+.sp-part { font-size: .8rem; font-weight: 800; color: var(--sp-ok); }
+.sp-wave { width: 100%; height: 64px; display: block; color: var(--sp-ok); filter: drop-shadow(0 0 8px rgba(79, 209, 197, .55)); }
+.sp-bar { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 14px; }
+.sp-progress { display: grid; gap: 6px; min-width: 0; }
+.sp-progress b { font: 800 .95rem ui-monospace, Consolas, monospace; }
+.sp-progress .song-track { height: 4px; }
+.sp-ctrls { display: flex; gap: 6px; }
+.sp-ic { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 12px; border: 1px solid rgba(185, 160, 255, .28); background: rgba(255, 255, 255, .05); color: inherit; cursor: pointer; }
+.sp-ic:hover { border-color: var(--sp-ok); color: var(--sp-ok); }
+.sp-ic:focus-visible { outline: 2px solid var(--sp-ok); outline-offset: 2px; }
+.sp-main { width: 48px; background: var(--sp-ok); border-color: transparent; color: #08201d; }
+.sp-main:hover { color: #08201d; filter: brightness(1.08); }
+.sp-main[data-state="playing"] .i-play, .sp-main[data-state="paused"] .i-pause { display: none; }
+.sp-clock { font: 700 .85rem ui-monospace, Consolas, monospace; color: #b9b2e0; white-space: nowrap; }
+.sp2 .song-line { position: relative; min-height: 190px; align-content: center; gap: 10px; padding: 8px 4px; }
+.sl-row { margin: 0; font: 600 2rem/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .03em; word-spacing: .35em; }
+.sw { display: inline-block; white-space: nowrap; padding-bottom: 2px; }
+.sw-todo, .sw-ok, .sw-hint { border-bottom: 2px dotted var(--sp-dot); }
+.sw-shown { color: #e6e2ff; }
+.sw-ok { color: var(--sp-ok); border-bottom-color: color-mix(in srgb, var(--sp-ok) 60%, transparent); }
+.sw-hint { color: var(--sp-help); border-bottom-color: color-mix(in srgb, var(--sp-help) 60%, transparent); }
+.sw .sl { font-style: normal; display: inline-block; min-width: .62em; text-align: center; color: var(--sp-dot); }
+.sw .sl.good { color: var(--sp-ok); } .sw .sl.bad { color: var(--sp-bad); }
+.sw .sl.at { background: rgba(255, 255, 255, .14); border-radius: 3px; color: #fff; animation: spCaret 1s steps(2) infinite; }
+@keyframes spCaret { 50% { background: rgba(255, 255, 255, .03); } }
+.sw.cur { border-bottom-style: solid; border-bottom-color: rgba(255, 255, 255, .55); }
+.sp2 .sl-jp { font-size: 1.3rem; margin: 0; color: #cfc9f3; }
+.sp2 .sl-tr { font-size: .95rem; color: #b9b2e0; }
+.sp2 .sl-next { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin: 6px 0 0; font-size: .8rem; color: #8f86c4; }
+.sp2 .sl-next .sl-next-jp { margin: 0; font-size: .9rem; }
+/* between the lines: the wave line where the words go (the line to come waits under it, dim) */
+.sp-gapwave { display: none; width: 100%; height: 110px; color: var(--sp-ok); filter: drop-shadow(0 0 10px rgba(79, 209, 197, .5)); }
+.song-line.gap .sp-gapwave { display: block; }
+.song-line.gap :is(.sl-jp, .sl-row, .sl-tr) { opacity: .28; }
+.song-line.gap .sl-row { font-size: 1.3rem; }
+.sp2 .song-input { width: min(520px, 100%); justify-self: center; text-align: center; padding: 12px 16px; border-radius: 12px; font: 700 1.15rem ui-monospace, Consolas, monospace; }
+.sp-tools { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.sp-switch[aria-pressed="false"] { opacity: .5; text-decoration: line-through; }
+.sp-tools .song-score { margin: 0 0 0 6px; }
+:root[data-theme="light"] .sp2 { --sp-ok: #1f8a80; --sp-bad: #d64545; --sp-help: #b8741a; --sp-dot: rgba(60, 50, 110, .35); }
+:root[data-theme="light"] .sp2 :is(.sw-shown) { color: #1d1838; }
+:root[data-theme="light"] .sp2 :is(.sl-jp) { color: #2b2650; } :root[data-theme="light"] .sp2 :is(.sl-tr, .sp-clock) { color: #5d587a; }
+:root[data-theme="light"] .sp2 .sw .sl.at { background: rgba(31, 138, 128, .16); color: #1d1838; }
+:root[data-theme="light"] .sp2 .sw.cur { border-bottom-color: rgba(29, 24, 56, .5); }
+:root[data-theme="light"] .sp-ic { border-color: rgba(107, 63, 214, .22); background: rgba(107, 63, 214, .05); }
+:root[data-theme="light"] .sp-main { background: var(--sp-ok); color: #fff; }
+@media (max-width: 640px) {
+  .sp2 { padding: 12px; gap: 10px; }
+  .sp-stage { min-height: 104px; padding: 12px; gap: 4px 12px; }
+  .sp-cover { width: 72px; height: 72px; }
+  .sp-head .song-title b { font-size: 1.15rem; }
+  .sp-wave { height: 40px; }
+  .sp-bar { grid-template-columns: 1fr auto; gap: 8px 10px; }
+  .sp-ctrls { grid-column: 1 / -1; justify-content: center; order: 3; }
+  .sp-ic { width: 44px; height: 44px; }
+  .sl-row { font-size: 1.3rem; word-spacing: .2em; }
+  .sp2 .sl-jp { font-size: 1.05rem; }
+  .sp2 .song-line { min-height: 150px; }
+}
+@media (min-width: 900px) {
+  .sp2 { width: 100%; max-width: 1040px; margin: 0 auto; box-sizing: border-box; padding: 22px 26px; }
+  .sp-stage { min-height: 176px; }
+  .sp-cover { width: 136px; height: 136px; }
+  .sp-wave { height: 84px; }
+  .sl-row { font-size: 2.5rem; }
+  .sp2 .sl-jp { font-size: 1.55rem; }
+  .sp2 .sl-tr { font-size: 1.05rem; }
+  .sp2 .song-line { min-height: 250px; }
+  .sp-gapwave { height: 140px; }
+}

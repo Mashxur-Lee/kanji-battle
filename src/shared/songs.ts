@@ -11,7 +11,7 @@
 // Words in `jp`: {漢字|かんじ} gives a kanji its reading (furigana). `romaji`: the words to type, one per space, in the
 // spelling people type (ou, uu for long vowels); any common spelling is accepted (canon below).
 
-export interface SongLine { jp: string; romaji: string; en: string; ru: string; /** the part of the song: Verse 1, Chorus… */ part?: string }
+export interface SongLine { jp: string; romaji: string; en: string; ru: string; /** the part of the song: Verse 1, Chorus… */ part?: string; /** (round 4) words heard from the recording, not checked: shown whole, nothing to type */ unsure?: boolean }
 export interface StudyWord { w: string; r: string; en: string; ru: string; level: string }
 export interface StudyGrammar { pattern: string; example: string; en: string; ru: string; /** the Grammar lesson that teaches it */ lesson?: string }
 export interface Song {
@@ -27,6 +27,8 @@ export interface Song {
   lines: SongLine[];
   /** each line's start in the recording (s), null when the cut doesn't sing it; absent: not timed yet */
   times?: Array<number | null>;
+  /** (round 4) where each line's singing ends (s): the song waits there, and the wave line shows until the next line */
+  ends?: Array<number | null>;
   /** the recording's length (s) */
   length: number;
 }
@@ -38,6 +40,9 @@ export const SONGS: Song[] = [
     id: 'shiroi-tegami',
     title: { jp: '白い手紙', reading: 'しろいてがみ', romaji: 'Shiroi Tegami', en: 'The White Letter', ru: 'Белое письмо' },
     difficulty: 1, level: 'N5-N4', bpm: 72, length: 86.1,
+    // (round 4: when each line is sung — heard with whisper; the cut sings verse 1, the chorus, then the final chorus's last lines)
+    times: [12.0, 18.0, 20.8, 24.2, 27.4, 30.4, 33.6, 37.4, 40.0, 43.2, 45.4, 48.6, 51.4, 55.3, 58.0, 61.1, 64.5, 67.0, ...Array(27).fill(null), 69.6, 73.9, 76.3, 80.6],
+    ends: [...Array(48).fill(null), 84.2],
     about: {
       en: 'A slow, gentle ballad on a rainy night: a letter you can\'t bring yourself to write. Almost every word is N5-N4, sung slowly - the best first song.',
       ru: 'Медленная нежная баллада дождливой ночью: письмо, которое никак не написать. Почти все слова уровня N5-N4, поётся медленно - лучшая первая песня.',
@@ -115,72 +120,74 @@ export const SONGS: Song[] = [
     ],
   },
   {
+    // (round 4: the words as the recording sings them — heard with whisper and checked line by line; the lyrics that
+    // came with the song were written before it was made and aren't what is sung. Lines marked unsure weren't clear
+    // enough to be sure of every word: they are shown, nothing in them is typed)
     id: 'koi-no-mahou',
     title: { jp: '恋の魔法と放課後', reading: 'こいのまほうとほうかご', romaji: 'Koi no Mahou to Houkago', en: 'Love\'s Magic and After School', ru: 'Магия любви после уроков' },
     difficulty: 2, level: 'N4-N3', bpm: 138, length: 88.6,
     about: {
-      en: 'A bright, bouncy school love song: a crush, a secret spell, and finally a confession at sunset. Everyday N4-N3 words at a pop tempo.',
-      ru: 'Яркая, задорная школьная песня о любви: тайная симпатия, секретное заклинание и наконец признание на закате. Повседневные слова N4-N3 в темпе поп-песни.',
+      en: 'A bright, bouncy school love song: a crush that makes the world sparkle and a heart that won\'t stop pounding. Everyday N4-N3 words at a pop tempo.',
+      ru: 'Яркая, задорная школьная песня о любви: влюблённость, от которой мир сверкает, и сердце, которое не перестаёт колотиться. Повседневные слова N4-N3 в темпе поп-песни.',
     },
     words: [
-      { w: '魔法をかける', r: 'まほうをかける', en: 'to cast a spell', ru: 'наложить заклинание', level: 'N3' },
-      { w: '放課後', r: 'ほうかご', en: 'after school', ru: 'после уроков', level: 'N4' },
-      { w: '帰り道', r: 'かえりみち', en: 'the way home', ru: 'дорога домой', level: 'N4' },
-      { w: '呪文', r: 'じゅもん', en: 'incantation', ru: 'заклинание', level: 'N2' },
-      { w: '唱える', r: 'となえる', en: 'to chant', ru: 'произносить (заклинание)', level: 'N2' },
-      { w: '映す', r: 'うつす', en: 'to reflect', ru: 'отражать', level: 'N3' },
-      { w: '解ける', r: 'とける', en: '(a spell) to wear off', ru: 'развеяться (о чарах)', level: 'N3' },
-      { w: '勇気を出す', r: 'ゆうきをだす', en: 'to work up courage', ru: 'набраться смелости', level: 'N3' },
-      { w: '図書室', r: 'としょしつ', en: 'school library', ru: 'школьная библиотека', level: 'N4' },
+      { w: '届ける', r: 'とどける', en: 'to deliver, to reach', ru: 'доставить, донести', level: 'N4' },
+      { w: '胸', r: 'むね', en: 'chest, heart', ru: 'грудь, сердце', level: 'N3' },
+      { w: '姿', r: 'すがた', en: 'figure, appearance', ru: 'облик, фигура', level: 'N3' },
+      { w: '瞬間', r: 'しゅんかん', en: 'moment, instant', ru: 'мгновение', level: 'N2' },
+      { w: '授業', r: 'じゅぎょう', en: 'class, lesson', ru: 'урок, занятие', level: 'N4' },
+      { w: '探す', r: 'さがす', en: 'to look for', ru: 'искать', level: 'N5' },
+      { w: '真っ白', r: 'まっしろ', en: 'pure white, blank', ru: 'белоснежный, пустой', level: 'N4' },
+      { w: '恥ずかしい', r: 'はずかしい', en: 'embarrassed, shy', ru: 'стыдно, неловко', level: 'N4' },
+      { w: '響く', r: 'ひびく', en: 'to echo, to resound', ru: 'звучать, отдаваться', level: 'N3' },
+      { w: '気づく', r: 'きづく', en: 'to notice', ru: 'заметить', level: 'N3' },
+      { w: '煌めく', r: 'きらめく', en: 'to glitter', ru: 'сверкать', level: 'N1' },
+      { w: '揺るがない', r: 'ゆるがない', en: 'unwavering', ru: 'непоколебимый', level: 'N1' },
     ],
     grammar: [
-      { pattern: '〜なのに', example: '{帰|かえ}り{道|みち}なのに', en: 'even though it\'s ~', ru: 'хотя ~', lesson: 'n3-noni' },
-      { pattern: '〜しか〜ない', example: '「ごめんね」しか{言|い}えなかった', en: 'could only ~', ru: 'смогла только ~', lesson: 'n5-shika' },
-      { pattern: '〜ようとする', example: '{取|と}ろうとして', en: 'to try to ~', ru: 'пытаться ~' },
-      { pattern: '〜てあげる', example: 'かけてあげる', en: 'to do ~ for someone', ru: 'сделать ~ для кого-то', lesson: 'n4-te-ageru' },
-      { pattern: '〜ても', example: '{解|と}けても', en: 'even if ~', ru: 'даже если ~', lesson: 'n4-temo' },
+      { pattern: '〜たい', example: '{君|きみ}に{届|とど}けたい', en: 'want to ~', ru: 'хотеть ~', lesson: 'n5-tai' },
+      { pattern: '〜てしまう', example: '{響|ひび}いてしまう', en: 'end up ~ (can\'t help it)', ru: 'невольно ~', lesson: 'n4-te-shimau' },
+      { pattern: '〜られる (can)', example: '{目|め}が{合|あ}わせられない', en: 'can / can\'t ~', ru: 'мочь / не мочь ~', lesson: 'n4-potential' },
+      { pattern: '〜せいだ', example: '{君|きみ}のせいだよね', en: 'it\'s because of ~ (blame)', ru: 'из-за ~ (вина)', lesson: 'n3-okage-sei' },
+      { pattern: '〜てほしい', example: '{気|き}づいてほしいな', en: 'I want you to ~', ru: 'хочу, чтобы ты ~', lesson: 'n4-te-hoshii' },
+      { pattern: '〜たらいいのに', example: '{言|い}えたらいいのにな', en: 'if only ~', ru: 'вот бы ~', lesson: 'n4-tara' },
     ],
     lines: [
-      L('Intro', 'チャイムが {鳴|な}ったら {魔法|まほう}の {時間|じかん}', 'chaimu ga nattara mahou no jikan', 'When the bell rings, it\'s magic time', 'Когда звенит звонок - время магии'),
-      L('Verse 1', '{窓|まど}の {外|そと} オレンジ{色|いろ}の {空|そら}', 'mado no soto orenjiiro no sora', 'Outside the window, an orange sky', 'За окном оранжевое небо'),
-      L('Verse 1', 'いつもの {帰|かえ}り{道|みち}なのに', 'itsumo no kaerimichi na no ni', 'It\'s just my usual way home, and yet', 'Обычная дорога домой, и всё же'),
-      L('Verse 1', '{君|きみ}が「また{明日|あした}」って {笑|わら}うだけで', 'kimi ga mata ashita tte warau dake de', 'Just from you smiling and saying "see you tomorrow"', 'Стоит тебе улыбнуться и сказать «до завтра»'),
-      L('Verse 1', '{世界|せかい}が キラキラ {変|か}わってく', 'sekai ga kirakira kawatteku', 'The whole world turns sparkly', 'Весь мир начинает сверкать'),
-      L('Pre-Chorus', 'ドキドキが {止|と}まらない', 'dokidoki ga tomaranai', 'My heart won\'t stop pounding', 'Сердце не перестаёт стучать'),
-      L('Pre-Chorus', 'これって もしかして', 'kore tte moshikashite', 'Could this be... maybe...?', 'Неужели это...'),
-      L('Chorus', '{恋|こい}の {魔法|まほう}を かけてあげる', 'koi no mahou wo kakete ageru', 'I\'ll cast a spell of love on you', 'Я наложу на тебя чары любви'),
-      L('Chorus', '{放課後|ほうかご}の {秘密|ひみつ}の {呪文|じゅもん}', 'houkago no himitsu no jumon', 'A secret after-school incantation', 'Тайное заклинание после уроков'),
-      L('Chorus', '「{好|す}き」の {二文字|にもじ}が {言|い}えなくて', 'suki no nimoji ga ienakute', 'I can\'t say the word "suki"', 'Не могу сказать слово «нравишься»'),
-      L('Chorus', '{今日|きょう}も {心|こころ}で {唱|とな}えてる', 'kyou mo kokoro de tonaeteru', 'So today again, I chant it in my heart', 'И сегодня повторяю его в сердце'),
-      L('Chorus', '{星|ほし}より {光|ひか}る {君|きみ}の {目|め}に', 'hoshi yori hikaru kimi no me ni', 'In your eyes that shine brighter than the stars', 'В твоих глазах, что ярче звёзд'),
-      L('Chorus', 'いつか {私|わたし}を {映|うつ}してね', 'itsuka watashi wo utsushite ne', 'Someday, please let me be reflected there', 'Когда-нибудь отрази меня'),
-      L('Verse 2', '{図書室|としょしつ}で {同|おな}じ {本|ほん}を', 'toshoshitsu de onaji hon wo', 'In the library, the same book', 'В библиотеке одну и ту же книгу'),
-      L('Verse 2', '{取|と}ろうとして {手|て}が {触|ふ}れた', 'torou to shite te ga fureta', 'We both reached for it, and our hands touched', 'Мы потянулись - и руки соприкоснулись'),
-      L('Verse 2', '{赤|あか}くなった {顔|かお}を {隠|かく}して', 'akaku natta kao wo kakushite', 'Hiding my face that had turned red', 'Пряча покрасневшее лицо'),
-      L('Verse 2', '「ごめんね」しか {言|い}えなかった', 'gomen ne shika ienakatta', 'All I could say was "sorry"', 'Смогла сказать только «прости»'),
-      L('Chorus', '{恋|こい}の {魔法|まほう}を かけてあげる', 'koi no mahou wo kakete ageru', 'I\'ll cast a spell of love on you', 'Я наложу на тебя чары любви'),
-      L('Chorus', '{放課後|ほうかご}の {秘密|ひみつ}の {呪文|じゅもん}', 'houkago no himitsu no jumon', 'A secret after-school incantation', 'Тайное заклинание после уроков'),
-      L('Chorus', '「{好|す}き」の {二文字|にもじ}が {言|い}えなくて', 'suki no nimoji ga ienakute', 'I can\'t say the word "suki"', 'Не могу сказать слово «нравишься»'),
-      L('Chorus', '{今日|きょう}も {心|こころ}で {唱|とな}えてる', 'kyou mo kokoro de tonaeteru', 'So today again, I chant it in my heart', 'И сегодня повторяю его в сердце'),
-      L('Chorus', '{星|ほし}より {光|ひか}る {君|きみ}の {目|め}に', 'hoshi yori hikaru kimi no me ni', 'In your eyes that shine brighter than the stars', 'В твоих глазах, что ярче звёзд'),
-      L('Chorus', 'いつか {私|わたし}を {映|うつ}してね', 'itsuka watashi wo utsushite ne', 'Someday, please let me be reflected there', 'Когда-нибудь отрази меня'),
-      L('Bridge', 'もしも {魔法|まほう}が {解|と}けても', 'moshimo mahou ga tokete mo', 'Even if the magic wears off', 'Даже если чары развеются'),
-      L('Bridge', 'この {気持|きも}ちは {本物|ほんもの}だよ', 'kono kimochi wa honmono da yo', 'This feeling is real', 'Это чувство настоящее'),
-      L('Bridge', '{勇気|ゆうき}を {出|だ}して {今|いま} {伝|つた}えたい', 'yuuki wo dashite ima tsutaetai', 'I\'ll be brave, I want to tell you now', 'Наберусь смелости - хочу сказать сейчас'),
-      L('Bridge', 'さん に いち', 'san ni ichi', '3, 2, 1...', '3, 2, 1...'),
-      L('Final Chorus', '{恋|こい}の {魔法|まほう}は もういらない', 'koi no mahou wa mou iranai', 'I don\'t need love\'s magic anymore', 'Мне больше не нужна магия любви'),
-      L('Final Chorus', '{放課後|ほうかご}の {夕日|ゆうひ}の {中|なか}', 'houkago no yuuhi no naka', 'Here in the after-school sunset', 'В закате после уроков'),
-      L('Final Chorus', '「{好|す}きです」って やっと{言|い}えたよ', 'suki desu tte yatto ieta yo', 'I finally said it: "I like you"', 'Я наконец сказала: «ты мне нравишься»'),
-      L('Final Chorus', '{君|きみ}の {答|こた}えを {聞|き}かせて', 'kimi no kotae wo kikasete', 'Please let me hear your answer', 'Дай услышать твой ответ'),
-      L('Final Chorus', '{星|ほし}より {光|ひか}る {君|きみ}の {目|め}に', 'hoshi yori hikaru kimi no me ni', 'In your eyes that shine brighter than the stars', 'В твоих глазах, что ярче звёзд'),
-      L('Final Chorus', '{今|いま} {私|わたし}が {映|うつ}ってる', 'ima watashi ga utsutteru', 'Right now, I\'m the one reflected there', 'Сейчас отражаюсь я'),
-      L('Outro', 'チャイムが {鳴|な}っても {魔法|まほう}は {続|つづ}く', 'chaimu ga natte mo mahou wa tsuzuku', 'Even after the bell rings, the magic goes on', 'Даже после звонка магия продолжается'),
+      L('Intro', 'キラキラ{光|ひか}る {風|かぜ}の{中|なか}で', 'kirakira hikaru kaze no naka de', 'In the sparkling, shining wind', 'В сверкающем, сияющем ветре'),
+      L('Verse 1', '{君|きみ}に{届|とど}けたい', 'kimi ni todoketai', 'I want it to reach you', 'Хочу, чтобы это дошло до тебя'),
+      L('Verse 1', '{胸|むね}がいっぱい', 'mune ga ippai', 'My heart is full', 'Сердце переполнено'),
+      L('Verse 1', '{君|きみ}の{姿|すがた} {見|み}えた{瞬間|しゅんかん}で', 'kimi no sugata mieta shunkan de', 'The moment I caught sight of you', 'В тот миг, когда я увидела тебя'),
+      L('Verse 1', '{世界|せかい}が{急|きゅう}に {彩|いろど}り{出|だ}していくよ', 'sekai ga kyuu ni irodori dashite iku yo', 'The world suddenly bursts into colour', 'Мир вдруг начинает расцветать красками'),
+      L('Verse 1', '{授業|じゅぎょう}のベルが{鳴|な}る{前|まえ}にも', 'jugyou no beru ga naru mae ni mo', 'Even before the class bell rings', 'Даже до звонка на урок'),
+      { ...L('Verse 1', '{私|わたし}の{目|め}は {君|きみ}を{探|さが}してる', 'watashi no me wa kimi wo sagashiteru', 'My eyes are searching for you', 'Мои глаза ищут тебя'), unsure: true },
+      L('Verse 1', '{頭|あたま}の{中|なか}が {真|ま}っ{白|しろ}になるよ', 'atama no naka ga masshiro ni naru yo', 'My mind goes completely blank', 'В голове становится совсем пусто'),
+      L('Pre-Chorus', 'この{気持|きも}ちは {初|はじ}めてなんだ', 'kono kimochi wa hajimete nan da', 'I\'ve never felt this way before', 'Такое чувство у меня впервые'),
+      { ...L('Pre-Chorus', 'もう{心|こころ}も ふわふわなんだ', 'mou kokoro mo fuwafuwa nan da', 'My heart is all fluttery', 'Сердце совсем порхает'), unsure: true },
+      L('Pre-Chorus', 'もっと{近|ちか}くに {行|い}きたいんだけどね', 'motto chikaku ni ikitai n da kedo ne', 'I want to get closer, but...', 'Хочу подойти ближе, но...'),
+      L('Pre-Chorus', '{恥|は}ずかしくて {目|め}が{合|あ}わせられないよ', 'hazukashikute me ga awaserarenai yo', 'I\'m too shy to meet your eyes', 'Так неловко, что не могу встретиться с тобой взглядом'),
+      L('Pre-Chorus', '{胸|むね}の{音|おと}が {響|ひび}いてしまうのは', 'mune no oto ga hibiite shimau no wa', 'The reason my heartbeat echoes so loud', 'То, что стук сердца так громко отдаётся'),
+      L('Pre-Chorus', '{君|きみ}のせいだよね', 'kimi no sei da yo ne', 'Is because of you, isn\'t it?', 'Это из-за тебя, правда?'),
+      L('Chorus', 'ねえ どうしよう', 'nee dou shiyou', 'Hey, what do I do?', 'Эй, что же мне делать?'),
+      L('Chorus', 'ドキドキが{止|と}まらないよ', 'dokidoki ga tomaranai yo', 'My heart won\'t stop pounding', 'Сердце не перестаёт колотиться'),
+      { ...L('Chorus', 'このまま {君|きみ}のことだけ {思|おも}ってるのさ', 'kono mama kimi no koto dake omotteru no sa', 'Like this, I think only of you', 'Вот так я думаю только о тебе'), unsure: true },
+      { ...L('Chorus', '「{好|す}きだよ」って {言|い}えたらいいのにな', 'suki da yo tte ietara ii no ni na', 'If only I could say "I love you"', 'Вот бы сказать «я люблю тебя»'), unsure: true },
+      L('Chorus', '{甘|あま}すぎる{恋|こい}の {魔法|まほう}にかかってる', 'amasugiru koi no mahou ni kakatteru', 'I\'m under the spell of a too-sweet love', 'Я под чарами слишком сладкой любви'),
+      L('Chorus', 'キラキラと{煌|きら}めく この{世界|せかい}で', 'kirakira to kirameku kono sekai de', 'In this glittering, sparkling world', 'В этом сверкающем, блестящем мире'),
+      L('Chorus', '{君|きみ}と{二人|ふたり}で ずっといたいな', 'kimi to futari de zutto itai na', 'I want to stay with you forever, just us two', 'Хочу всегда быть вдвоём с тобой'),
+      L('Chorus', 'お{願|ねが}い {私|わたし}に{気|き}づいてほしいな', 'onegai watashi ni kizuite hoshii na', 'Please, I want you to notice me', 'Пожалуйста, заметь меня'),
+      L('Chorus', 'この{気持|きも}ちは {決|けっ}して{揺|ゆ}るがないよ', 'kono kimochi wa kesshite yuruganai yo', 'This feeling will never waver', 'Это чувство никогда не дрогнет'),
     ],
+    times: [6.7, 13.8, 15.5, 17.5, 20.5, 24.3, 27.5, 32.1, 35.7, 38.5, 42.0, 45.7, 49.3, 52.9, 54.5, 56.2, 58.3, 63.0, 66.9, 70.3, 74.0, 77.2, 81.0],
+    ends: [12.9, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 85.2],
   },
   {
     id: 'hakoniwa-no-honoo',
     title: { jp: '箱庭の炎', reading: 'はこにわのほのお', romaji: 'Hakoniwa no Honoo', en: 'Flame in the Miniature Garden', ru: 'Пламя в саду-миниатюре' },
     difficulty: 3, level: 'N3', bpm: 150, length: 83.5,
+    // (round 4: heard with whisper — the cut sings the intro, verse 1, the pre-chorus, the chorus's first half, then the
+    // final chorus from 明日が来なくても, and the outro)
+    times: [10.0, 15.4, 19.4, 22.6, 25.2, 28.6, 31.6, 37.6, 42.2, 45.3, 48.3, ...Array(20).fill(null), 52.4, 61.1, 64.8, 67.5, 71.4],
+    ends: [...Array(35).fill(null), 79.2],
     about: {
       en: 'Fast, dark, theatrical rock about breaking out of the box called "normal". N3 words and grammar, sung with sudden stops - you will need quick fingers.',
       ru: 'Быстрый, мрачный, театральный рок о том, как вырваться из коробки под названием «нормально». Слова и грамматика N3, с резкими остановками - нужны быстрые пальцы.',
@@ -239,7 +246,8 @@ export const SONGS: Song[] = [
       L('Bridge', 'これが {私|わたし}だから', 'kore ga watashi da kara', 'This is who I am', 'Это я'),
       L('Final Chorus', '{燃|も}やして {燃|も}やして この{胸|むね}を', 'moyashite moyashite kono mune wo', 'Burn it, burn it, this heart of mine', 'Сожги, сожги это сердце'),
       L('Final Chorus', '{灰|はい}になるまで {愛|あい}してよ', 'hai ni naru made aishite yo', 'Love me until I turn to ash', 'Люби меня, пока я не стану пеплом'),
-      L('Final Chorus', '{明日|あした}が{来|こ}なくても {構|かま}わない', 'ashita ga konakute mo kamawanai', 'I don\'t care if tomorrow never comes', 'Пусть завтра не наступит - всё равно'),
+      // (the recording may sing 朝 (asa) here — not clear enough: shown, not typed)
+      { ...L('Final Chorus', '{明日|あした}が{来|こ}なくても {構|かま}わない', 'ashita ga konakute mo kamawanai', 'I don\'t care if tomorrow never comes', 'Пусть завтра не наступит - всё равно'), unsure: true },
       L('Final Chorus', '{今|いま}ここで {生|い}きていると {叫|さけ}ぶから', 'ima koko de ikite iru to sakebu kara', 'Because right here, right now, I\'ll scream that I\'m alive', 'Ведь здесь и сейчас я кричу, что жива'),
       L('Final Chorus', '{泣|な}いても {泣|な}いても {消|き}えない', 'naite mo naite mo kienai', 'No matter how much I cry, it won\'t go out', 'Сколько ни плачь - не погаснет'),
       L('Final Chorus', 'この{炎|ほのお}こそ {私|わたし}のもの', 'kono honoo koso watashi no mono', 'This flame, more than anything, is mine', 'Именно это пламя - моё'),
@@ -265,14 +273,40 @@ export const SONGS: Song[] = [
       { w: '掴む', r: 'つかむ', en: 'to grab', ru: 'схватить', level: 'N3' },
       { w: '魂', r: 'たましい', en: 'soul', ru: 'душа', level: 'N2' },
     ],
-    grammar: [],
-    // (the owner's lyrics for this one are still to come — the guide that came with it has only a few of its lines)
-    lines: [],
+    grammar: [
+      { pattern: '〜させる (make / let)', example: 'この{声|こえ}は{消|け}させない', en: 'won\'t let ~ happen', ru: 'не дам ~', lesson: 'n4-causative' },
+      { pattern: '〜なんて', example: '{限界|げんかい}なんて', en: 'something like ~ (dismissive)', ru: 'какой-то там ~' },
+      { pattern: '〜ごと', example: '{魂|たましい}ごと', en: '~ and all, with all of ~', ru: 'вместе с ~, всем ~' },
+      { pattern: '〜よりも', example: '{誰|だれ}よりも{高|たか}く', en: 'more than ~', ru: 'больше, чем ~' },
+    ],
+    // (round 4: the words as the recording sings them — heard with whisper and checked against the production guide that
+    // came with the song; the English shouts and a line not heard clearly are shown, nothing in them to type)
+    lines: [
+      L('Intro', '{走|はし}り{出|だ}せ！', 'hashiridase', 'Start running!', 'Беги!'),
+      L('Verse 1', '{砕|くだ}けた{空|そら}の {向|む}こう{側|がわ}', 'kudaketa sora no mukougawa', 'Beyond the shattered sky', 'По ту сторону разбитого неба'),
+      L('Verse 1', '{震|ふる}える{手|て}を {握|にぎ}りしめて', 'furueru te wo nigirishimete', 'Clenching my trembling hands', 'Сжимая дрожащие руки'),
+      L('Verse 1', '{迷|まよ}いの{鎖|くさり} {引|ひ}きちぎれ', 'mayoi no kusari hikichigire', 'Tear apart the chains of doubt', 'Разорви цепи сомнений'),
+      L('Pre-Chorus', '{運命|うんめい}を {叩|たた}き{起|お}こす', 'unmei wo tataki okosu', 'I\'ll jolt fate awake', 'Я растолкаю судьбу'),
+      { ...L('Pre-Chorus', 'Ready, go!', 'ready go', 'Ready, go!', 'Готовы, вперёд!'), unsure: true },
+      L('Chorus', '{燃|も}え{上|あ}がれ', 'moeagare', 'Blaze up!', 'Вспыхни!'),
+      L('Chorus', '{限界|げんかい}なんて {振|ふ}り{切|き}って', 'genkai nante furikitte', 'Shake off any limits', 'Отбрось все пределы'),
+      L('Chorus', 'この{手|て}で{掴|つか}む {未来|みらい}がある', 'kono te de tsukamu mirai ga aru', 'There\'s a future I\'ll seize with these hands', 'Есть будущее, которое я схвачу этими руками'),
+      { ...L('Chorus', '{叫|さけ}べ {魂|たましい}ごと', 'sakebe tamashii goto', 'Shout with all your soul', 'Кричи всей душой'), unsure: true },
+      { ...L('Chorus', 'Never give up!', 'never give up', 'Never give up!', 'Никогда не сдавайся!'), unsure: true },
+      L('Bridge', 'この{声|こえ}は {消|け}させない', 'kono koe wa kesasenai', 'I won\'t let this voice be silenced', 'Я не дам заглушить этот голос'),
+      { ...L('Bridge', 'Break the silence!', 'break the silence', 'Break the silence!', 'Разорви тишину!'), unsure: true },
+      L('Final Chorus', '{誰|だれ}よりも {高|たか}く！', 'dare yori mo takaku', 'Higher than anyone!', 'Выше всех!'),
+    ],
+    times: [13.2, 16.8, 25.0, 31.9, 39.6, 47.0, 49.8, 53.6, 57.7, 63.6, 67.2, 70.3, 72.2, 78.8],
+    ends: [15.6, 23.2, 31.0, 37.4, null, 48.8, null, null, 62.6, null, null, null, 74.4, 82.6],
   },
   {
     id: 'aragae',
     title: { jp: '抗え、宿命なんて', reading: 'あらがえ、しゅくめいなんて', romaji: 'Aragae, Shukumei Nante', en: 'Resist, Never Mind Fate', ru: 'Сопротивляйся, к чёрту судьбу' },
     difficulty: 5, level: 'N2-N1', bpm: 175, length: 86.6,
+    // (round 4: heard with whisper — the cut sings the intro, verse 1, the pre-chorus, the chorus and the outro)
+    times: [12.0, 15.8, 18.9, 21.9, 25.4, 31.1, 33.6, 37.4, 41.1, 46.3, 49.2, 53.9, 57.1, 60.2, 63.2, 66.4, ...Array(24).fill(null), 69.4, 76.3],
+    ends: [...Array(41).fill(null), 79.6],
     about: {
       en: 'The hardest: dark, cool rock at 175 BPM with literary N2+ words (抗う, 刹那, 宿命) and grammar like ざるを得ない. Study the list first.',
       ru: 'Самая сложная: мрачный рок в 175 ударов в минуту с книжной лексикой N2+ (抗う, 刹那, 宿命) и грамматикой вроде ざるを得ない. Сначала выучите список.',
@@ -356,7 +390,8 @@ export const playable = (s: Song) => s.lines.length > 0 && !!s.times && s.times.
 export function songTimeline(song: Song): TimedLine[] {
   if (!playable(song)) return [];
   const sung = song.lines.map((l, i) => ({ ...l, i, start: song.times![i] })).filter((l): l is SongLine & { i: number; start: number } => l.start !== null);
-  return sung.map((l, k) => ({ ...l, end: Math.min(song.length, sung[k + 1]?.start ?? song.length) }));
+  // (round 4: its own end when known — then a gap to the next line; else until the next line starts)
+  return sung.map((l, k) => { const next = Math.min(song.length, sung[k + 1]?.start ?? song.length); const own = song.ends?.[l.i]; return { ...l, end: own && own > l.start ? Math.min(own, next) : next }; });
 }
 
 export const lineWords = (l: SongLine) => l.romaji.split(/\s+/).filter(Boolean);
