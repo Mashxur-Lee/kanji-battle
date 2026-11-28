@@ -119,3 +119,17 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
     return true;
   };
 }
+
+/**
+ * 0.9.9.9.9.7 (round 5): the part of a file a "Range: bytes=a-b" header asks for, as [first, last] byte (inclusive);
+ * null: the whole file (no header, or one we don't serve — several ranges); 'bad': a range outside the file (416)
+ */
+export function byteRange(header: unknown, size: number): [number, number] | null | 'bad' {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(header ?? '').trim());
+  if (!m || (!m[1] && !m[2])) return null;
+  let first: number, last: number;
+  if (m[1]) { first = Number(m[1]); last = m[2] ? Math.min(Number(m[2]), size - 1) : size - 1; }
+  else { first = Math.max(0, size - Number(m[2])); last = size - 1; } // (the last n bytes)
+  if (!size || first > last || first >= size) return 'bad';
+  return [first, last];
+}

@@ -275,7 +275,7 @@ test('0.9.9.9.9.7 round 3: Song lyrics replays a line, no chime for a right word
   assert.ok(!songs.includes('audio.sfx.correct') && songs.includes('audio.sfx.zap()') && songs.includes('function replayLine()'));
   assert.ok(src('public/index.html').includes('id="songReplay"') && src('src/client/audio.ts').includes('  zap() {'));
   // (round 4, the owner: the sentence first, then Master Fumi's verdict)
-  assert.ok(src('src/client/grammarui.ts').includes("void readOut(spoken).then(() => { if (box.contains(opts)) void fumiSays(ok ? 'right' : 'wrong'); });"));
+  assert.ok(src('src/client/grammarui.ts').includes("if (ok) void readOut(spoken).then(() => { if (box.contains(opts)) void fumiSays('right'); });")); // (round 5: a wrong guess, no sentence)
   assert.ok(src('src/client/voice.ts').includes('export function playClip(url: string, fallback: () => void): Promise<void> {'), 'a clip says when it is over');
   const g = src('src/client/tutorguide.ts');
   assert.ok(g.includes("addEventListener('pointermove', onMove, { passive: true })") && g.includes("if (box.closest('[hidden]')) continue;"), 'hidden guides cost nothing');
@@ -389,4 +389,45 @@ test('0.9.9.9.9.7 round 4: phones get their animations back — only a phone tha
   assert.ok(perf.includes("types.includes('long-animation-frame')") && perf.includes('const KEEP_MS = 3 * 86_400_000;'), 'measured again, and watched while playing');
   assert.ok(src('src/client/tutorial.ts').includes("addEventListener('scroll', follow, true);"), 'the tour\'s light follows its part');
   assert.ok(!/@media[^{]*prefers-reduced-motion/.test(css), "animations run even with the OS animations off");
+});
+
+
+// ── 0.9.9.9.9.7 round 5 ──
+test('0.9.9.9.9.7 round 5: songs can be jumped in (the server sends parts of a file), lines end where they are sung, a wrong quiz answer reads no sentence', async () => {
+  const { byteRange } = await import('../src/server/http');
+  assert.deepEqual(byteRange('bytes=100-199', 1000), [100, 199]);
+  assert.deepEqual(byteRange('bytes=900-', 1000), [900, 999]);
+  assert.deepEqual(byteRange('bytes=-100', 1000), [900, 999], 'the last 100 bytes');
+  assert.deepEqual(byteRange('bytes=0-5000', 1000), [0, 999]);
+  assert.equal(byteRange('bytes=2000-', 1000), 'bad');
+  assert.equal(byteRange(undefined, 1000), null);
+  assert.equal(byteRange('bytes=0-1,5-9', 1000), null, 'several ranges: the whole file');
+  const idx = src('src/server/index.ts');
+  assert.ok(idx.includes("fresh['Accept-Ranges'] = 'bytes';") && idx.includes("res.writeHead(206, { 'Content-Type': type, 'Content-Range':"), 'audio served in parts — Back / Replay / Next no longer restart the song');
+  const songs = src('src/client/songs.ts');
+  assert.ok(songs.includes('const END_GRACE = 0.18, FADE = 0.25;') && songs.includes('const stopAt = l ? l.end + END_GRACE : 0;'), 'the song stops a moment after a line, fading — the last syllable is never cut');
+  const { SONGS } = await import('../src/shared/songs');
+  const flash = SONGS.find((s) => s.id === 'unmei-wo-tatakiokose')!;
+  assert.deepEqual(flash.ends!.filter((x) => x !== null), [15.4, 82.6], 'no guessed ends that cut a line short');
+  assert.ok(src('src/client/grammarui.ts').includes("else void fumiSays('wrong');"));
+});
+
+test('0.9.9.9.9.7 round 5: the swords — grey steel until you write, each its own shape, thinner and longer; Duelist holds a sword en garde and lets it swing', async () => {
+  const sw = src('src/client/swords3d.ts');
+  for (const [id, guard] of [['iron', 'cross'], ['longsword', 'crystal'], ['saber', 'knuckle'], ['katana', 'tsuba'], ['dragonfang', 'crown']]) assert.ok(new RegExp(`id: '${id}'[\\s\\S]{0,400}guardKind: '${guard}'`).test(sw), `${id}: its own guard`);
+  for (const m of sw.matchAll(/len: ([\d.]+), width: ([\d.]+)/g)) { assert.ok(Number(m[1]) >= 1.2 && Number(m[2]) <= 0.1, `long and slim: ${m[0]}`); }
+  assert.ok(sw.includes("const GREY = { blade: '#a9afba'") && sw.includes('p.m.color.copy(p.rest).lerp(p.full, c);'), 'grey at rest, its colour with the charge');
+  assert.ok(sw.includes('function streamGeo(d: SwordDef, phase: number)') && sw.includes('new THREE.Vector3(0, gy + 0.005, 0)'), 'the light starts at the guard\'s gem and hugs the blade');
+  assert.ok(src('src/client/poses3d.ts').includes("} else if (pose === 'aim' && sword) {"), 'a sword en garde');
+  const a3 = src('src/client/arena3d.ts');
+  assert.ok(a3.includes('const pk = pk0 * (1 - smoothstep(0, 1, swingEnv));') && a3.includes('applyPose(m, f.pose, f.poseK * (1 - swingEnv3), time, swordF)'), 'the pose steps aside for the swing');
+  assert.ok(src('src/client/study.ts').includes('const THUMBS_REV = 5;'), 'new pictures in Customize');
+});
+
+test('0.9.9.9.9.7 round 5: the Goblin speaks with VOICEVOX:栗田まろん (credited), his lines recorded again', async () => {
+  const { BOT_VOICE, LINES, lineHash } = await import('../src/shared/chesslines');
+  assert.equal(BOT_VOICE.goblin.name, '栗田まろん');
+  assert.equal(BOT_VOICE.goblin.style, 67);
+  for (const l of Object.values(LINES.goblin).flat()) assert.ok(existsSync(join('public', 'voices', 'goblin', `${lineHash(l!.jp)}.mp3`)), l!.jp);
+  for (const f of ['CREDITS.md', 'public/index.html']) { assert.ok(src(f).includes('VOICEVOX:栗田まろん'), f); assert.ok(!src(f).includes('VOICEVOX:ずんだもん'), f); }
 });

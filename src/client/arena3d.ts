@@ -614,6 +614,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // the swing's beats (fractions of SWING_MS): wind-up ends, the cut starts, the cut ends (the hand off the screen), it
   // starts coming back
   const SW_UP = 0.2, SW_CUT = 0.27, SW_END = 0.4, SW_BACK = 0.6;
+  const smoothstep = (e0: number, e1: number, x: number) => { const k = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return k * k * (3 - 2 * k); };
   // the light the blade leaves through the air on a cut: a ribbon between its base and tip over the last frames
   const TRAIL_N = 14;
   const trailPos = new Float32Array(TRAIL_N * 2 * 3), trailCol = new Float32Array(TRAIL_N * 2 * 4);
@@ -1386,7 +1387,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       // 0.9.9.7: your combo pose, as you see it — floating lifts your view; Duelist points the staff's core
       // straight ahead; Channel and Lotus bring the staff to the middle, upright, in both hands
       myPoseK += ((myFlame && myPose !== 'none' && !meDown ? 1 : 0) - myPoseK) * Math.min(1, realDt * 3);
-      const pk = myPoseK * myPoseK * (3 - 2 * myPoseK);
+      const pk0 = myPoseK * myPoseK * (3 - 2 * myPoseK);
+      // 0.9.9.9.9.7 (round 5, the owner: "with a sword, in the Duelist pose the animations are weird"): the pose held the
+      // arm and blade still at full strength, fighting every slash — it steps aside for the swing and comes back after
+      const swingU = Math.min(1, (now - thrustAt) / SWING_MS);
+      const swingEnv = swordMe && swingU < 1 ? Math.min(1, swingU / 0.12, (1 - swingU) / 0.25) : 0;
+      const pk = pk0 * (1 - smoothstep(0, 1, swingEnv));
       fpLeft.visible = pk > 0.02 && myPose === 'twohand';
       // 0.9.9.9.9.6: a sword is held by its handle — the left hand under the right one, not up on the blade (where it
       // sits on a staff's shaft); and a cut is one-handed: the left hand lets go (it floated in front of the swing)
@@ -1416,6 +1422,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
           camera.updateMatrixWorld(true);
           const t = foe ? camera.worldToLocal(foe.group.position.clone().add(new THREE.Vector3(0, foe.height * 0.55, 0))) : new THREE.Vector3(0, -0.1, -8);
           const d = t.sub(fp.position).normalize(); // hand → opponent, in the camera's space (fp turns with it)
+          // (round 5: a sword en garde — its point raised at the opponent's face, not levelled like a staff's core)
+          if (swordMe) { d.y += 0.42; d.normalize(); }
           // the staff's axis (+y) along d; the back of the hand to the right, the thumb on top — a pistol grip
           const x = new THREE.Vector3(1, 0, 0).addScaledVector(d, -d.x).normalize();
           const z = new THREE.Vector3().crossVectors(x, d);
@@ -1518,7 +1526,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         m.staff.update(time, dt, glowLevel, f.fury ?? 0);
         // 0.9.9.7: on fire, they strike their combo pose (Customize)
         f.poseK += ((f.flame && f.pose !== 'none' ? 1 : 0) - f.poseK) * Math.min(1, dt * 3);
-        applyPose(m, f.pose, f.poseK, time); // (always: back to standing resets the last pose — 0.9.9.7.3)
+        // (round 5: a sword's slash isn't fought by the pose — it steps aside for the swing)
+        const swingEnv3 = swordF && lunge > 0 ? Math.min(1, Math.sin(Math.PI * (1 - lunge)) * 1.8) : 0;
+        applyPose(m, f.pose, f.poseK * (1 - swingEnv3), time, swordF); // (always: back to standing resets the last pose — 0.9.9.7.3)
         // 0.9.9.9.7.4: a hit, as a body takes one (the way hit reactions are animated): the impact snaps the chest back
         // and the head a beat later; the knees give and the hips drop to absorb it; the weight goes back, so one foot
         // steps back to catch it — lifted, then planted — and the torso turns a little to that side; the arms jolt with

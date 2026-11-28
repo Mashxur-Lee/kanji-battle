@@ -21,7 +21,7 @@ import { Gifs } from './gifs';
 import { ChessHub } from './ChessHub';
 import { MnemonicPictures } from './mnemonics';
 import { createJudgePool } from './handwriting/pool';
-import { createApiHandler } from './http';
+import { byteRange, createApiHandler } from './http';
 import { StudyService } from './study/StudyService';
 import { DailyService, secretSeed } from './study/DailyService';
 import { SocialService } from './study/SocialService';
@@ -295,6 +295,14 @@ const server = createServer(async (req, res) => {
       const gz = await compressed.get(path.relative(PUBLIC_DIR, file).split(path.sep).join('/'), data, enc);
       res.writeHead(200, { 'Content-Type': type, 'Content-Encoding': enc, Vary: 'Accept-Encoding', ...fresh }).end(gz);
       return;
+    }
+    // 0.9.9.9.9.7 (round 5, the owner: Back / Replay / Next in Song lyrics "reset the whole music"): a part of a song —
+    // a browser can only jump inside audio when the server sends parts of the file (Range); without them it starts over
+    if (/^(audio|video)\//.test(type)) {
+      fresh['Accept-Ranges'] = 'bytes';
+      const part = byteRange(req.headers.range, data.length);
+      if (part === 'bad') { res.writeHead(416, { 'Content-Range': `bytes */${data.length}`, ...fresh }).end(); return; }
+      if (part) { res.writeHead(206, { 'Content-Type': type, 'Content-Range': `bytes ${part[0]}-${part[1]}/${data.length}`, 'Content-Length': part[1] - part[0] + 1, ...fresh }).end(data.subarray(part[0], part[1] + 1)); return; }
     }
     res.writeHead(200, { 'Content-Type': type, ...fresh }).end(data);
   } catch {

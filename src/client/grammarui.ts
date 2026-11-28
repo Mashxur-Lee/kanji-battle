@@ -181,7 +181,9 @@ function quiz(g: GrammarPoint, guide: HTMLElement, said: HTMLElement) {
         // (round 7: "正解じゃ！" / "おしいのう。", then the whole sentence, read)
         // (round 3: one after the other — they cut each other off; round 4, the owner: the sentence first, then Fumi's verdict)
         const spoken = filledQuestion(q);
-        void readOut(spoken).then(() => { if (box.contains(opts)) void fumiSays(ok ? 'right' : 'wrong'); });
+        // (round 5, the owner: a wrong guess plays no sentence — only Fumi's "おしいのう")
+        if (ok) void readOut(spoken).then(() => { if (box.contains(opts)) void fumiSays('right'); });
+        else void fumiSays('wrong');
         go.hidden = false; go.focus();
       };
       opts.append(b);

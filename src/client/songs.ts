@@ -25,6 +25,9 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
 const t = (x: { en: string; ru: string }) => (lang() === 'ru' ? x.ru : x.en);
 const DIFFICULTY = ['', 'Easy', 'Medium', 'Hard', 'Very hard', 'Hardest'];
 const PREFS = 'kw:songPrefs';
+const VOLUME = 0.9;
+/** (round 5) the song stops this long after a line's end when its words aren't typed yet, fading out over FADE */
+const END_GRACE = 0.18, FADE = 0.25;
 
 type Mode = 'easy' | 'hard';
 type WordState = 'shown' | 'todo' | 'ok' | 'hint';
@@ -129,7 +132,7 @@ function start(s: Song) {
   for (const id of ['songCover', 'songCoverBg']) $<HTMLImageElement>(id).src = `songs/${s.id}.webp`;
   $('songDone').hidden = true;
   player = new Audio(`songs/${s.id}.mp3`);
-  player.volume = 0.9;
+  player.volume = VOLUME;
   player.onended = () => finish();
   player.onplay = player.onpause = () => drawToggle();
   wave.attach(player);
@@ -160,11 +163,17 @@ function loop() {
   if (!player || !song) return;
   const now = player.currentTime, dur = player.duration || song.length;
   const l = lines[li];
-  if (l && !lineDone(li) && now >= l.end - 0.05 && !player.paused) {
-    player.pause();
-    waiting = true;
-    $('songWait').hidden = false;
-  }
+  // (round 5, the owner: "the song sometimes cuts off before finishing the whole sentence"): the song stops a moment
+  // after the line's end (its last syllable rings out, never cut), fading in the last quarter second
+  const stopAt = l ? l.end + END_GRACE : 0;
+  if (l && !lineDone(li) && !player.paused) {
+    if (now >= stopAt) {
+      player.pause();
+      player.volume = VOLUME;
+      waiting = true;
+      $('songWait').hidden = false;
+    } else player.volume = now > stopAt - FADE ? VOLUME * Math.max(0, (stopAt - now) / FADE) : VOLUME;
+  } else if (player.volume !== VOLUME) player.volume = VOLUME;
   $<HTMLElement>('songBar').style.width = `${Math.min(100, (now / dur) * 100)}%`;
   $('songClock').textContent = `${clock(now)} / ${clock(dur)}`;
   // between the sung lines: the wave line in the lyric's place

@@ -118,7 +118,8 @@ export function parseLine(jp: string): Array<{ text: string; reading?: string }>
 // shapes each line by its moment (MOOD there): livelier for a check or a blunder, slower and lower when beaten.
 export interface BotVoice { name: string; style: number; pitch: number; speed: number; fx?: string; /** VOICEVOX intonationScale (1 = its flat default) */ intonation?: number; /** another style of the same voice for some moments */ moods?: Partial<Record<Moment | 'right' | 'wrong' | 'passed' | 'failed', number>> }
 export const BOT_VOICE: Record<BotId, BotVoice> = {
-  goblin: { name: 'ずんだもん', style: 3, pitch: 0.03, speed: 1.04, intonation: 1.3, moods: { botWins: 7, blunder: 7, botLoses: 76 } },
+  // (0.9.9.9.9.7 round 5, the owner: "the goblin's voice is like a 10 year old's — 栗田まろん maybe?": a young man's voice, cheeky)
+  goblin: { name: '栗田まろん', style: 67, pitch: 0.02, speed: 1.05, intonation: 1.35 },
   knight: { name: '†聖騎士 紅桜†', style: 51, pitch: -0.02, speed: 0.96, intonation: 1.2, fx: 'highpass=f=280,lowpass=f=3400,aecho=0.8:0.55:7|13:0.38|0.26,equalizer=f=1400:t=q:w=1.2:g=5' },
   witch: { name: '九州そら', style: 16, pitch: -0.04, speed: 0.97, intonation: 1.25, moods: { botWins: 17, blunder: 17, botLoses: 18 } },
   wizard: { name: '麒ヶ島宗麟', style: 53, pitch: 0, speed: 0.92, intonation: 1.2 },
